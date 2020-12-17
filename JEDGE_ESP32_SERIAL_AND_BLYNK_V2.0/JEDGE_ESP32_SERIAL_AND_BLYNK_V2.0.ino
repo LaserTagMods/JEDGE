@@ -1705,6 +1705,28 @@ void Audio() {
     }
 }
 //******************************************************************************************
+void InitializeJEDGE() {
+  Serial.println();
+  Serial.println();
+  Serial.println("*****************************************************");
+  Serial.println("************* Initializing JEDGE 2.0 ****************");
+  Serial.println("*****************************************************");
+  Serial.println();
+  Serial.println("Waiting for BRX to Boot...");
+  int forfun = 10;
+  while (forfun > 0) { 
+    delay(1000);
+    Serial.print(String(forfun) + ", ");
+    forfun--;
+  }
+  Serial.println();
+  Serial.println("JEDGE is taking over the BRX");
+  sendString("$CLEAR,*");
+  sendString("$START,*");
+  delay(100);
+  sendString("$PLAY,VA20,4,6,,,,,*");
+}
+//**********************************************************************************************
 void SyncScores() {
   // create a string that looks like this: 
   // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
@@ -2352,6 +2374,8 @@ void ProcessBRXData() {
 void loop1(void *pvParameters) {
   Serial.print("Dirty loop running on core ");
   Serial.println(xPortGetCoreID());   
+  //auto control brx start up:
+  InitializeJEDGE();
   while(1) { // starts the forever loop
     // put all the serial activities in here for communication with the brx
     if (Serial1.available()) {
