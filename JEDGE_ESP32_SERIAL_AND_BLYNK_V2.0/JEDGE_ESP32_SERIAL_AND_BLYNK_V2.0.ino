@@ -75,6 +75,8 @@
  * updated 12/17/2020 fixed serial print for debug for recieved data via serial from brx. improved print out for verification of received values
  * updated 12/17/2020 fixed primary weapon set when starting up, the respawn bullet type 15 is not being accepted from some reason. removed it for now for future fix
  * updated 12/17/2020 fixed looping weapon, team and weapon manual selection so that it actually exits, it was looping for some reason even after confirming
+ * updated 12/17/2020 removed team selections under manual for teams 4 and 5 because it was previously discovered they dont work.
+ * 
  * 
  */
 //****************************************************************
@@ -229,25 +231,25 @@ int b=param.asInt();
   }
 }
 BLYNK_WRITE(V1) {  // Sets Weapon Slot 1
-int b=param.asInt();
-if (INGAME==false){
-if (b==1) {
-  settingsallowed=2; 
-  AudioSelection="VA5F"; 
-  SetSlotB=100; 
-  Serial.println("Weapon Slot 1 set to Manual");
-}
-if (b>1 && b < 50) {
-        SetSlotB=b-1; 
-        Serial.println("Weapon Slot 1 set"); 
-        if(SetSlotB < 10) {
-          AudioSelection = ("GN0" + String(SetSlotB));
-        }
-}
-        if (SetSlotB > 9) {
-          AudioSelection = ("GN" + String(SetSlotB));
-        }
-                AUDIO=true;
+  int b=param.asInt();
+  if (INGAME==false){
+    if (b==1) {
+      settingsallowed=2; 
+      AudioSelection="VA5F"; 
+      SetSlotB=100; 
+      Serial.println("Weapon Slot 1 set to Manual");
+    }
+    if (b>1 && b < 50) {
+      SetSlotB=b-1; 
+      Serial.println("Weapon Slot 1 set"); 
+      if(SetSlotB < 10) {
+        AudioSelection = ("GN0" + String(SetSlotB));
+      }
+      if (SetSlotB > 9) {
+      AudioSelection = ("GN" + String(SetSlotB));
+      }
+    }
+    AUDIO=true;
 }
 }
 BLYNK_WRITE(V4) {// Sets Lives);
@@ -1918,9 +1920,10 @@ void ProcessBRXData() {
               Serial.println("team changed from 4 to 5");
               } // foxtrot team
             if (Team==3) {
-              Team=4; 
-              AudioSelection1="VA2G"; 
-              AUDIO1=true; Serial.println("team changed from 3 to 4");
+              Team=0; 
+              STATUSCHANGE=true; 
+              AudioSelection1="VA13"; 
+              AUDIO1=true; Serial.println("team changed from 3 to 0");
               } // echo team
             if (Team==2) {
               Team=3; 
