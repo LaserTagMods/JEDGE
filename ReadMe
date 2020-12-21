@@ -220,3 +220,74 @@ The top left hand icon that looks like several pages.
 7. Using the old app, place your devices in OTA mode and follow the instructions for OTA UPDATES
 8. After updating them the new app will allow for the devices to connect since it uses the new auth token
 9. Rename the old app if you want to keep it on your server or delete it if you decide to no longer keep use it
+
+
+GETTING STARTED
+Blynk server
+Blynk Server is an Open-Source Nettybased Java server, responsible for forwarding messages between Blynk mobile application and various microcontroller boards and SBCs (i.e. Arduino, Raspberry Pi. etc).
+Download latest server build here.
+     
+Requirements
+•	Java 8/11 required (OpenJDK, Oracle)
+•	Any OS that can run java
+•	At least 30 MB of RAM (could be less with tuning)
+•	Open ports 9443 (for app and hardware with ssl), 8080 (for hardware without ssl)
+Quick local server setup on Raspberry PI
+•	Login to Raspberry Pi via ssh;
+•	Install java 8:
+•	  sudo apt install openjdk-8-jdk openjdk-8-jre
+•	Make sure you are using Java 8 or newer
+•	  java -version
+•	  Output: java version "1.8"
+•	Download Blynk server jar file (or manually copy it to Raspberry Pi via ssh and scp command):
+•	  wget "https://github.com/blynkkk/blynk-server/releases/download/v0.41.13/server-0.41.13-java8.jar"
+•	Run the server on default 'hardware port 8080' and default 'application port 9443' (SSL port)
+•	  java -jar server-0.41.13-java8.jar -dataFolder /home/pi/Blynk
+That's it!
+•	As output you will see something like that:
+•	  Blynk Server successfully started.
+•	  All server output is stored in current folder in 'logs/blynk.log' file.
+Enabling server auto restart 
+•	To enable server auto restart find /etc/rc.local file and add:
+•	  java -jar /home/pi/server-0.41.13-java8.jar -dataFolder /home/pi/Blynk &
+•	Or if the approach above doesn't work, execute
+•	  crontab -e
+add the following line
+    @reboot java -jar /home/pi/server-0.41.13-java8.jar -dataFolder /home/pi/Blynk &
+save and exit.
+Quick local server setup on Raspberry PI
+•	Login to Raspberry Pi via ssh;
+•	Install java 8:
+•	  sudo apt install openjdk-8-jdk openjdk-8-jre
+•	Make sure you are using Java 8 or newer
+•	  java -version
+•	  Output: java version "1.8"
+•	Download Blynk server jar file (or manually copy it to Raspberry Pi via ssh and scp command):
+•	  wget "https://github.com/blynkkk/blynk-server/releases/download/v0.41.13/server-0.41.13-java8.jar"
+•	Run the server on default 'hardware port 8080' and default 'application port 9443' (SSL port)
+•	  java -jar server-0.41.13-java8.jar -dataFolder /home/pi/Blynk
+That's it!
+•	As output you will see something like that:
+•	  Blynk Server successfully started.
+•	  All server output is stored in current folder in 'logs/blynk.log' file.
+
+Quick update for blynk server/apps Raspberry PI
+•	First end the blynk server if currently running:
+•	     Open a command prompt
+•	     Type “ps -A” and press enter
+•	     Scroll to see the process called “Java” and note the process number to the left
+•	     Type “kill -9 (process ID of Java) ex. “kill -9 1234”
+•	     Now blynk server is terminated
+•	Next let’s back up your user database and upload the updated one:
+•	     Open your file explorer and navigate to the blynk folder
+•	     In the blynk folder you will see a file named by your blynk login for the server
+•	          Admin@blynk.cc
+•	     Save a copy of this file in another directory
+•	     Paste in the new file provided to update the old server database
+•	Finally, test it out:
+•	     Be sure to close the mobile app
+•	     Restart the blynk server (restart pi if auto loaded on boot)
+•	     Restart the mobile app after a couple of minutes
+•	     Login to the server as usual and verify the update
+
+
