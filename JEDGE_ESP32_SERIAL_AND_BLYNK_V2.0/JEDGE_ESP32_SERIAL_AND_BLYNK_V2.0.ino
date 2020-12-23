@@ -76,7 +76,7 @@
  * updated 12/17/2020 fixed primary weapon set when starting up, the respawn bullet type 15 is not being accepted from some reason. removed it for now for future fix
  * updated 12/17/2020 fixed looping weapon, team and weapon manual selection so that it actually exits, it was looping for some reason even after confirming
  * updated 12/17/2020 removed team selections under manual for teams 4 and 5 because it was previously discovered they dont work.
- * 
+ * updated 12/23/2020 fixed server connection features, added automatic power down of esp if wifi or blynk not available to save energy on brx, added auto configurations based upon generation of gun input
  * 
  */
 //****************************************************************
@@ -91,19 +91,25 @@
 //****************************************************************
 #define SERIAL1_RXPIN 16 // TO BRX TX and BLUETOOTH RX
 #define SERIAL1_TXPIN 17 // TO BRX RX and BLUETOOTH TX
+bool AllowTimeout = true; // if true, this enables automatic deep sleep of esp32 device if wifi or blynk not available on boot
+int BaudRate = 57600; // 115200 is for GEN2/3, 57600 is for GEN1, this is set automatically based upon user input
+char auth[] = "BRX-Taggers"; // you should get auth token in the blynk app. use the one for "configurator"
+//char auth[] = "wDEwTa0gq3UG4uBVamw1-2Ta5XDZFTjr"; // You should get Auth Token in the Blynk App. Go to the Project Settings (nut icon).
+
+
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
-char auth[] = "p8YBnsPWJ8MokfwUcHzRg4TaVcwuXQTr"; // You should get Auth Token in the Blynk App. Go to the Project Settings (nut icon).
 int GunID = 0; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
-char ssid[] = "burtek"; // this is needed for your wifi credentials
-char pass[] = "Sunpower15"; // this is needed for your wifi credentials
+char ssid[] = "JEDGE"; // this is needed for your wifi credentials
+char pass[] = "9165047812"; // this is needed for your wifi credentials
+char server[] = "10.10.0.67"; // this is the ip address of your local server (PI or PC)
 int GunGeneration = 1; // change to gen 1, 2, 3
-int BaudRate = 57600; // 115200 is for GEN2/3, 57600 is for GEN1
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
+BlynkTimer CheckBlynkConnection; // created a timer object used for checking blynk server connection status
 
 //****************************************************************
 // definitions for analyzing incoming brx serial data
@@ -193,6 +199,7 @@ bool ENABLEOTAUPDATE = false; // enables the loop for updating OTA
 bool INITIALIZEOTA = false; // enables the object to disable BLE and enable WiFi
 bool SPECIALWEAPON = false;
 bool HASFLAG = false; // used for capture the flag
+bool Connected2Blynk = false;
 
 long startScan = 0; // part of BLE enabling
 
@@ -407,7 +414,7 @@ BLYNK_WRITE(V7) {// Sets Team Modes
   AUDIO=true;
 }
 }
-BLYNK_WRITE(V8) {// Sets Game Mode
+/*BLYNK_WRITE(V8) {// Sets Game Mode
 int b=param.asInt();
 if (INGAME==false){
 if (b==1) {
@@ -468,6 +475,7 @@ if (b==11) {
         AUDIO=true;
 }
 }
+*/
 BLYNK_WRITE(V9) {// Sets Respawn Mode
 int b=param.asInt();
 if (INGAME==false){
@@ -1713,7 +1721,7 @@ void InitializeJEDGE() {
   Serial.println("*****************************************************");
   Serial.println();
   Serial.println("Waiting for BRX to Boot...");
-  int forfun = 10;
+  int forfun = 5;
   while (forfun > 0) { 
     delay(1000);
     Serial.print(String(forfun) + ", ");
@@ -2368,6 +2376,17 @@ void ProcessBRXData() {
     }
   }
 //******************************************************************************************
+void CheckConnection() {
+  Connected2Blynk = Blynk.connected();
+  if (!Connected2Blynk) {
+    Serial.println("Not connected to Blynk server");
+    Blynk.connect(3333);
+  }
+  else {
+    Serial.println("Connected to Blynk Server");
+  }
+}
+//******************************************************************************************
 // **********************
 // ****  DIRTY LOOP  ****
 // **********************
@@ -2394,20 +2413,64 @@ void loop2(void *pvParameters) {
   Serial.println(xPortGetCoreID());
   while (1) { // starts the forever loop
     // place main blynk functions in here, everything wifi related:
-    Blynk.run();
-    
+    if (Connected2Blynk) {
+      Blynk.run();
+    } else {
+      // possibly do something else while not connected
+    }
+    CheckBlynkConnection.run();
     delay(1); // this has to be here or the esp32 will just keep rebooting
   }
 }
 //******************************************************************************************
 void setup() {
   Serial.begin(115200); // set serial monitor to match this baud rate
-  //Blynk.begin(auth, ssid, pass, IPAddress(10,10,0,67), 8080); // used to connect to local blynk server
-  Blynk.begin(auth, ssid, pass); // used to connect to blynk cloud server
+  Serial.println("Starting Wifi");
+  WiFi.begin(ssid, pass);
+  int wifiattempts = 0;
+  while(WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    if (millis() > 120000 && AllowTimeout == true) {
+      Serial.println("Too many attempts to reach wifi network");
+      Serial.println("Enabling Deep Sleep");
+      delay(500);
+      esp_deep_sleep_start();
+    }
+  }
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+  Serial.println("Connecting to Blynk Server");
+  Blynk.config(auth, server, 8080); // used to connect to blynk cloud server
+  //Blynk.config(auth, IPAddress(192,168,1,169), 8080); // used to connect to local blynk server
+  int attemptcounter = 0;
+  Blynk.connect(3333); // timeout set to ten seconds then continue without blynk
+  while (!Connected2Blynk) {
+     //wait until connected
+     Connected2Blynk = Blynk.connect();
+     attemptcounter++;
+     Serial.println("Blynk Connection Attempts = " + String(attemptcounter));
+     if (attemptcounter > 10 && AllowTimeout == true) {
+      Serial.println("Too many attempts to reach server on start up, putting device to sleep");
+      Serial.println("Enabling Deep Sleep");
+      delay(500);
+      esp_deep_sleep_start();
+     }
+  }
+  Serial.println("");
+  CheckBlynkConnection.setInterval(11000L, CheckConnection); // checking blynk connection
+  Serial.println("Connected to Blynk Server");
+  Serial.println("...");
+  Serial.println("Initializing serial output settings, Tagger Generation set to Gen: " + String(GunGeneration));
+  if (GunGeneration > 1) {
+    BaudRate = 115200;
+  }
+  Serial.println("Serial Buad Rate set for: " + String(BaudRate));
   Serial1.begin(BaudRate, SERIAL_8N1, SERIAL1_RXPIN, SERIAL1_TXPIN); // setting up the serial pins for sending data to BRX
   pinMode(led, OUTPUT);
   digitalWrite(led, LOW);
-
   Serial.print("setup() running on core ");
   Serial.println(xPortGetCoreID());
   xTaskCreatePinnedToCore(loop1, "loop1", 4096, NULL, 1, NULL, 0);
