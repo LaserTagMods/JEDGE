@@ -77,6 +77,8 @@
  * updated 12/17/2020 fixed looping weapon, team and weapon manual selection so that it actually exits, it was looping for some reason even after confirming
  * updated 12/17/2020 removed team selections under manual for teams 4 and 5 because it was previously discovered they dont work.
  * updated 12/23/2020 fixed server connection features, added automatic power down of esp if wifi or blynk not available to save energy on brx, added auto configurations based upon generation of gun input
+ * updated 12/28/2020 fixed error for delayed starts, needed to add a vtask delay to the timer while loop to prevent dev board crashes
+ * updated 12/28/2020 fixed lives call out and assignment as well as app
  * 
  */
 //****************************************************************
@@ -102,10 +104,11 @@ char auth[] = "BRX-Taggers"; // you should get auth token in the blynk app. use 
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
 int GunID = 0; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+char GunName[] = "GUN#1"; // used for OTA id recognition on network
 char ssid[] = "JEDGE"; // this is needed for your wifi credentials
 char pass[] = "9165047812"; // this is needed for your wifi credentials
 char server[] = "10.10.0.67"; // this is the ip address of your local server (PI or PC)
-int GunGeneration = 1; // change to gen 1, 2, 3
+int GunGeneration = 2; // change to gen 1, 2, 3
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -263,11 +266,11 @@ BLYNK_WRITE(V4) {// Sets Lives);
 int b=param.asInt();
 if (INGAME==false){
 if (b==7) {SetLives = 32000; Serial.println("Lives is set to Unlimited"); AudioSelection="VA6V";}
-if (b==6) {SetLives = 50; Serial.println("Lives is set to 50"); AudioSelection="VA47";}
-if (b==5) {SetLives = 25; Serial.println("Lives is set to 25"); AudioSelection="VA0P";}
-if (b==4) {SetLives = 15; Serial.println("Lives is set to 15"); AudioSelection="VA0F";}
-if (b==3) {SetLives = 10; Serial.println("Lives is set to 10"); AudioSelection="VA0A";}
-if (b==2) {SetLives = 3; Serial.println("Lives is set to 3"); AudioSelection="VA05";}
+if (b==6) {SetLives = 25; Serial.println("Lives is set to 25"); AudioSelection="VA0P";}
+if (b==5) {SetLives = 15; Serial.println("Lives is set to 15"); AudioSelection="VA0F";}
+if (b==4) {SetLives = 10; Serial.println("Lives is set to 10"); AudioSelection="VA0A";}
+if (b==3) {SetLives = 5; Serial.println("Lives is set to 5"); AudioSelection="VA05";}
+if (b==2) {SetLives = 3; Serial.println("Lives is set to 3"); AudioSelection="VA03";}
 if (b==1) {SetLives = 1; Serial.println("Lives is set to 1"); AudioSelection="VA01";}
         AUDIO=true;
 }
@@ -414,7 +417,7 @@ BLYNK_WRITE(V7) {// Sets Team Modes
   AUDIO=true;
 }
 }
-/*BLYNK_WRITE(V8) {// Sets Game Mode
+BLYNK_WRITE(V8) {// Sets Game Mode
 int b=param.asInt();
 if (INGAME==false){
 if (b==1) {
@@ -475,7 +478,6 @@ if (b==11) {
         AUDIO=true;
 }
 }
-*/
 BLYNK_WRITE(V9) {// Sets Respawn Mode
 int b=param.asInt();
 if (INGAME==false){
@@ -724,13 +726,6 @@ if (b==1) {
         esp_deep_sleep_start();
         }
 }
-BLYNK_WRITE(V28) {// Enable OTA Updates
-  int b = param.asInt();
-  if (b == 1) {
-        INITIALIZEOTA = true; 
-        Serial.println("Enabling OTA Updates"); 
-        }
-}
 //**************************************************************
 
 // ****************************************************************************************
@@ -803,13 +798,6 @@ void TagPerks() {
 }
 //******************************************************************************************
 void InitializeOTAUpdater() {
-WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, pass);
-  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.println("Connection Failed! Rebooting...");
-    delay(5000);
-    ESP.restart();
-  }
   // Port defaults to 3232
   // ArduinoOTA.setPort(3232);
   // Hostname defaults to esp3232-[MAC]
@@ -819,6 +807,7 @@ WiFi.mode(WIFI_STA);
   // Password can be set with it's md5 value as well
   // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
   // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
+  ArduinoOTA.setHostname(GunName);
   ArduinoOTA
     .onStart([]() {
       String type;
@@ -1551,22 +1540,27 @@ void delaystart() {
   //sendString("$PLAY,VA84,4,5,,,,,*"); // plays a ten second countdown
   sendString("$HLED,,6,,,,,*"); // changes headset to end of game
   // this portion creates a hang up in the program to delay until the time is up
+  bool RunInitialDelay = true;
   long actualdelay = 0; // used to count the actual delay versus desired delay
   long delaybeginning = millis(); // sets variable as the current time to track when the actual delay started
-  long delaycounter = millis(); // this will be used to track current time in milliseconds and compared to the start of the delay
+  long initialdelay = DelayStart - 3000; // this will be used to track current time in milliseconds and compared to the start of the delay
   int audibletrigger = 0; // used as a trigger once we get to 10 seconds left
   if (DelayStart > 10) {
-  while (DelayStart > actualdelay) { // this creates a sub loop in the object to keep doing the following steps until this condition is met... actual delay is the same as planned delay
-    delaycounter = millis(); // sets the delay clock to the current progam timer
-    actualdelay = delaycounter - delaybeginning; // calculates how long weve been delaying the program/start
-    if ((DelayStart-actualdelay) < 10000) {
-      audibletrigger++;
-      } // a check to start adding value to the audible trigger
-    if (audibletrigger == 1) {
-      sendString("$PLAY,VA83,4,6,,,,,*"); 
-      Serial.println("Playing ten second countdown");
-      } // this can only happen once so it doesnt keep looping in the program we only play it when trigger is equal to 1
-  }
+    Serial.println("Delayed Start timer = " + String(DelayStart));
+    while(initialdelay > actualdelay) {
+      actualdelay = millis() - delaybeginning;
+      Serial.println("Actual Delay Counter = " + String(actualdelay));
+      vTaskDelay(1);
+    }
+    sendString("$PLAY,VA80,4,6,,,,,*");
+    Serial.println("Running 3 second countdown");
+    actualdelay = 0;
+    delaybeginning = millis(); // sets variable as the current time to track when the actual delay started
+    while(3000 > actualdelay) {
+      actualdelay = millis() - delaybeginning;
+      Serial.println("Actual Delay Counter = " + String(actualdelay));
+      vTaskDelay(1);
+    }
   }
   sendString("$PLAY,VA81,4,6,,,,,*"); // plays the .. nevermind
   sendString("$PLAYX,0,*");
@@ -1575,13 +1569,6 @@ void delaystart() {
   GameStartTime=millis();
   GAMEOVER=false;
   INGAME=true;
-  if (GameTimer > 120000) {
-    COUNTDOWN1=true;
-    Serial.println("enabled countdown timer 1");
-    } else {
-      COUNTDOWN3=true;
-    Serial.println("enabled countdown timer 3");
-      } // enables the appropriate countdown announcements
 }
 
 //******************************************************************************************
@@ -1721,12 +1708,14 @@ void InitializeJEDGE() {
   Serial.println("*****************************************************");
   Serial.println();
   Serial.println("Waiting for BRX to Boot...");
+  /*
   int forfun = 5;
   while (forfun > 0) { 
     delay(1000);
     Serial.print(String(forfun) + ", ");
     forfun--;
   }
+  */
   Serial.println();
   Serial.println("JEDGE is taking over the BRX");
   sendString("$CLEAR,*");
@@ -1746,20 +1735,6 @@ void SyncScores() {
 //********************************************************************************************
 // This main game object
 void MainGame() {
-  if (INITIALIZEOTA) {InitializeOTAUpdater();}
-  while (ENABLEOTAUPDATE) {
-    ArduinoOTA.handle();
-    //loop to blink without delay
-    unsigned long currentMillis = millis();
-    if (currentMillis - previousMillis >= interval) {
-      // save the last time you blinked the LED
-      previousMillis = currentMillis;
-      // if the LED is off turn it on and vice-versa:
-      ledState = not(ledState);
-      // set the LED with the ledState of the variable:
-      digitalWrite(led,  ledState);
-      }
-    }
   if (AUDIO) {
         Audio();
       }
@@ -1898,21 +1873,6 @@ void ProcessBRXData() {
     Serial.println(tokenStrings[stringnumber]);
     stringnumber++;
   }
-    //*******************************************************
-    // first signal we get from gun is this one and it tells the esp
-    // that gun is happy with the connection
-    //if (tokenStrings[0] == "$#CONNECT") { // checks to see if the connection notification was received from BRX
-      //VOLUMEADJUST=true; // runs the default audio setting trigger in the main loop for BLE 
-      //AudioSelection1="VA20"; // sets the auio selection for "connection established" and tells the brx to play it in the audio object from BLE loop
-      //AUDIO1=true; // ensures audio object runs
-      //} // THIS IS TO ENABLE GUN CONTROL BY AND LOCK OUT PLAYER BUTTONS ONCE ESP32 IS PAIRED, this is enabled when audio is equal to VA20 in the Audio object
-    // this analyzes every single time a trigger is pulled
-    // or a button is pressed or reload handle pulled. pretty cool
-    // i dont do much with it yet here but will be used later to allow
-    // players to select weapon pickups etc or options when starting a game
-    // ideally with LCD installed this will be very usefull! can use it with
-    // limited gun choices, like the basic smg, tar33 etc as we can use gun 
-    // audio to help players know what they are picking but not implemented yet
     /* 
      *  Mapping of the BLE buttons pressed
      *  Trigger pulled: $BUT,0,1,*
@@ -2387,9 +2347,22 @@ void CheckConnection() {
   }
 }
 //******************************************************************************************
-// **********************
-// ****  DIRTY LOOP  ****
-// **********************
+void runOTAupdater() {
+  ArduinoOTA.handle();
+  //loop to blink without delay
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= interval) {
+    // save the last time you blinked the LED
+    previousMillis = currentMillis;
+    // if the LED is off turn it on and vice-versa:
+    ledState = not(ledState);
+    // set the LED with the ledState of the variable:
+    digitalWrite(led,  ledState);
+  }
+}
+//******************************************************************************************
+// ***********************************  DIRTY LOOP  ****************************************
+// *****************************************************************************************
 void loop1(void *pvParameters) {
   Serial.print("Dirty loop running on core ");
   Serial.println(xPortGetCoreID());   
@@ -2405,9 +2378,9 @@ void loop1(void *pvParameters) {
     delay(1); // this has to be here or it will just continue to restart the esp32
   }
 }
-// **********************
-// ****  BLYNK LOOP  ****
-// **********************
+// *****************************************************************************************
+// **************************************  BLYNK LOOP  *************************************
+// *****************************************************************************************
 void loop2(void *pvParameters) {
   Serial.print("Blynk loop running on core ");
   Serial.println(xPortGetCoreID());
@@ -2419,13 +2392,17 @@ void loop2(void *pvParameters) {
       // possibly do something else while not connected
     }
     CheckBlynkConnection.run();
+    //ArduinoOTA.handle(); // for OTA
     delay(1); // this has to be here or the esp32 will just keep rebooting
   }
 }
 //******************************************************************************************
+//*************************************** SET UP *******************************************
+//******************************************************************************************
 void setup() {
   Serial.begin(115200); // set serial monitor to match this baud rate
   Serial.println("Starting Wifi");
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pass);
   int wifiattempts = 0;
   while(WiFi.status() != WL_CONNECTED) {
@@ -2442,6 +2419,7 @@ void setup() {
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
+  InitializeOTAUpdater();
   Serial.println("Connecting to Blynk Server");
   Blynk.config(auth, server, 8080); // used to connect to blynk cloud server
   //Blynk.config(auth, IPAddress(192,168,1,169), 8080); // used to connect to local blynk server
@@ -2463,6 +2441,7 @@ void setup() {
   CheckBlynkConnection.setInterval(11000L, CheckConnection); // checking blynk connection
   Serial.println("Connected to Blynk Server");
   Serial.println("...");
+  Serial.println();
   Serial.println("Initializing serial output settings, Tagger Generation set to Gen: " + String(GunGeneration));
   if (GunGeneration > 1) {
     BaudRate = 115200;
