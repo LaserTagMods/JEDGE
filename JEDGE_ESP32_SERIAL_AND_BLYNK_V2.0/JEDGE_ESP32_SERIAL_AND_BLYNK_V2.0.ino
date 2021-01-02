@@ -81,7 +81,8 @@
  * updated 12/28/2020 fixed lives call out and assignment as well as app
  * updated 12/29/2020 added in a reset function if wifi is present in game and the blynk app isnt connected after a good 10 seconds and a couple checks on it
  * updated 12/30/2020 added wifi reset for when error for connection to blynk server occurs. This will notify via audio of a connection lost and re established as well as enable blynk reconnection if more than 5 seconds pass with wifi present and blynk server disconnected.
- * 
+ * updated 01/01/2021 updated score sync settings for sending but still needs love
+ * updated 01/02/2021 fixed the network checks so that they do not spin out of control while in game and players move away from the wifi network
  */
 //****************************************************************
 // libraries to include:
@@ -99,17 +100,20 @@ bool AllowTimeout = true; // if true, this enables automatic deep sleep of esp32
 int BaudRate = 57600; // 115200 is for GEN2/3, 57600 is for GEN1, this is set automatically based upon user input
 char auth[] = "BRX-Taggers"; // you should get auth token in the blynk app. use the one for "configurator"
 //char auth[] = "wDEwTa0gq3UG4uBVamw1-2Ta5XDZFTjr"; // You should get Auth Token in the Blynk App. Go to the Project Settings (nut icon).
-
+WidgetBridge bridge1(V1);
+BLYNK_CONNECTED() {
+  bridge1.setAuthToken("Master-Controller"); // Token of the device 2 or scoring device
+}
 
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
-int GunID = 8; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
-char GunName[] = "GUN#8"; // used for OTA id recognition on network
+int GunID = 23; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+char GunName[] = "GUN#23"; // used for OTA id recognition on network
 char ssid[] = "JEDGE"; // this is needed for your wifi credentials
 char pass[] = "9165047812"; // this is needed for your wifi credentials
-char server[] = "10.10.0.67"; // this is the ip address of your local server (PI or PC)
+char server[] = "192.168.50.2"; // this is the ip address of your local server (PI or PC)
 int GunGeneration = 2; // change to gen 1, 2, 3
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -148,6 +152,9 @@ int ReloadType; // used for unlimited ammo... maybe 10 is for unlimited
 int ErrorCounter = 0; // used to determine if we have a bad blynk connection in game
 int WiFiResetCount = 0; // used to count how many times we had the blynk server disconnect and had to reset wifi
 int PreviousWiFiResetCount = 0; // same as above
+int SwapBRXCounter = 0; // used for weapon swaps in game for all weapons
+int totalweapons = 19; // counter used for weapon count, needs to be updated if i ever add more weapons
+bool SWAPBRX = false; // used as trigger to enable/disable swapbrx mode
 
 int Deaths = 0; // death counter
 int Team=0; // team selection used when allowed for custom configuration
@@ -201,7 +208,6 @@ bool INGAME=false; // status check for game timer and other later for running ce
 bool COUNTDOWN1=false; // used for triggering a specic countdown
 bool COUNTDOWN2=false; // used for triggering a specific countdown
 bool COUNTDOWN3=false; // used for triggering a specific countdown
-bool FAKESCORE = false; // used for score testing do not use except for testing
 bool IRDEBUG = false; // used to enabling IR tag data send to esp8266
 bool IRTOTRANSMIT = false; // used to enable transmitting of IR data to ESP8266
 bool ENABLEOTAUPDATE = false; // enables the loop for updating OTA
@@ -309,6 +315,7 @@ void InitializeOTAUpdater() {
         type = "sketch";
       else // U_SPIFFS
         type = "filesystem";
+
       // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
       Serial.println("Start updating " + type);
     })
@@ -326,12 +333,12 @@ void InitializeOTAUpdater() {
       else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
       else if (error == OTA_END_ERROR) Serial.println("End Failed");
     });
+
   ArduinoOTA.begin();
+
   Serial.println("Ready");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
-  ENABLEOTAUPDATE = true;
-  INITIALIZEOTA = false;
 }
 // sets and sends game settings based upon the stored settings
 void SetFFOutdoor() {
@@ -1219,7 +1226,8 @@ void InitializeJEDGE() {
   Serial.println("JEDGE is taking over the BRX");
   sendString("$CLEAR,*"); // clears any brx settings
   sendString("$START,*"); // starts the callsign mode up
-  delay(100);
+  delay(300);
+  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
   sendString("$PLAY,VA20,4,6,,,,,*"); // says "connection established"
   Serial.println(GunName);
 }
@@ -1227,10 +1235,27 @@ void InitializeJEDGE() {
 void SyncScores() {
   // create a string that looks like this: 
   // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
-  String LCDText = String(GunID)+","+String(SetTeam)+","+String(CompletedObjectives)+","+String(TeamKillCount[0])+","+String(TeamKillCount[1])+","+String(TeamKillCount[2])+","+String(TeamKillCount[3])+","+String(TeamKillCount[4])+","+String(TeamKillCount[5])+","+String(PlayerKillCount[0])+","+String(PlayerKillCount[1])+","+String(PlayerKillCount[2])+","+String(PlayerKillCount[3])+","+String(PlayerKillCount[4])+","+String(PlayerKillCount[5])+","+String(PlayerKillCount[6])+","+String(PlayerKillCount[7])+","+String(PlayerKillCount[8])+","+String(PlayerKillCount[9])+","+String(PlayerKillCount[10])+","+String(PlayerKillCount[11])+","+String(PlayerKillCount[12])+","+String(PlayerKillCount[13])+","+String(PlayerKillCount[14])+","+String(PlayerKillCount[15])+","+String(PlayerKillCount[16])+","+String(PlayerKillCount[17])+","+String(PlayerKillCount[18])+","+String(PlayerKillCount[19])+","+String(PlayerKillCount[20])+","+String(PlayerKillCount[21])+","+String(PlayerKillCount[22])+","+String(PlayerKillCount[23])+","+String(PlayerKillCount[24])+","+String(PlayerKillCount[25])+","+String(PlayerKillCount[26])+","+String(PlayerKillCount[27])+","+String(PlayerKillCount[28])+","+String(PlayerKillCount[29])+","+String(PlayerKillCount[30])+","+String(PlayerKillCount[31])+","+String(PlayerKillCount[32])+","+String(PlayerKillCount[33])+","+String(PlayerKillCount[34])+","+String(PlayerKillCount[35])+","+String(PlayerKillCount[36])+","+String(PlayerKillCount[37])+","+String(PlayerKillCount[38])+","+String(PlayerKillCount[39])+","+String(PlayerKillCount[40])+","+String(PlayerKillCount[41])+","+String(PlayerKillCount[42])+","+String(PlayerKillCount[43])+","+String(PlayerKillCount[44])+","+String(PlayerKillCount[45])+","+String(PlayerKillCount[46])+","+String(PlayerKillCount[47])+","+String(PlayerKillCount[48])+","+String(PlayerKillCount[49])+","+String(PlayerKillCount[50])+","+String(PlayerKillCount[51])+","+String(PlayerKillCount[52])+","+String(PlayerKillCount[53])+","+String(PlayerKillCount[54])+","+String(PlayerKillCount[55])+","+String(PlayerKillCount[56])+","+String(PlayerKillCount[57])+","+String(PlayerKillCount[58])+","+String(PlayerKillCount[59])+","+String(PlayerKillCount[60])+","+String(PlayerKillCount[61])+","+String(PlayerKillCount[62])+","+String(PlayerKillCount[63]);
-  Serial.println(LCDText);
-  //SerialLCD.println(LCDText);
-  Serial.println("Sent LCD data to ESP8266");
+  String ScoreData = String(GunID)+","+String(SetTeam)+","+String(CompletedObjectives)+","+String(TeamKillCount[0])+","+String(TeamKillCount[1])+","+String(TeamKillCount[2])+","+String(TeamKillCount[3])+","+String(TeamKillCount[4])+","+String(TeamKillCount[5])+","+String(PlayerKillCount[0])+","+String(PlayerKillCount[1])+","+String(PlayerKillCount[2])+","+String(PlayerKillCount[3])+","+String(PlayerKillCount[4])+","+String(PlayerKillCount[5])+","+String(PlayerKillCount[6])+","+String(PlayerKillCount[7])+","+String(PlayerKillCount[8])+","+String(PlayerKillCount[9])+","+String(PlayerKillCount[10])+","+String(PlayerKillCount[11])+","+String(PlayerKillCount[12])+","+String(PlayerKillCount[13])+","+String(PlayerKillCount[14])+","+String(PlayerKillCount[15])+","+String(PlayerKillCount[16])+","+String(PlayerKillCount[17])+","+String(PlayerKillCount[18])+","+String(PlayerKillCount[19])+","+String(PlayerKillCount[20])+","+String(PlayerKillCount[21])+","+String(PlayerKillCount[22])+","+String(PlayerKillCount[23])+","+String(PlayerKillCount[24])+","+String(PlayerKillCount[25])+","+String(PlayerKillCount[26])+","+String(PlayerKillCount[27])+","+String(PlayerKillCount[28])+","+String(PlayerKillCount[29])+","+String(PlayerKillCount[30])+","+String(PlayerKillCount[31])+","+String(PlayerKillCount[32])+","+String(PlayerKillCount[33])+","+String(PlayerKillCount[34])+","+String(PlayerKillCount[35])+","+String(PlayerKillCount[36])+","+String(PlayerKillCount[37])+","+String(PlayerKillCount[38])+","+String(PlayerKillCount[39])+","+String(PlayerKillCount[40])+","+String(PlayerKillCount[41])+","+String(PlayerKillCount[42])+","+String(PlayerKillCount[43])+","+String(PlayerKillCount[44])+","+String(PlayerKillCount[45])+","+String(PlayerKillCount[46])+","+String(PlayerKillCount[47])+","+String(PlayerKillCount[48])+","+String(PlayerKillCount[49])+","+String(PlayerKillCount[50])+","+String(PlayerKillCount[51])+","+String(PlayerKillCount[52])+","+String(PlayerKillCount[53])+","+String(PlayerKillCount[54])+","+String(PlayerKillCount[55])+","+String(PlayerKillCount[56])+","+String(PlayerKillCount[57])+","+String(PlayerKillCount[58])+","+String(PlayerKillCount[59])+","+String(PlayerKillCount[60])+","+String(PlayerKillCount[61])+","+String(PlayerKillCount[62])+","+String(PlayerKillCount[63]);
+  Serial.println("Sending the following Score Data to Server");
+  Serial.println(ScoreData);
+  bridge1.virtualWrite(V0, ScoreData); // sending the whole string from esp32
+  Serial.println("Sent Score data to Server");
+  //reset sent scores:
+  Serial.println("resetting all scores");
+  CompletedObjectives = 0;
+  int teamcounter = 0;
+  while (teamcounter < 6) {
+    TeamKillCount[teamcounter] = 0;
+    teamcounter++;
+    vTaskDelay(1);
+  }
+  int playercounter = 0;
+  while (playercounter < 64) {
+    PlayerKillCount[playercounter] = 0;
+    playercounter++;
+    vTaskDelay(1);
+  }
+  Serial.println("Scores Reset");  
 }
 //********************************************************************************************
 // This main game object
@@ -1350,6 +1375,19 @@ void MainGame() {
           LoadSpecialWeapon();
         }
       }
+}
+//**************************************************************************
+// run SWAPTX style weapon swap as from my youtube funny video:
+void swapbrx() {
+    SetSlotA=random(2, 19);
+    Serial.println("Weapon Slot 0 set"); 
+    if(SetSlotA < 10) {
+      AudioSelection = ("GN0" + String(SetSlotA));
+    }
+    if (SetSlotA > 9) {
+      AudioSelection = ("GN" + String(SetSlotA));
+    }
+    AUDIO=true;
 }
 //**************************************************************
 // this bad boy captures any ble data from gun and analyzes it based upon the
@@ -1849,10 +1887,17 @@ void CheckConnection() {
     AUDIO1=true;
     if (WiFi.status() == WL_CONNECTED) {
       Serial.println("Wifi Connected but Blynk is Not, Status Error");
+      terminal.println("Wifi Connected but Blynk is Not, Status Error");
       ErrorCounter++;
-      if (ErrorCounter > 1) {
+      if (ErrorCounter == 6) {
+        sendString("$PLAY,VA5G,4,6,,,,,*"); // says self destruct initiated
+        ESP.restart();
+      }
+      if (ErrorCounter == 2  or ErrorCounter == 4) {
         // issue detected more than twice back to back, time to reset ESP
+        sendString("$PLAY,VA9R,4,6,,,,,*"); // says "testing initiated"
         Serial.println("Resetting ESP wifi");
+        terminal.println("Resetting ESP wifi");
         //delay(2000);
         WiFi.disconnect();
         while (WiFi.status() == WL_CONNECTED) {
@@ -1861,6 +1906,8 @@ void CheckConnection() {
         }
         Serial.println("Disconnected from Wifi");
         Serial.println("Reconnecting to Wifi");
+        terminal.println("Disconnected from Wifi");
+        terminal.println("Reconnecting to Wifi");
         WiFi.begin(ssid, pass);
         while(WiFi.status() != WL_CONNECTED) {
           //delay(500);
@@ -1868,8 +1915,7 @@ void CheckConnection() {
         }
         Serial.println();
         Serial.println("Reconnected to Wifi");
-        //ESP.restart();
-        ErrorCounter = 0;
+        sendString("$PLAY,VA9Q,4,6,,,,,*"); // says "testing complete"
         WiFiResetCount++;
         Serial.println("Rest count = " + String(WiFiResetCount));
       }
@@ -1879,7 +1925,7 @@ void CheckConnection() {
     }
   }
   else {
-    Serial.println(" - Connected to Blynk Server");
+    Serial.println(" - Connected to Blynk Server - Wifi Resets Counter: " + String(WiFiResetCount));
     //int activityclock = millis() / 1000;
     //terminal.print("Clock: " + String(activityclock) + " - ");
     //terminal.print(GunName);
@@ -1897,20 +1943,6 @@ void CheckConnection() {
       sendString("$PLAY,VA20,4,6,,,,,*"); // says "connection established"
     }
     
-  }
-}
-//******************************************************************************************
-void runOTAupdater() {
-  ArduinoOTA.handle();
-  //loop to blink without delay
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= interval) {
-    // save the last time you blinked the LED
-    previousMillis = currentMillis;
-    // if the LED is off turn it on and vice-versa:
-    ledState = not(ledState);
-    // set the LED with the ledState of the variable:
-    digitalWrite(led,  ledState);
   }
 }
 //******************************************************************************************
@@ -2297,13 +2329,12 @@ if (b==9) {
 }
 BLYNK_WRITE(V11) { // Scoresync
 int b=param.asInt(); // set up a temporary object based variable to assign as the incoming data
-if (b == GunID) {
-        //SyncScores();
+if (b == 1) {
+        SyncScores();
         Serial.println("Request Recieved to Sync Scoring");
         AudioSelection="VA91";
         }
-                AUDIO=true;
-
+        AUDIO=true;
 }
 BLYNK_WRITE(V12) {// Sets Player Gender
 int b=param.asInt();
@@ -2392,8 +2423,7 @@ if (INGAME==false){
     Serial.println("Volume set to" + String(SetVol));
    }
    VOLUMEADJUST=true;
-           AUDIO=true;
-
+   AUDIO=true;
    }
 }
 BLYNK_WRITE(V16) {// Start/Ends a game
@@ -2410,8 +2440,7 @@ if (b==1) {
           SetTeam=Team;
           }
         }
-                AUDIO=true;
-
+        AUDIO=true;
 }
 BLYNK_WRITE(V17) {// Locks out Tagger user
 int b=param.asInt();
@@ -2419,19 +2448,70 @@ if (b==1) {
   InitializeJEDGE();
   }
 }
-BLYNK_WRITE(V18) {// tagger control engaged
+BLYNK_WRITE(V18) {// Re-Sync Taggers (reset wifi)
 int b=param.asInt();
 if (b==1) {
-  Serial.println("locking out player buttons");
-  AudioSelection1="VA20";
-  AUDIO1 = true;
-}
-}
-BLYNK_WRITE(V19) {// Sleep ESP32 BLE device
-int b=param.asInt();
-if (b==1) {
-        esp_deep_sleep_start();
+        Serial.println("Resetting ESP wifi");
+        //delay(2000);
+        WiFi.disconnect();
+        while (WiFi.status() == WL_CONNECTED) {
+          //delay(500);
+          Serial.print(".");
         }
+        Serial.println("Disconnected from Wifi");
+        Serial.println("Reconnecting to Wifi");
+        WiFi.begin(ssid, pass);
+        while(WiFi.status() != WL_CONNECTED) {
+          //delay(500);
+          Serial.print(".");
+        }
+        Serial.println();
+        Serial.println("Reconnected to Wifi");
+        //ESP.restart();
+        ErrorCounter = 0;
+        WiFiResetCount++;
+}
+}
+BLYNK_WRITE(V19) {// Restart ESP
+int b=param.asInt();
+if (b==1) {
+        ESP.restart();
+        }
+}
+BLYNK_WRITE(V20) {// fake score test
+int b=param.asInt();
+  if (b==1) {
+    int fakescorecounter = 0;
+    while (fakescorecounter < 64) {
+      PlayerKillCount[fakescorecounter] = random(25);
+      Serial.println("Player " + String(fakescorecounter) + " kills: " + String(PlayerKillCount[fakescorecounter]));
+      fakescorecounter++;
+      vTaskDelay(1);
+    }
+    fakescorecounter = 0;
+    while (fakescorecounter < 4) {
+      TeamKillCount[fakescorecounter] = random(100);
+      Serial.println("Team " + String(fakescorecounter) + " kills: " + String(TeamKillCount[fakescorecounter]));
+      fakescorecounter++;
+    }
+  }
+}
+BLYNK_WRITE(V21) {// Force Taggers to Report
+  int b=param.asInt();
+  if (b==1) {
+    terminal.print(GunName);
+    terminal.println(" is connected to the JEDGE server");
+    terminal.flush();
+  }
+}
+BLYNK_WRITE(V22) {// Force Taggers to Report
+  int b=param.asInt();
+  if (b==1) {
+    ENABLEOTAUPDATE = true;
+  }
+  if (b==0) {
+    ENABLEOTAUPDATE = false;
+  }
 }
 //**************************************************************
 
@@ -2460,14 +2540,16 @@ void loop1(void *pvParameters) {
 void loop2(void *pvParameters) {
   Serial.print("Blynk loop running on core ");
   Serial.println(xPortGetCoreID());
-  terminal.print(GunName);
-  terminal.println(" Connected!");
-  terminal.flush();
   while (1) { // starts the forever loop
     // place main blynk functions in here, everything wifi related:
-    Blynk.run();
-    CheckBlynkConnection.run();
-    //ArduinoOTA.handle(); // for OTA
+    if (!ENABLEOTAUPDATE) {
+      Blynk.run();
+      if (!INGAME) {
+        CheckBlynkConnection.run();
+      }
+    } else {
+      ArduinoOTA.handle(); // for OTA
+    }
     delay(1); // this has to be here or the esp32 will just keep rebooting
   }
 }
