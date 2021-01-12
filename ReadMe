@@ -164,6 +164,8 @@ Before beginning, make sure your running Python on your computer:
 
 Here is a good reference as well if you want to learn more: https://randomnerdtutorials.com/esp8266-ota-updates-with-arduino-ide-over-the-air/
 
+Tip: Also, if your having a hard time getting the esp32s to respond to arduino IDE OTA, it could be the router firewall... Ive had a tough time with some routers and a cake walk with others... 
+
 
 
 
