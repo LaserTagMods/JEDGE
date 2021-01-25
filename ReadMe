@@ -1,5 +1,52 @@
 # Blynk---ESP32
 Blynk Esp32 JEDGE 2.0
+
+//***************************************************
+//************   JEDGE Introduction   ***************
+//***************************************************
+
+The JEDGE App and ESP32 modules are used in conjunction with a Blynk Server to be able to controll, set up, program games etc. 
+for all of your BRX taggers at one time. While the BRX is one of the most awesome laser tag systems you can get for its price
+point, it does have its limitations. Callsign application with smart phones make for a very customizable game play, breaking the bounds
+of the standalone brx modes available. However, callsign has some limitations with requiring a cell phone with every tagger, coupled with
+a cellular plan or a restricted area based upon a limited wifi network range. Some are able to overcome the obstaclet but still some are left
+wanting more features, Including myself. 
+
+JEDGE is an open source project that was mostly coded by one individual, but with contributions from many, to pull it all together. Thousands of thanks
+are owed to all of those who have contributed to this work in the devlopment of JEDGE. It would not have been possible without your support!
+
+JEDGE uses a local wifi network and a local server (ran from a laptop/PC or a raspberri Pi) running Java. The Java based server works as a communications
+hub between a mobile application (ran either on a PC, phone or tablet - IOS and Android) and individual microcontrollers that share a similar code. The only
+differences between one microcontroller and another, is that they share a different ID or GUN ID for each tagger they are installed on. The devices do need 
+to be hard wired in with quick disconnect means. If you wish to integrate this system, you will need to be handy, or know someone who is, with a soldering
+Iron. Don't be intimidated though, it is easy to learn and get good at it with a bit of practice. The microcontrollers can be powered by the BRX Tagger and
+fit inside the battery compartment of the tagger. Soldering the connections correctly will not compromise the functionality of the tagger. In fact, the
+offline game modes still will work exactly as before the JEDGE upgrade and even callsign and battle royale (manufacturer supported mobile apps) will still
+work normally. The worse that can happen is that you damage the bluetooth connectivity with a poor quality solder and then you render the mobile applications
+non functional... leaving offline game modes still functional. This is a risk to be aware of... but as they say, no risk, no reward. We are constantly working
+on improvements to the game functions for JEDGE... Unlike the manufacturer for their mobile apps, and there is much more versatility in JEDGE. 
+
+*** NOTE: This is an opensource design, not supported by the manufacturer but an aftermarket modification to the equipment, proceed at your own risk. As is
+with all open source projects, this is free to all. Not to be profitted from without authorization from the original designer/coder of the project. This is 
+put together by a great group of individuals who shared a common interest and got together to share ideas and make it happen, please do not take advantage of
+their time and efforts. If you wish to contribute, please do so. The group is found on facebook: BRX Elite Owners Group and the forum: lasertaginfo.org. Also,
+No promises of support, guarantees of functionality/performance are provided with this collaborative project.
+
+General Use Guidelines:
+
+The system is designed so that all players start in the same location, within range of a control station that consisting of a Wifi Router, Access Point, Blynk
+Java Server, and a mobile device running the associated application. Then:
+
+1. One individual uses the mobile app to modify the game settings as desired
+2. Taggers announce confirmations of the game settings being selected
+2. The individual using the mobile app presses "start game"
+3. Players' taggers announce that it is time to "move out"
+4. Players disperse and the game starts as had been programmed by the application
+5. After receiving the notification to "move out", players no longer need to stay within range of the wifi access point
+6. After the players either (1) run out of lives, (2) game objectives are met, (3) time runs out, Players should return to the starting location near the control station
+7. Upon returning, the individual using the app, can either (1) send new game settings, (2) press start game to repeat the previous game, (3) sync scores, as applies, (4) any combination of the previous options
+8. At some point, playing within the wireless network range may enable certain game features/modes. At the time of this update (1/21/2021) this is not the case
+
 //***************************************************
 //************   General      Stuff   ***************
 //***************************************************
@@ -284,5 +331,10 @@ Quick update for blynk server/apps Raspberry PI
 •	     Restart the blynk server (restart pi if auto loaded on boot)
 •	     Restart the mobile app after a couple of minutes
 •	     Login to the server as usual and verify the update
+
+//***************************************************
+//********         9.  JEDGE FEATURES       *********
+//***************************************************
+
 
 
