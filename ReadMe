@@ -338,10 +338,19 @@ Quick update for blynk server/apps Raspberry PI
 
 There’s ways to trouble shoot:
 1st one:
-Debug mode on brx to watch serial output: indicates if your connections are good between pin 17 and the brx rx pin
+Debug mode on brx to watch serial output: indicates if your connections are 
+good between pin 17 and the brx rx pin
 2nd one:
-Player select mode: put brx in weapon or team select to confirm that cabling is good between pin 16 and brx tx pin
+Player select mode: put brx in weapon or team select to confirm that cabling 
+is good between pin 16 and brx tx pin
 3rd one:
-Use serial monitor on esp (outside brx) and watch for confirmations for commands being sent from app as well as watch for blynk connected notification every couple of seconds, if disconnects occur often, it’s either a network or esp32 issue. If weird stuff is going on across the board on multiple esp32s and it’s not isolated to one or two, it’s a code issue and I screwed something up. Note that while in game, code stops looking for blynk server to reduce some energy consumption. It still looks just not as often, once every couple of seconds instead of thousands of times per minute but serial monitor won’t print connection status while in a game.
+Use serial monitor on esp (outside brx) and watch for confirmations for commands 
+being sent from app as well as watch for blynk connected notification every 
+couple of seconds, if disconnects occur often, it’s either a network or esp32 issue.
+ If weird stuff is going on across the board on multiple esp32s and it’s not 
+isolated to one or two, it’s a code issue and I screwed something up. Note that
+ while in game, code stops looking for blynk server to reduce some energy consumption.
+ It still looks just not as often, once every couple of seconds instead of thousands 
+of times per minute but serial monitor won’t print connection status while in a game.
 4th one:
 Terminal widget in the app allows fir copy and paste of any Uart string to send to Taggers
