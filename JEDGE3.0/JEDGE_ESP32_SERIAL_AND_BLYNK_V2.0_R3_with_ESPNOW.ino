@@ -93,7 +93,8 @@
  * updated 02/10/2021 fixed a ton of bugs from austin and paul, mostly gen3 fixes for headset and communication also fixed lights on and off before and after games
  * updated 02/15/2021 fixed the stealth option to turn of gun leds in game play
  * updated 02/15/2021 fixed score reporting to scoring device so the data is being sent properly over bridge
- * 
+ * updated 03/07/2021 added in the espnow settings as a default for in game play
+ * updated 03/07/2021 changed default game time to 3 minutes
  * 
  * 
  * 
@@ -118,12 +119,10 @@
 bool AllowTimeout = true; // if true, this enables automatic deep sleep of esp32 device if wifi or blynk not available on boot
 int BaudRate = 57600; // 115200 is for GEN2/3, 57600 is for GEN1, this is set automatically based upon user input
 // testing only for jay:
-//char ssid[] = "Zion Village 327 Guest"; // this is needed for your wifi credentials
+char ssid[] = "maxipad"; // this is needed for your wifi credentials
 //char pass[] = "Sandybuttes!"; // this is needed for your wifi credentials
-//char auth[] = "p8YBnsPWJ8MokfwUcHzRg4TaVcwuXQTr"; // you should get auth token in the blynk app. use the one for "configurator"
-//char server[] = "192.168.1.227"; // this is the ip address of your local server (PI or PC)
-//char auth[] = "BRX-Taggers"; // you should get auth token in the blynk app. use the one for "configurator"
-char auth[] = "a5AVNp-BOw8SItRUo3JRsV67HoZrvkmH"; // updated tagger auth for user jedge@jedge.com
+char auth[] = "p8YBnsPWJ8MokfwUcHzRg4TaVcwuXQTr"; // jayeburden cloud server
+//char auth[] = "a5AVNp-BOw8SItRUo3JRsV67HoZrvkmH"; // user jedge@jedge.com
 char scoredevice[] = "LaJHPkah4L-AveBwJ4fywg_Hu8rbSbwx"; //
 // testing section done
 // Attach virtual serial terminal to Virtual Pin V1
@@ -141,10 +140,11 @@ BLYNK_CONNECTED() {
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
 int GunID = 9; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
 char GunName[] = "GUN#9"; // used for OTA id recognition on network
-char ssid[] = "JEDGE"; // this is needed for your wifi credentials
+//char ssid[] = "JEDGE"; // this is needed for your wifi credentials
 char pass[] = "9165047812"; // this is needed for your wifi credentials
 char server[] = "192.168.50.2"; // this is the ip address of your local server (PI or PC)
 int GunGeneration = 2; // change to gen 1, 2, 3
+bool ALLOWESPNOWINGAME = true; // set for true or false to have as a default setting on start up use false if wanting blynk based in game score reporting
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -167,7 +167,7 @@ int SetLives=32000; // used for configuring lives
 int SetSlotC=0; // this is for weapon slot 3 Respawns Etc.
 int SetSlotD = 0; // this is used for perk IR tag
 int SetTeam=0; // used to configure team player settings, default is 0
-long SetTime=2000000000; // used for in game timer functions on esp32 (future
+long SetTime=180000; // used for in game timer functions on esp32 (future
 int SetODMode=0; // used to set indoor and outdoor modes (default is on)
 int SetGNDR=0; // used to change player to male 0/female 1, male is default 
 int SetRSPNMode; // used to set auto or manual respawns from bases/ir (future)
@@ -270,8 +270,7 @@ bool RUNBLYNK = true;
 bool ENABLEINGAMEESPNOW = false; // enables in game espnow communication - default is on
 bool LOOT = false; // used to indicate a loot occured
 bool STEALTH = false; // used to turn off gun led side lights
-bool FAKESCORE = false; // 
-bool ALLOWESPNOWINGAME = true;
+bool FAKESCORE = false; //
 
 
 long startScan = 0; // part of BLE enabling
@@ -284,8 +283,32 @@ int ledState = LOW;  // ledState used to set the LED
 unsigned long ledpreviousMillis = 0;  // will store last time LED was updated
 const long ledinterval = 1500;  // interval at which to blink (milliseconds)
 
-
 bool WEAP = false; // not used anymore but was used to auto load gun settings on esp boot
+
+
+// Define variables to store incoming readings
+int incomingData0;
+int incomingData1;
+int incomingData2;
+int incomingData3;
+int incomingData4;
+int incomingData5;
+int incomingData6;
+int incomingData7;
+int incomingData8;
+int incomingData9;
+int incomingData10;
+
+//Structure example to send data
+//Must match the receiver structure
+typedef struct struct_message {
+    int DP[60];
+} struct_message;
+
+// Create a struct_message to hold incoming sensor readings
+struct_message incomingReadings;
+
+
 
 //*****************************************************************************************
 // ESP Now Objects:
@@ -332,13 +355,33 @@ void configDeviceAP() {
   }
 }
 // callback when data is recv from Master
-void OnDataRecv(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
-  char macStr[18];
-  snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
-           mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
-  Serial.print("Last Packet Recv from: "); Serial.println(macStr);
-  Serial.print("Last Packet Recv Data: "); Serial.println(*data);
-  Serial.println("");
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
+  Serial.print("Bytes received: ");
+  Serial.println(len);
+  incomingData0 = incomingReadings.DP[0];
+  incomingData1 = incomingReadings.DP[1];
+  incomingData2 = incomingReadings.DP[2];
+  incomingData3 = incomingReadings.DP[3];
+  incomingData4 = incomingReadings.DP[4];
+  incomingData5 = incomingReadings.DP[5];
+  incomingData6 = incomingReadings.DP[6];
+  incomingData7 = incomingReadings.DP[7];
+  incomingData8 = incomingReadings.DP[8];
+  incomingData9 = incomingReadings.DP[9];
+  incomingData10 = incomingReadings.DP[10];
+  
+  Serial.println(incomingData0);
+  Serial.println(incomingData1);
+  Serial.println(incomingData2);
+  Serial.println(incomingData3);
+  Serial.println(incomingData4);
+  Serial.println(incomingData5);
+  Serial.println(incomingData6);
+  Serial.println(incomingData7);
+  Serial.println(incomingData8);
+  Serial.println(incomingData9);
+  Serial.println(incomingData10);
   digitalWrite(led, HIGH);
 }
 
@@ -364,8 +407,8 @@ void BlynkSetup() {
   Serial.println(WiFi.localIP());
   InitializeOTAUpdater();
   Serial.println("Connecting to Blynk Server");
-  Blynk.config(auth, server, 8080); // used to connect to blynk local pi server
-  //Blynk.config(auth); // used to connect to cloud blynk server - Jay Testing only
+  //Blynk.config(auth, server, 8080); // used to connect to blynk local pi server
+  Blynk.config(auth); // cloud blynk server - Jay Testing only
   int attemptcounter = 0;
   Blynk.connect(3333); // timeout set to ten seconds then continue without blynk
   while (!Connected2Blynk) {
@@ -3377,6 +3420,13 @@ void loop2(void *pvParameters) {
       RUNBLYNK = true;
       RESTARTBLYNK = false;
       BlynkSetup();
+    }
+    if (INGAME == true && ALLOWESPNOWINGAME == true) {
+      unsigned long CurrentMillis = millis();
+      if (CurrentMillis - 1000 > previousMillis) {
+        previousMillis = CurrentMillis;
+        digitalWrite(led, LOW);
+      }
     }
     delay(1); // this has to be here or the esp32 will just keep rebooting
   }
