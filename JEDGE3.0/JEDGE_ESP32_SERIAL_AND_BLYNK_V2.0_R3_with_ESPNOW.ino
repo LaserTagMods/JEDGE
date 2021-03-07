@@ -94,6 +94,9 @@
  * updated 02/15/2021 fixed the stealth option to turn of gun leds in game play
  * updated 02/15/2021 fixed score reporting to scoring device so the data is being sent properly over bridge
  * 
+ * 
+ * 
+ * 
  */
 /* Comment this out to disable prints and save space */
 #define BLYNK_PRINT Serial
@@ -107,8 +110,9 @@
 #include <ESPmDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
+#include <esp_now.h>
 //****************************************************************
-
+#define CHANNEL 1
 #define SERIAL1_RXPIN 16 // TO BRX TX and BLUETOOTH RX
 #define SERIAL1_TXPIN 17 // TO BRX RX and BLUETOOTH TX
 bool AllowTimeout = true; // if true, this enables automatic deep sleep of esp32 device if wifi or blynk not available on boot
@@ -267,6 +271,7 @@ bool ENABLEINGAMEESPNOW = false; // enables in game espnow communication - defau
 bool LOOT = false; // used to indicate a loot occured
 bool STEALTH = false; // used to turn off gun led side lights
 bool FAKESCORE = false; // 
+bool ALLOWESPNOWINGAME = true;
 
 
 long startScan = 0; // part of BLE enabling
@@ -282,6 +287,62 @@ const long ledinterval = 1500;  // interval at which to blink (milliseconds)
 
 bool WEAP = false; // not used anymore but was used to auto load gun settings on esp boot
 
+//*****************************************************************************************
+// ESP Now Objects:
+// Init ESP Now with fallback
+void InitESPNow() {
+  WiFi.disconnect();
+  if (esp_now_init() == ESP_OK) {
+    Serial.println("ESPNow Init Success");
+  }
+  else {
+    Serial.println("ESPNow Init Failed");
+    // Retry InitESPNow, add a counte and then restart?
+    InitESPNow();
+    // or Simply Restart
+    ESP.restart();
+  }
+}
+void StartESPNOW() {
+  Serial.println("ESPNow/Basic/Slave Example");
+  //Set device in AP mode to begin with
+  WiFi.mode(WIFI_AP);
+  // configure device AP mode
+  configDeviceAP();
+  // This is the mac address of the Slave in AP Mode
+  Serial.print("AP MAC: "); Serial.println(WiFi.softAPmacAddress());
+  // Init ESPNow with a fallback logic
+  InitESPNow();
+  // Once ESPNow is successfully Init, we will register for recv CB to
+  // get recv packer info.
+  esp_now_register_recv_cb(OnDataRecv);
+}
+
+// config AP SSID
+void configDeviceAP() {
+  String Prefix = "Slave:";
+  String Mac = WiFi.macAddress();
+  String SSID = Prefix + Mac;
+  String Password = "123456789";
+  bool result = WiFi.softAP(SSID.c_str(), Password.c_str(), CHANNEL, 0);
+  if (!result) {
+    Serial.println("AP Config failed.");
+  } else {
+    Serial.println("AP Config Success. Broadcasting with AP: " + String(SSID));
+  }
+}
+// callback when data is recv from Master
+void OnDataRecv(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
+  char macStr[18];
+  snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
+           mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+  Serial.print("Last Packet Recv from: "); Serial.println(macStr);
+  Serial.print("Last Packet Recv Data: "); Serial.println(*data);
+  Serial.println("");
+  digitalWrite(led, HIGH);
+}
+
+// switching back to wifi and blynk mode
 void BlynkSetup() {
   Serial.println("Starting Wifi");
   WiFi.mode(WIFI_STA);
@@ -1238,7 +1299,7 @@ void gameover() {
   Serial.println("disabling bool triggers");
   GAMEOVER = false;
   INGAME=false;
-  if (ENABLEINGAMEESPNOW) {
+  if (ALLOWESPNOWINGAME) {
     RESTARTBLYNK = true;
   }
   COUNTDOWN1=false;
@@ -3151,8 +3212,9 @@ int b=param.asInt();
     if (SetTeam == 100) {
       SetTeam=Team;
     }
-    if (ENABLEINGAMEESPNOW) {
+    if (ALLOWESPNOWINGAME) {
       STARTESPNOW = true;
+      RUNBLYNK = false;
     }
   }
   //AUDIO=true;
@@ -3226,6 +3288,15 @@ BLYNK_WRITE(V22) { // used for kill confirmations
     Serial.print("someone else got a kill, not me");
   }
 }
+BLYNK_WRITE(V23) {// Disable ESPNOW
+  int b=param.asInt();
+  if (b==1) {
+    ALLOWESPNOWINGAME = false; // default
+  }
+  if (b==0) {
+    ALLOWESPNOWINGAME = true;
+  }
+}
 //**************************************************************
 
 
@@ -3279,9 +3350,6 @@ void loop2(void *pvParameters) {
           teamkillconfirmation = random(0, 4); // prep for sending kill confirmation to server
           KILLCONFIRMATION = true; // enable kill confirmation sending to server
         }
-        // section for actions while in game, if ESPNOW is engaged,
-        // it is always listening to network coms
-        // delay(2000); // used to save power for the wifi while in game double forward slash to ensure ingame comms
       }
     }
     if (ENABLEOTAUPDATE) {
@@ -3300,6 +3368,15 @@ void loop2(void *pvParameters) {
           digitalWrite(led, ledState);  
         }
       }
+    }
+    if (STARTESPNOW) {
+      STARTESPNOW = false;
+      StartESPNOW();
+    }
+    if (RESTARTBLYNK) {
+      RUNBLYNK = true;
+      RESTARTBLYNK = false;
+      BlynkSetup();
     }
     delay(1); // this has to be here or the esp32 will just keep rebooting
   }
