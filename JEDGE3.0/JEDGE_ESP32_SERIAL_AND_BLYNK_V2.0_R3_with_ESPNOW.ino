@@ -3245,19 +3245,23 @@ if (INGAME==false){
 BLYNK_WRITE(V16) {// Start/Ends a game
 int b=param.asInt();
   if (b==0) {
-    GAMEOVER=true; 
-    Serial.println("ending game");
+    if (INGAME){
+      GAMEOVER=true; 
+      Serial.println("ending game");
+    }
   }
   // enable audio notification for changes
   if (b==1) {
-    GAMESTART=true; 
-    Serial.println("starting game");
-    if (SetTeam == 100) {
-      SetTeam=Team;
-    }
-    if (ALLOWESPNOWINGAME) {
-      STARTESPNOW = true;
-      RUNBLYNK = false;
+    if (!INGAME){
+      GAMESTART=true; 
+      Serial.println("starting game");
+      if (SetTeam == 100) {
+        SetTeam=Team;
+      }
+      if (ALLOWESPNOWINGAME) {
+        STARTESPNOW = true;
+        RUNBLYNK = false;
+      }
     }
   }
   //AUDIO=true;
