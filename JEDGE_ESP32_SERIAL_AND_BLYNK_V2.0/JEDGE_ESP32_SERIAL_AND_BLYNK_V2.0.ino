@@ -2404,6 +2404,8 @@ int b=param.asInt();
       Serial.println("Weapon Slot 0 set to Manual");
     }
     if (b > 1 && b < 50) {
+      GETSLOT1=false;
+      GETSLOT0=false;
       SetSlotA=b-1;
       Serial.println("Weapon Slot 0 set"); 
       if(SetSlotA < 10) {
@@ -2430,6 +2432,8 @@ BLYNK_WRITE(V1) {  // Sets Weapon Slot 1
       Serial.println("Weapon Slot 1 set to Manual");
     }
     if (b>1 && b < 50) {
+      GETSLOT1=false;
+      GETSLOT0=false;
       SetSlotB=b-1; 
       Serial.println("Weapon Slot 1 set"); 
       if(SetSlotB < 10) {
