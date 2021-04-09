@@ -91,6 +91,8 @@
  * updated 01/13/2021 put back in the end of game announcements to do count down timers 2 minute warning, one minute and final countdown.
  * updated 01/23/2021 added in the integration of IR for picking up weapons and getting random perks by base activation.
  * updated 04/08/2021 updated for stealth and visual confirmations etc and gen3 specific needs
+ * updated 04/09/2021 removed all conflicting espnow nonsense intended for JEDGE3.0 to make sure it isnt conflicting
+ * updated 04/09/2021 fixed auto exit from manual selection for weapons and teams when app sets teams while allowing selection
  * 
  */
 /* Comment this out to disable prints and save space */
@@ -272,167 +274,6 @@ const long ledinterval = 1500;  // interval at which to blink (milliseconds)
 bool WEAP = false; // not used anymore but was used to auto load gun settings on esp boot
 
 //*****************************************************************************************
-// ESP Now Objects:
-//*****************************************************************************************
-// for resetting mac address to custom address:
-uint8_t newMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x09}; 
-
-// REPLACE WITH THE MAC Address of your receiver, this is the address we will be sending to
-uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x09};
-
-// Define variables to store and to be sent
-int datapacket1;
-int datapacket2;
-int datapacket3;
-
-// Define variables to store incoming readings
-int incomingData1;
-int incomingData2;
-int incomingData3;
-
-// Variable to store if sending data was successful
-String success;
-
-//Structure example to send data
-//Must match the receiver structure
-typedef struct struct_message {
-    int DP1;
-    int DP2;
-    int DP3;
-} struct_message;
-
-// Create a struct_message called DataToBroadcast to hold sensor readings
-struct_message DataToBroadcast;
-
-// Create a struct_message to hold incoming sensor readings
-struct_message incomingReadings;
-
-// timer settings
-unsigned long ESPNOWCurrentMillis = 0;
-int ESPNOWinterval = 1000;
-long ESPNOWPreviousMillis = 0;
-
-// trigger for activating data broadcast
-bool BROADCASTESPNOW = false; 
-
-// Callback when data is sent
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  Serial.print("\r\nLast Packet Send Status:\t");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
-  if (status ==0){
-    success = "Delivery Success :)";
-  }
-  else{
-    success = "Delivery Fail :(";
-  }
-}
-
-// Callback when data is received
-void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
-  digitalWrite(2, HIGH);
-  Serial.print("Bytes received: ");
-  Serial.println(len);
-  incomingData1 = incomingReadings.DP1;
-  incomingData2 = incomingReadings.DP2;
-  incomingData3 = incomingReadings.DP3;
-  Serial.println("DP1: " + String(incomingData1));
-  Serial.println("DP2: " + String(incomingData2));
-  Serial.println("DP3: " + String(incomingData3));
-  if (incomingData1 == GunID) { // data checked out to be intended for this player ID
-    if (incomingData2 = 9999) { // if true, this is a kill confirmation
-      MyKills++; // accumulate one kill count
-      AudioSelection="VN8"; // set audio play for "kill confirmed
-      AUDIO=true;
-      AudioDelay = 2000;
-      AudioPreviousMillis = millis();
-      if (GameMode == 4) {
-        // apply weapon pick up from kill  
-        SpecialWeapon = incomingData3;
-        // Enable special weapon load by select button
-        SELECTCONFIRM = true; // enables trigger for select button
-        SPECIALWEAPONLOADOUT = true;
-        SelectButtonTimer = millis();
-        AudioSelection1="VA9B"; // set audio playback to "press select button"   
-      }
-    }
-  }
-  
-}
-
-// object to generate random numbers to send
-void getReadings(){
-  // setting bogus values to send for testing only
-  //datapacket1 = random(1-10);
-  //datapacket2 = random(11-20);
-  //datapacket3 = random(21-30);
-
-  // Set values to send
-  DataToBroadcast.DP1 = datapacket1;
-  DataToBroadcast.DP2 = datapacket2;
-  DataToBroadcast.DP3 = datapacket3;
-}
-
-// object for broadcasting the data packets
-void BroadcastData() {
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &DataToBroadcast, sizeof(DataToBroadcast));
-  if (result == ESP_OK) {
-    Serial.println("Sent with success");
-  }
-  else {
-    Serial.println("Error sending the data");
-  }
-}
-
-// object to used to change esp default mac to custom mac
-void ChangeMACaddress() {
-  WiFi.mode(WIFI_STA);
-  
-  Serial.print("[OLD] ESP32 Board MAC Address:  ");
-  Serial.println(WiFi.macAddress());
-  
-  esp_wifi_set_mac(ESP_IF_WIFI_STA, &newMACAddress[0]);
-  
-  Serial.print("[NEW] ESP32 Board MAC Address:  ");
-  Serial.println(WiFi.macAddress());
-}
-
-void IntializeESPNOW() {
-    // Set up the onboard LED
-  pinMode(2, OUTPUT);
-  
-  // run the object for changing the esp default mac address
-  ChangeMACaddress();
-  
-  // Set device as a Wi-Fi Station
-  WiFi.mode(WIFI_STA);
-  
-  // Init ESP-NOW
-  if (esp_now_init() != ESP_OK) {
-    Serial.println("Error initializing ESP-NOW");
-    return;
-  }
-  
-  // Once ESPNow is successfully Init, we will register for Send CB to
-  // get the status of Trasnmitted packet
-  esp_now_register_send_cb(OnDataSent);  
-  
-  // Register peer
-  esp_now_peer_info_t peerInfo;
-  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-  peerInfo.channel = 0;   // this is the channel being used
-  peerInfo.encrypt = false;
-  
-  // Add peer        
-  if (esp_now_add_peer(&peerInfo) != ESP_OK){
-    Serial.println("Failed to add peer");
-    return;
-  }
-  
-  // Register for a callback function that will be called when data is received
-  esp_now_register_recv_cb(OnDataRecv);
-}
-
 void BlynkSetup() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pass);
@@ -1390,9 +1231,6 @@ void gameover() {
   Serial.println("disabling bool triggers");
   GAMEOVER = false;
   INGAME=false;
-  if (ENABLEINGAMEESPNOW) {
-    RESTARTBLYNK = true;
-  }
   COUNTDOWN1=false;
   COUNTDOWN2=false;
   COUNTDOWN3=false;
@@ -3293,10 +3131,6 @@ int b=param.asInt();
       if (SetTeam == 100) {
         SetTeam=Team;
       }
-      //if (ALLOWESPNOWINGAME) {
-        //STARTESPNOW = true;
-        //RUNBLYNK = false;
-      //}
     }
   }
   //AUDIO=true;
@@ -3408,22 +3242,6 @@ BLYNK_WRITE(V23) {// Player/Team Selector
     }
   }
 }
-BLYNK_WRITE(V24) {// Sheilds
-int b=param.asInt();
-if (b==1) {
-        
-        }
-}
-
-BLYNK_WRITE(V25) { // ESP Now In Game
-  int b = param.asInt();
-  if (b == 0) {
-    ENABLEINGAMEESPNOW = true; // default
-  }
-  if (b == 1) {
-    ENABLEINGAMEESPNOW = false;
-  }
-}
 //**************************************************************
 
 
@@ -3464,8 +3282,6 @@ void loop2(void *pvParameters) {
         CheckBlynkConnection.run();
       }
       if (INGAME) {
-        // section for actions while in game, if ESPNOW is engaged,
-        // it is always listening to network coms
         delay(2000);
       }
     }
@@ -3485,19 +3301,6 @@ void loop2(void *pvParameters) {
           digitalWrite(led, ledState);  
         }
       }
-    }
-    if (STARTESPNOW) { // checks if were switching to in field espnow networking
-      STARTESPNOW = false; // disable the trigger
-      IntializeESPNOW(); // run the espnow object for setting up the wifi settings
-    }
-    if (RESTARTBLYNK) { // checks if we need to go back to blynk now
-      RESTARTBLYNK = false; // disable the trigger
-      BlynkSetup(); // run the wifi and blynk setup object until it connects
-    }
-    if (BROADCASTESPNOW) {
-      BROADCASTESPNOW = false;
-      BroadcastData(); // sending data via ESPNOW
-      Serial.println("Sent Data Via ESPNOW");
     }
     delay(1); // this has to be here or the esp32 will just keep rebooting
   }
