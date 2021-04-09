@@ -2266,17 +2266,7 @@ void ProcessBRXData() {
       if ((tokenStrings[1] == "0") && (tokenStrings[2] == "0") && (tokenStrings[3] == "0")) { // player is dead
         if (HASFLAG) { HASFLAG = false; AudioSelection1 = "VA2I"; AUDIO1 = true;}
         PlayerKillCount[lastTaggedPlayer]++; // adding a point to the last player who killed us
-        if (ENABLEINGAMEESPNOW) {
-          datapacket1 = lastTaggedPlayer; // setting an identifier for who recieves the tag
-          datapacket2 = 9999; // identifier to tell player they got a kill
-          if (GameMode == 4) {
-            datapacket3 = PreviousSpecialWeapon; // current special weapon equiped
-          } else {
-            datapacket3 = 0; // null action to send
-          }
-          getReadings();
-          BROADCASTESPNOW = true;
-        }
+        // insert kill confirmation via blynk server here
         TeamKillCount[lastTaggedTeam]++; // adding a point to the team who caused the last kill
         PlayerLives--; // taking our preset lives and subtracting one life then talking about it on the monitor
         Deaths++;
