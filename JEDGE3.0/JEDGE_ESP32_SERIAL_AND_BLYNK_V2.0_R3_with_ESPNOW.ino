@@ -6,8 +6,6 @@
  * this devices uses the serial communication to set tagger and game configuration settings
  * Note the sections labeled *****IMPORTANT***** as it requires customization on your part
  *
- * Wifi data from a blynk server triggers configurable tagger settings
- *
  * Serial data sent to an LCD is also intended
  * 
  * For OTA Updates: be sure to download the latest python build and install with the option to add "python to path" this allows your pc to upload OTA
@@ -90,67 +88,49 @@
  * updated 01/12/2021 added terminal integration for sending commands from terminal to push commands to taggers, also added blynking led on esp while awaiting OTA update
  * updated 01/13/2021 put back in the end of game announcements to do count down timers 2 minute warning, one minute and final countdown.
  * updated 01/23/2021 added in the integration of IR for picking up weapons and getting random perks by base activation.
- * updated 02/10/2021 fixed a ton of bugs from austin and paul, mostly gen3 fixes for headset and communication also fixed lights on and off before and after games
- * updated 02/15/2021 fixed the stealth option to turn of gun leds in game play
- * updated 02/15/2021 fixed score reporting to scoring device so the data is being sent properly over bridge
- * updated 03/07/2021 added in the espnow settings as a default for in game play
- * updated 03/07/2021 changed default game time to 3 minutes
- * 
- * 
- * 
+ * updated 04/08/2021 updated for stealth and visual confirmations etc and gen3 specific needs
+ * updated 04/08/2021 removed all blynk applications and prioritized interrupt with ESPNOW for applying settings
+ *                    removed OTA update for now for simplicity, can add back in later.
+ * updated 04/16/2021 added in all the webserver objects and declarations and started working on app-less controls
+ *                    added some of the menu options for controls and tested between two esps
+ *                    
+ *                    
  */
-/* Comment this out to disable prints and save space */
-#define BLYNK_PRINT Serial
 
-//****************************************************************
-// libraries to include:
+//*************************************************************************
+//********************* LIBRARY INCLUSIONS - ALL **************************
+//*************************************************************************
 #include <HardwareSerial.h>
 #include <WiFi.h>
-#include <WiFiClient.h>
-#include <BlynkSimpleEsp32.h>
-#include <ESPmDNS.h>
-#include <WiFiUdp.h>
-#include <ArduinoOTA.h>
 #include <esp_now.h>
+#include <esp_wifi.h> // needed for resetting the mac address
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 //****************************************************************
-#define CHANNEL 1
+
+
+
 #define SERIAL1_RXPIN 16 // TO BRX TX and BLUETOOTH RX
 #define SERIAL1_TXPIN 17 // TO BRX RX and BLUETOOTH TX
 bool AllowTimeout = true; // if true, this enables automatic deep sleep of esp32 device if wifi or blynk not available on boot
 int BaudRate = 57600; // 115200 is for GEN2/3, 57600 is for GEN1, this is set automatically based upon user input
-// testing only for jay:
-char ssid[] = "maxipad"; // this is needed for your wifi credentials
-//char pass[] = "Sandybuttes!"; // this is needed for your wifi credentials
-char auth[] = "p8YBnsPWJ8MokfwUcHzRg4TaVcwuXQTr"; // jayeburden cloud server
-//char auth[] = "a5AVNp-BOw8SItRUo3JRsV67HoZrvkmH"; // user jedge@jedge.com
-char scoredevice[] = "LaJHPkah4L-AveBwJ4fywg_Hu8rbSbwx"; //
-// testing section done
-// Attach virtual serial terminal to Virtual Pin V1
-WidgetTerminal terminal(V2);
-WidgetBridge bridge1(V1);
-BLYNK_CONNECTED() {
-  //bridge1.setAuthToken(scoredevice); // Token of the device 2 or scoring device
-  //bridge1.setAuthToken("Master-Controller"); // Token of the device 2 or scoring device
-  //bridge1.setAuthToken("p8YBnsPWJ8MokfwUcHzRg4TaVcwuXQTr"); // Token of the device 2 or scoring device
-  bridge1.setAuthToken("BFtL4hUCqAGjQpe6CBabW_JslSV13CLg"); // Token of the device 2 or scoring device
-}
+
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
-int GunID = 9; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
-char GunName[] = "GUN#9"; // used for OTA id recognition on network
-//char ssid[] = "JEDGE"; // this is needed for your wifi credentials
-char pass[] = "9165047812"; // this is needed for your wifi credentials
-char server[] = "192.168.50.2"; // this is the ip address of your local server (PI or PC)
+int GunID = 0; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
 int GunGeneration = 2; // change to gen 1, 2, 3
-bool ALLOWESPNOWINGAME = true; // set for true or false to have as a default setting on start up use false if wanting blynk based in game score reporting
+// Replace with your network credentials
+const char* ssid = "Gun_0";
+const char* password = "123456789";
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
-BlynkTimer CheckBlynkConnection; // created a timer object used for checking blynk server connection status
-
 //****************************************************************
+
+
+
 // definitions for analyzing incoming brx serial data
 String readStr; // the incoming data is stored as this string
 String tokenStrings[100]; // once processed the data is broken up into this string array for use
@@ -167,7 +147,7 @@ int SetLives=32000; // used for configuring lives
 int SetSlotC=0; // this is for weapon slot 3 Respawns Etc.
 int SetSlotD = 0; // this is used for perk IR tag
 int SetTeam=0; // used to configure team player settings, default is 0
-long SetTime=180000; // used for in game timer functions on esp32 (future
+long SetTime=2000000000; // used for in game timer functions on esp32 (future
 int SetODMode=0; // used to set indoor and outdoor modes (default is on)
 int SetGNDR=0; // used to change player to male 0/female 1, male is default 
 int SetRSPNMode; // used to set auto or manual respawns from bases/ir (future)
@@ -178,9 +158,6 @@ int SetFF=1; // set game to friendly fire on/off (default is on)
 int SetVol=80; // set tagger volume adjustment, default is 65
 int CurrentWeapSlot; // used for indicating what weapon slot is being used, primarily for unlimited ammo
 int ReloadType; // used for unlimited ammo... maybe 10 is for unlimited
-int ErrorCounter = 0; // used to determine if we have a bad blynk connection in game
-int WiFiResetCount = 0; // used to count how many times we had the blynk server disconnect and had to reset wifi
-int PreviousWiFiResetCount = 0; // same as above
 int SwapBRXCounter = 0; // used for weapon swaps in game for all weapons
 int totalweapons = 19; // counter used for weapon count, needs to be updated if i ever add more weapons
 bool SWAPBRX = false; // used as trigger to enable/disable swapbrx mode
@@ -216,11 +193,7 @@ bool PERK = false; // used to trigger audio perk
 String TerminalInput; // used for sending incoming terminal widget text to Tagger
 bool TERMINALINPUT = false; // used to trigger sending terminal input to tagger
 bool WRITETOTERMINAL = false; // used to write to terminal
-bool KILLCONFIRMATION = false;
 
-
-int playerkillconfirmation = -1; // used for reporting score over wifi in game
-int teamkillconfirmation = -1; // used for reporting score over wifi in game
 int lastTaggedPlayer = -1;  // used to capture player id who last shot gun, for kill count attribution
 int lastTaggedTeam = -1;  // used to captures last player team who shot gun, for kill count attribution
 int lastTaggedBase = -1; // used to capture last base used for swapbrx etc.
@@ -260,17 +233,11 @@ bool ENABLEOTAUPDATE = false; // enables the loop for updating OTA
 bool INITIALIZEOTA = false; // enables the object to disable BLE and enable WiFi
 bool SPECIALWEAPON = false;
 bool HASFLAG = false; // used for capture the flag
-bool Connected2Blynk = false;
 bool SELECTCONFIRM = false; // used for using select button to confirm an action
 bool SPECIALWEAPONLOADOUT = false; // used for enabling special weapon loading
 bool AMMOPOUCH = false; // used for enabling reload of a weapon
-bool STARTESPNOW = false;
-bool RESTARTBLYNK = false;
-bool RUNBLYNK = true;
-bool ENABLEINGAMEESPNOW = false; // enables in game espnow communication - default is on
 bool LOOT = false; // used to indicate a loot occured
 bool STEALTH = false; // used to turn off gun led side lights
-bool FAKESCORE = false; //
 
 
 long startScan = 0; // part of BLE enabling
@@ -283,157 +250,863 @@ int ledState = LOW;  // ledState used to set the LED
 unsigned long ledpreviousMillis = 0;  // will store last time LED was updated
 const long ledinterval = 1500;  // interval at which to blink (milliseconds)
 
+
 bool WEAP = false; // not used anymore but was used to auto load gun settings on esp boot
-
-
-// Define variables to store incoming readings
-int incomingData0;
-int incomingData1;
-int incomingData2;
-int incomingData3;
-int incomingData4;
-int incomingData5;
-int incomingData6;
-int incomingData7;
-int incomingData8;
-int incomingData9;
-int incomingData10;
-
-//Structure example to send data
-//Must match the receiver structure
-typedef struct struct_message {
-    int DP[60];
-} struct_message;
-
-// Create a struct_message to hold incoming sensor readings
-struct_message incomingReadings;
-
 
 
 //*****************************************************************************************
 // ESP Now Objects:
-// Init ESP Now with fallback
-void InitESPNow() {
-  WiFi.disconnect();
-  if (esp_now_init() == ESP_OK) {
-    Serial.println("ESPNow Init Success");
+//*****************************************************************************************
+// for resetting mac address to custom address:
+uint8_t newMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x09}; 
+
+// REPLACE WITH THE MAC Address of your receiver, this is the address we will be sending to
+uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x09};
+
+
+// Register peer
+esp_now_peer_info_t peerInfo;
+
+// Define variables to store and to be sent
+int datapacket1 = 99; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases - 200 - 203 for teams 0-3
+int datapacket2 = 32000; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
+int datapacket3 = GunID; // From - device ID
+
+// Define variables to store incoming readings
+int incomingData1; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases
+int incomingData2; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
+int incomingData3; // From - device ID
+
+// Variable to store if sending data was successful
+String success;
+
+//Structure example to send data
+//Must match the receiver structure
+typedef struct struct_message {
+    int DP1; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases - 200 - 203 for teams 0-3
+    int DP2; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
+    int DP3; // From - device ID
+} struct_message;
+
+// Create a struct_message called DataToBroadcast to hold sensor readings
+struct_message DataToBroadcast;
+
+// Create a struct_message to hold incoming sensor readings
+struct_message incomingReadings;
+
+// timer settings
+unsigned long ESPNOWCurrentMillis = 0;
+int ESPNOWinterval = 1000;
+long ESPNOWPreviousMillis = 0;
+
+// trigger for activating data broadcast
+bool BROADCASTESPNOW = false; 
+
+// Callback when data is sent
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  Serial.print("\r\nLast Packet Send Status:\t");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+  if (status ==0){
+    success = "Delivery Success :)";
   }
-  else {
-    Serial.println("ESPNow Init Failed");
-    // Retry InitESPNow, add a counte and then restart?
-    InitESPNow();
-    // or Simply Restart
-    ESP.restart();
+  else{
+    success = "Delivery Fail :(";
   }
 }
-void StartESPNOW() {
-  Serial.println("ESPNow/Basic/Slave Example");
-  //Set device in AP mode to begin with
-  WiFi.mode(WIFI_AP);
-  // configure device AP mode
-  configDeviceAP();
-  // This is the mac address of the Slave in AP Mode
-  Serial.print("AP MAC: "); Serial.println(WiFi.softAPmacAddress());
-  // Init ESPNow with a fallback logic
-  InitESPNow();
-  // Once ESPNow is successfully Init, we will register for recv CB to
-  // get recv packer info.
+
+
+
+
+// Callback when data is received
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
+  //digitalWrite(2, HIGH);
+  Serial.print("Bytes received: ");
+  Serial.println(len);
+  incomingData1 = incomingReadings.DP1; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases - 200 - 203 for teams 0-3
+  incomingData2 = incomingReadings.DP2; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
+  incomingData3 = incomingReadings.DP3; // From
+  Serial.println("DP1: " + String(incomingData1)); // INTENDED RECIPIENT
+  Serial.println("DP2: " + String(incomingData2)); // FUNCTION/COMMAN
+  Serial.println("DP3: " + String(incomingData3)); // From - device ID
+  ProcessIncomingCommands();
+}
+
+// object to generate random numbers to send
+void getReadings(){
+  // Set values to send
+  DataToBroadcast.DP1 = datapacket1;
+  DataToBroadcast.DP2 = datapacket2;
+  DataToBroadcast.DP3 = datapacket3;
+}
+
+void ResetReadings() {
+  datapacket1 = 99; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases - 200 - 203 for teams 0-3
+  datapacket2 = 32000; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
+  datapacket3 = GunID; // From - device ID
+}
+
+// object for broadcasting the data packets
+void BroadcastData() {
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &DataToBroadcast, sizeof(DataToBroadcast));
+  if (result == ESP_OK) {
+    Serial.println("Sent with success");
+  }
+  else {
+    Serial.println("Error sending the data");
+  }
+}
+
+// object to used to change esp default mac to custom mac
+void ChangeMACaddress() {
+  //WiFi.mode(WIFI_STA);
+  
+  Serial.print("[OLD] ESP32 Board MAC Address:  ");
+  Serial.println(WiFi.macAddress());
+  
+  esp_wifi_set_mac(ESP_IF_WIFI_STA, &newMACAddress[0]);
+  
+  Serial.print("[NEW] ESP32 Board MAC Address:  ");
+  Serial.println(WiFi.macAddress());
+}
+
+void IntializeESPNOW() {
+    // Set up the onboard LED
+  pinMode(2, OUTPUT);
+  
+  // run the object for changing the esp default mac address
+  ChangeMACaddress();
+  
+  // Set device as a Wi-Fi Station
+  //WiFi.mode(WIFI_STA);
+  
+  // Init ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+  
+  // Once ESPNow is successfully Init, we will register for Send CB to
+  // get the status of Trasnmitted packet
+  esp_now_register_send_cb(OnDataSent);  
+  
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  peerInfo.channel = 0;   // this is the channel being used
+  peerInfo.encrypt = false;
+  
+  // Add peer        
+  if (esp_now_add_peer(&peerInfo) != ESP_OK){
+    Serial.println("Failed to add peer");
+    return;
+  }
+  
+  // Register for a callback function that will be called when data is received
   esp_now_register_recv_cb(OnDataRecv);
 }
 
-// config AP SSID
-void configDeviceAP() {
-  String Prefix = "Slave:";
-  String Mac = WiFi.macAddress();
-  String SSID = Prefix + Mac;
-  String Password = "123456789";
-  bool result = WiFi.softAP(SSID.c_str(), Password.c_str(), CHANNEL, 0);
-  if (!result) {
-    Serial.println("AP Config failed.");
-  } else {
-    Serial.println("AP Config Success. Broadcasting with AP: " + String(SSID));
-  }
-}
-// callback when data is recv from Master
-void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
-  Serial.print("Bytes received: ");
-  Serial.println(len);
-  incomingData0 = incomingReadings.DP[0];
-  incomingData1 = incomingReadings.DP[1];
-  incomingData2 = incomingReadings.DP[2];
-  incomingData3 = incomingReadings.DP[3];
-  incomingData4 = incomingReadings.DP[4];
-  incomingData5 = incomingReadings.DP[5];
-  incomingData6 = incomingReadings.DP[6];
-  incomingData7 = incomingReadings.DP[7];
-  incomingData8 = incomingReadings.DP[8];
-  incomingData9 = incomingReadings.DP[9];
-  incomingData10 = incomingReadings.DP[10];
-  
-  Serial.println(incomingData0);
-  Serial.println(incomingData1);
-  Serial.println(incomingData2);
-  Serial.println(incomingData3);
-  Serial.println(incomingData4);
-  Serial.println(incomingData5);
-  Serial.println(incomingData6);
-  Serial.println(incomingData7);
-  Serial.println(incomingData8);
-  Serial.println(incomingData9);
-  Serial.println(incomingData10);
-  digitalWrite(led, HIGH);
-}
+//****************************************************8
+// WebServer 
+//****************************************************
+int WebSocketData;
+bool LEDState = 0;
+const int ledPin = 2;
+int Menu[25]; // used for menu settings storage
 
-// switching back to wifi and blynk mode
-void BlynkSetup() {
-  Serial.println("Starting Wifi");
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, pass);
-  int wifiattempts = 0;
-  while(WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-    if (millis() > 120000 && AllowTimeout == true) {
-      Serial.println("Too many attempts to reach wifi network");
-      Serial.println("Enabling Deep Sleep");
-      delay(500);
-      esp_deep_sleep_start();
+
+// Create AsyncWebServer object on port 80
+AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
+
+const char index_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE HTML><html>
+<head>
+  <title>ESP Web Server</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <style>
+  html {
+    font-family: Arial, Helvetica, sans-serif;
+    text-align: center;
+  }
+  h1 {
+    font-size: 1.8rem;
+    color: white;
+  }
+  h2{
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #143642;
+  }
+  .topnav {
+    overflow: hidden;
+    background-color: #143642;
+  }
+  body {
+    margin: 0;
+  }
+  .content {
+    padding: 30px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .card {
+    background-color: #F8F7F9;;
+    box-shadow: 2px 2px 12px 1px rgba(140,140,140,.5);
+    padding-top:10px;
+    padding-bottom:20px;
+  }
+  .button {
+    padding: 15px 50px;
+    font-size: 24px;
+    text-align: center;
+    outline: none;
+    color: #fff;
+    background-color: #0f8b8d;
+    border: none;
+    border-radius: 5px;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+   }
+   /*.button:hover {background-color: #0f8b8d}*/
+   .button:active {
+     background-color: #0f8b8d;
+     box-shadow: 2 2px #CDCDCD;
+     transform: translateY(2px);
+   }
+   .state {
+     font-size: 1.5rem;
+     color:#8c8c8c;
+     font-weight: bold;
+   }
+  </style>
+<title>JEDGE 3.0</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+</head>
+<body>
+  <div class="topnav">
+    <h1>JEDGE 3.0</h1>
+  </div>
+  <div class="content">
+    <div class="card">
+      <h2>Primary Weapon</h2>
+      <p class="state">Selected: <span id="W0">%WEAP0%</span></p>
+      <p><button id="weapon0" class="button">Toggle</button></p>
+    </div>
+    <div class="card">
+      <h2>Secondary Weapon</h2>
+      <p class="state">Selected: <span id="W1">%WEAP1%</span></p>
+      <p><button id="weapon1" class="button">Toggle</button></p>
+    </div>
+    <div class="card">
+      <h2>Player Lives</h2>
+      <p class="state">Selected: <span id="L0">%LVS0%</span></p>
+      <p><button id="lives0" class="button">Toggle</button></p>
+    </div>
+    <div class="card">
+      <h2>Game Time/Length</h2>
+      <p class="state">Selected: <span id="GT">%GTM%</span></p>
+      <p><button id="gtime0" class="button">Toggle</button></p>
+    </div>
+    <div class="card">
+      <h2>Ambience/Lighting</h2>
+      <p class="state">Selected: <span id="AMB">%OUTDR%</span></p>
+      <p><button id="ambience" class="button">Toggle</button></p>
+    </div>
+    <div class="card">
+      <h2>Team Settings</h2>
+      <p class="state">Selected: <span id="TM">%TEAM%</span></p>
+      <p><button id="teams0" class="button">Toggle</button></p>
+    </div>
+  </div>
+<script>
+  var gateway = `ws://${window.location.hostname}/ws`;
+  var websocket;
+  window.addEventListener('load', onLoad);
+  function initWebSocket() {
+    console.log('Trying to open a WebSocket connection...');
+    websocket = new WebSocket(gateway);
+    websocket.onopen    = onOpen;
+    websocket.onclose   = onClose;
+    websocket.onmessage = onMessage; // <-- add this line
+  }
+  function onOpen(event) {
+    console.log('Connection opened');
+  }
+  function onClose(event) {
+    console.log('Connection closed');
+    setTimeout(initWebSocket, 2000);
+  }
+  function onMessage(event) {
+    var TM;
+    var W0;
+    var W1;
+    var L0;
+    var GT;
+    var AMB;
+    if (event.data == "1"){
+      W0 = "Manual Selection";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "2"){
+      W0 = "Unarmed";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "3"){
+      W0 = "AMR";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "4"){
+      W0 = "Assault Rifle";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "5"){
+      W0 = "Bolt Rifle";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "6"){
+      W0 = "Burst Rifle";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "7"){
+      W0 = "Charge Rifle";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "8"){
+      W0 = "Energy Launcher";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "9"){
+      W0 = "Energy Rifle";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "10"){
+      W0 = "Force Rifle";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "11"){
+      W0 = "Ion Sniper";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "12"){
+      W0 = "Laser Cannon";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "13"){
+      W0 = "Plasma Sniper";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "14"){
+      W0 = "Rail Gun";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "15"){
+      W0 = "Rocket Launcher";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "16"){
+      W0 = "Shotgun";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "17"){
+      W0 = "SMG";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "18"){
+      W0 = "Sniper Rifle";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "19"){
+      W0 = "Stinger";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "20"){
+      W0 = "Suppressor";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "21"){
+      W0 = "Pistol";
+      document.getElementById('W0').innerHTML = W0;
+    }
+    if (event.data == "101"){
+      W1 = "Manual Selection";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "102"){
+      W1 = "Unarmed";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "103"){
+      W1 = "AMR";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "104"){
+      W1 = "Assault Rifle";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "105"){
+      W1 = "Bolt Rifle";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "106"){
+      W1 = "Burst Rifle";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "107"){
+      W1 = "Charge Rifle";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "108"){
+      W1 = "Energy Launcher";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "109"){
+      W1 = "Energy Rifle";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "110"){
+      W1 = "Force Rifle";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "111"){
+      W1 = "Ion Sniper";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "112"){
+      W1 = "Laser Cannon";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "113"){
+      W1 = "Plasma Sniper";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "114"){
+      W1 = "Rail Gun";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "115"){
+      W1 = "Rocket Launcher";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "116"){
+      W1 = "Shotgun";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "117"){
+      W1 = "SMG";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "118"){
+      W1 = "Sniper Rifle";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "119"){
+      W1 = "Stinger";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "120"){
+      W1 = "Suppressor";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "121"){
+      W1 = "Pistol";
+      document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "207"){
+      L0 = "Unlimited";
+      document.getElementById('L0').innerHTML = L0;
+    }
+    if (event.data == "206"){
+      L0 = "25";
+      document.getElementById('L0').innerHTML = L0;
+    }
+    if (event.data == "205"){
+      L0 = "15";
+      document.getElementById('L0').innerHTML = L0;
+    }
+    if (event.data == "204"){
+      L0 = "10";
+      document.getElementById('L0').innerHTML = L0;
+    }
+    if (event.data == "203"){
+      L0 = "5";
+      document.getElementById('L0').innerHTML = L0;
+    }
+    if (event.data == "202"){
+      L0 = "3";
+      document.getElementById('L0').innerHTML = L0;
+    }
+    if (event.data == "201"){
+      L0 = "1";
+      document.getElementById('L0').innerHTML = L0;
+    }
+    if (event.data == "301"){
+      GT = "1 Minute";
+      document.getElementById('GT').innerHTML = GT;
+    }
+    if (event.data == "302"){
+      GT = "5 Minutes";
+      document.getElementById('GT').innerHTML = GT;
+    }
+    if (event.data == "303"){
+      GT = "10 Minutes";
+      document.getElementById('GT').innerHTML = GT;
+    }
+    if (event.data == "304"){
+      GT = "15 Minutes";
+      document.getElementById('GT').innerHTML = GT;
+    }
+    if (event.data == "305"){
+      GT = "20 Minutes";
+      document.getElementById('GT').innerHTML = GT;
+    }
+    if (event.data == "306"){
+      GT = "25 Minutes";
+      document.getElementById('GT').innerHTML = GT;
+    }
+    if (event.data == "307"){
+      GT = "30 Minutes";
+      document.getElementById('GT').innerHTML = GT;
+    }
+    if (event.data == "308"){
+      GT = "Unlimited";
+      document.getElementById('GT').innerHTML = GT;
+    }
+    if (event.data == "401"){
+      AMB = "Outdoor Mode";
+      document.getElementById('AMB').innerHTML = AMB;
+    }
+    if (event.data == "402"){
+      AMB = "Indoor Mode";
+      document.getElementById('AMB').innerHTML = AMB;
+    }
+    if (event.data == "403"){
+      AMB = "Stealth Mode";
+      document.getElementById('AMB').innerHTML = AMB;
+    }
+    if (event.data == "501"){
+      TM = "Free For All";
+      document.getElementById('TM').innerHTML = TM;
+    }
+    if (event.data == "502"){
+      TM = "Two Teams (odds/evens)";
+      document.getElementById('TM').innerHTML = TM;
+    }
+    if (event.data == "503"){
+      TM = "Three Teams (every 3rd)";
+      document.getElementById('TM').innerHTML = TM;
+    }
+    if (event.data == "504"){
+      TM = "Four Teams (every 4th)";
+      document.getElementById('TM').innerHTML = TM;
+    }
+    if (event.data == "505"){
+      TM = "Manual Selection";
+      document.getElementById('TM').innerHTML = TM;
     }
   }
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-  InitializeOTAUpdater();
-  Serial.println("Connecting to Blynk Server");
-  //Blynk.config(auth, server, 8080); // used to connect to blynk local pi server
-  Blynk.config(auth); // cloud blynk server - Jay Testing only
-  int attemptcounter = 0;
-  Blynk.connect(3333); // timeout set to ten seconds then continue without blynk
-  while (!Connected2Blynk) {
-     //wait until connected
-     Connected2Blynk = Blynk.connect();
-     attemptcounter++;
-     Serial.println("Blynk Connection Attempts = " + String(attemptcounter));
-     if (attemptcounter > 10 && AllowTimeout == true) {
-      Serial.println("Too many attempts to reach server on start up, putting device to sleep");
-      Serial.println("Enabling Deep Sleep");
-      delay(500);
-      esp_deep_sleep_start();
-     }
+  function onLoad(event) {
+    initWebSocket();
+    initButton();
   }
-  Serial.println("");
-  CheckBlynkConnection.setInterval(2500L, CheckConnection); // checking blynk connection
-  Serial.println("Connected to Blynk Server");
-  Serial.println("...");
-  Serial.println();
-  Serial.println("Initializing serial output settings, Tagger Generation set to Gen: " + String(GunGeneration));
-  if (GunGeneration > 1) {
-    BaudRate = 115200;
+  function initButton() {
+    document.getElementById('weapon0').addEventListener('click', toggle0);
+    document.getElementById('weapon1').addEventListener('click', toggle1);
+    document.getElementById('lives0').addEventListener('click', toggle2);
+    document.getElementById('gtime0').addEventListener('click', toggle3);
+    document.getElementById('ambience').addEventListener('click', toggle4);
+    document.getElementById('teams0').addEventListener('click', toggle5);
+  }
+  function toggle0(){
+    websocket.send('toggle0');
+  }
+  function toggle1(){
+    websocket.send('toggle1');
+  }
+  function toggle2(){
+    websocket.send('toggle2');
+  }
+  function toggle3(){
+    websocket.send('toggle3');
+  }
+  function toggle4(){
+    websocket.send('toggle4');
+  }
+  function toggle5(){
+    websocket.send('toggle5');
+  }
+</script>
+</body>
+</html>
+)rawliteral";
+
+void notifyClients() {
+  ws.textAll(String(WebSocketData));
+}
+
+void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
+  AwsFrameInfo *info = (AwsFrameInfo*)arg;
+  if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+    data[len] = 0;
+    if (strcmp((char*)data, "toggle0") == 0) {
+      if (Menu[0] > 20) {
+        Menu[0] = 1;
+      } else {
+        Menu[0]++;
+      }
+      WebSocketData = Menu[0];
+      notifyClients();
+      Serial.println("Weapon 0= " + String(Menu[0]));
+      datapacket2 = Menu[0];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
+    }
+    if (strcmp((char*)data, "toggle1") == 0) {
+      if (Menu[1] > 119) {
+        Menu[1] = 101;
+      } else {
+        Menu[1]++;
+      }
+      WebSocketData = Menu[1];
+      notifyClients();
+      Serial.println("Weapon 1 = " + String(Menu[1]));
+      datapacket2 = Menu[1];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
+    }
+    if (strcmp((char*)data, "toggle2") == 0) {
+      if (Menu[2] > 206) {
+        Menu[2] = 201;
+      } else {
+        Menu[2]++;
+      }
+      WebSocketData = Menu[2];
+      notifyClients();
+      Serial.println("Lives Menu = " + String(Menu[2]));
+      datapacket2 = Menu[2];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
+    }
+    if (strcmp((char*)data, "toggle3") == 0) {
+      if (Menu[3] > 307) {
+        Menu[3] = 301;
+      } else {
+        Menu[3]++;
+      }
+      WebSocketData = Menu[3];
+      notifyClients();
+      Serial.println("GAME TIME Menu = " + String(Menu[3]));
+      datapacket2 = Menu[3];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
+    }
+    if (strcmp((char*)data, "toggle4") == 0) {
+      if (Menu[4] > 402) {
+        Menu[4] = 401;
+      } else {
+        Menu[4]++;
+      }
+      WebSocketData = Menu[4];
+      notifyClients();
+      Serial.println("AMBIENCE Menu = " + String(Menu[4]));
+      datapacket2 = Menu[4];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
+    }
+    if (strcmp((char*)data, "toggle5") == 0) {
+      if (Menu[5] > 504) {
+        Menu[5] = 501;
+      } else {
+        Menu[5]++;
+      }
+      WebSocketData = Menu[5];
+      notifyClients();
+      Serial.println("Teams menu = " + String(Menu[5]));
+      datapacket2 = Menu[5];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
+    }
   }
 }
 
+void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
+             void *arg, uint8_t *data, size_t len) {
+  switch (type) {
+    case WS_EVT_CONNECT:
+      Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+      break;
+    case WS_EVT_DISCONNECT:
+      Serial.printf("WebSocket client #%u disconnected\n", client->id());
+      break;
+    case WS_EVT_DATA:
+      handleWebSocketMessage(arg, data, len);
+      break;
+    case WS_EVT_PONG:
+    case WS_EVT_ERROR:
+      break;
+  }
+}
+
+void initWebSocket() {
+  ws.onEvent(onEvent);
+  server.addHandler(&ws);
+}
+
+String processor(const String& var){
+  Serial.println(var);
+  if(var == "WEAP0"){
+    if (SetSlotA == 0){
+      return "Manual Selection";
+    }
+    if (SetSlotA == 1) {
+      return "Unarmed";
+    }
+    if (SetSlotA > 1) {
+      return "AMR";
+    }
+  }
+  if(var == "WEAP1"){
+    if (SetSlotB == 0){
+      return "Manual Selection";
+    }
+    if (SetSlotB == 1) {
+      return "Unarmed";
+    }
+    if (SetSlotB > 1) {
+      return "AMR";
+    }
+  }
+  if(var == "LVS0"){
+    if (SetLives == 32000){
+      return "Unlimited";
+    }
+    if (SetLives == 1) {
+      return "1";
+    }
+    if (SetLives == 5) {
+      return "5";
+    }
+  }
+  if(var == "GTM"){
+    if (SetTime == 2000000000){
+      return "Unlimited";
+    }
+  }
+  if(var == "OUTDR"){
+    if (SetODMode == 0){
+      return "Outdoor Mode";
+    }
+  }
+  if(var == "TEAM"){
+    if (Menu[5] == 501){
+      return "Free For All";
+    }
+  }
+}
+
+void InitAP() {
+  // Connect to Wi-Fi network with SSID and password
+  Serial.print("Setting AP (Access Point)…");
+  // Remove the password parameter, if you want the AP (Access Point) to be open
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(ssid, password);
+
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(IP);
+}
+//******************************************************************************************
+void InitializeJEDGE() {
+  Serial.println();
+  Serial.println();
+  Serial.println("*****************************************************");
+  Serial.println("************* Initializing JEDGE 2.0 ****************");
+  Serial.println("*****************************************************");
+  Serial.println();
+  Serial.println("Waiting for BRX to Boot...");
+  /*
+  int forfun = 5;
+  while (forfun > 0) { 
+    delay(1000);
+    Serial.print(String(forfun) + ", ");
+    forfun--;
+  }
+  */
+  sendString("$_BAT,4162,*"); // test for gen3
+  sendString("$PLAYX,0,*"); // test for gen3
+  sendString("$VERSION,*"); // test for gen3
+  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
+  Serial.println();
+  Serial.println("JEDGE is taking over the BRX");
+  //sendString("$CLEAR,*"); // clears any brx settings
+  sendString("$STOP,*"); // starts the callsign mode up
+  delay(300);
+  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
+  sendString("$PLAY,VA20,4,6,,,,,*"); // says "connection established"
+  sendString("$HLED,0,0,,,10,,*"); // test for gen3
+  sendString("$GLED,0,0,0,0,10,,*"); // test for gen3
+}
+//**********************************************************************************************
+void SyncScores() {
+  // create a string that looks like this: 
+  // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
+  String ScoreData = String(GunID)+","+String(SetTeam)+","+String(CompletedObjectives)+","+String(TeamKillCount[0])+","+String(TeamKillCount[1])+","+String(TeamKillCount[2])+","+String(TeamKillCount[3])+","+String(TeamKillCount[4])+","+String(TeamKillCount[5])+","+String(PlayerKillCount[0])+","+String(PlayerKillCount[1])+","+String(PlayerKillCount[2])+","+String(PlayerKillCount[3])+","+String(PlayerKillCount[4])+","+String(PlayerKillCount[5])+","+String(PlayerKillCount[6])+","+String(PlayerKillCount[7])+","+String(PlayerKillCount[8])+","+String(PlayerKillCount[9])+","+String(PlayerKillCount[10])+","+String(PlayerKillCount[11])+","+String(PlayerKillCount[12])+","+String(PlayerKillCount[13])+","+String(PlayerKillCount[14])+","+String(PlayerKillCount[15])+","+String(PlayerKillCount[16])+","+String(PlayerKillCount[17])+","+String(PlayerKillCount[18])+","+String(PlayerKillCount[19])+","+String(PlayerKillCount[20])+","+String(PlayerKillCount[21])+","+String(PlayerKillCount[22])+","+String(PlayerKillCount[23])+","+String(PlayerKillCount[24])+","+String(PlayerKillCount[25])+","+String(PlayerKillCount[26])+","+String(PlayerKillCount[27])+","+String(PlayerKillCount[28])+","+String(PlayerKillCount[29])+","+String(PlayerKillCount[30])+","+String(PlayerKillCount[31])+","+String(PlayerKillCount[32])+","+String(PlayerKillCount[33])+","+String(PlayerKillCount[34])+","+String(PlayerKillCount[35])+","+String(PlayerKillCount[36])+","+String(PlayerKillCount[37])+","+String(PlayerKillCount[38])+","+String(PlayerKillCount[39])+","+String(PlayerKillCount[40])+","+String(PlayerKillCount[41])+","+String(PlayerKillCount[42])+","+String(PlayerKillCount[43])+","+String(PlayerKillCount[44])+","+String(PlayerKillCount[45])+","+String(PlayerKillCount[46])+","+String(PlayerKillCount[47])+","+String(PlayerKillCount[48])+","+String(PlayerKillCount[49])+","+String(PlayerKillCount[50])+","+String(PlayerKillCount[51])+","+String(PlayerKillCount[52])+","+String(PlayerKillCount[53])+","+String(PlayerKillCount[54])+","+String(PlayerKillCount[55])+","+String(PlayerKillCount[56])+","+String(PlayerKillCount[57])+","+String(PlayerKillCount[58])+","+String(PlayerKillCount[59])+","+String(PlayerKillCount[60])+","+String(PlayerKillCount[61])+","+String(PlayerKillCount[62])+","+String(PlayerKillCount[63]);
+  Serial.println("Sending the following Score Data to Server");
+  Serial.println(ScoreData);
+  //bridge1.virtualWrite(V0, ScoreData); // sending the whole string from esp32
+  Serial.println("Sent Score data to Server");
+  //reset sent scores:
+  Serial.println("resetting all scores");
+  CompletedObjectives = 0;
+  int teamcounter = 0;
+  while (teamcounter < 6) {
+    TeamKillCount[teamcounter] = 0;
+    teamcounter++;
+    vTaskDelay(1);
+  }
+  int playercounter = 0;
+  while (playercounter < 64) {
+    PlayerKillCount[playercounter] = 0;
+    playercounter++;
+    vTaskDelay(1);
+  }
+  Serial.println("Scores Reset");  
+}
 // ****************************************************************************************
 /*Analyzing incoming tag to determine if a perk action is needed
         space 2 is for he type of tag recieved/shot. almost all are 0 and im thinking other types are medic etc.
@@ -499,49 +1172,6 @@ void TagPerks() {
   }
 }
 //******************************************************************************************
-void InitializeOTAUpdater() {
-  // Port defaults to 3232
-  // ArduinoOTA.setPort(3232);
-  // Hostname defaults to esp3232-[MAC]
-  // ArduinoOTA.setHostname("myesp32");
-  // No authentication by default
-  // ArduinoOTA.setPassword("admin");
-  // Password can be set with it's md5 value as well
-  // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
-  // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
-  ArduinoOTA.setHostname(GunName);
-  ArduinoOTA
-    .onStart([]() {
-      String type;
-      if (ArduinoOTA.getCommand() == U_FLASH)
-        type = "sketch";
-      else // U_SPIFFS
-        type = "filesystem";
-
-      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-      Serial.println("Start updating " + type);
-    })
-    .onEnd([]() {
-      Serial.println("\nEnd");
-    })
-    .onProgress([](unsigned int progress, unsigned int total) {
-      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-    })
-    .onError([](ota_error_t error) {
-      Serial.printf("Error[%u]: ", error);
-      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-      else if (error == OTA_END_ERROR) Serial.println("End Failed");
-    });
-
-  ArduinoOTA.begin();
-
-  Serial.println("Ready");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-}
 // sets and sends game settings based upon the stored settings
 void SetFFOutdoor() {
   // token one of the following command is free for all, 0 is off and 1 is on
@@ -1342,9 +1972,6 @@ void gameover() {
   Serial.println("disabling bool triggers");
   GAMEOVER = false;
   INGAME=false;
-  if (ALLOWESPNOWINGAME) {
-    RESTARTBLYNK = true;
-  }
   COUNTDOWN1=false;
   COUNTDOWN2=false;
   COUNTDOWN3=false;
@@ -1411,8 +2038,7 @@ void respawnplayer() {
   RESPAWN = false;
   sendString("$HLOOP,0,0,*"); // stops headset flashing
   if (STEALTH){
-    delay(2000);
-    sendString("$GLED,,,,5,,,*"); // TURNS OFF SIDE LIGHTS
+      sendString("$GLED,,,,5,,,"); // TURNS OFF SIDE LIGHTS
   }
 }
 //****************************************************************************************
@@ -1459,89 +2085,7 @@ void Audio() {
     AudioSelection1 = "NULL";
     }
 }
-//******************************************************************************************
-void InitializeJEDGE() {
-  Serial.println();
-  Serial.println();
-  Serial.println("*****************************************************");
-  Serial.println("************* Initializing JEDGE 2.0 ****************");
-  Serial.println("*****************************************************");
-  Serial.println();
-  Serial.println("Waiting for BRX to Boot...");
-  /*
-  int forfun = 5;
-  while (forfun > 0) { 
-    delay(1000);
-    Serial.print(String(forfun) + ", ");
-    forfun--;
-  }
-  */
-  sendString("$_BAT,4162,*"); // test for gen3
-  sendString("$PLAYX,0,*"); // test for gen3
-  sendString("$VERSION,*"); // test for gen3
-  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
-  Serial.println();
-  Serial.println("JEDGE is taking over the BRX");
-  //sendString("$CLEAR,*"); // clears any brx settings
-  sendString("$STOP,*"); // starts the callsign mode up
-  delay(300);
-  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
-  sendString("$PLAY,VA20,4,6,,,,,*"); // says "connection established"
-  sendString("$HLED,0,0,,,10,,*"); // test for gen3
-  sendString("$GLED,0,0,0,0,10,,*"); // test for gen3
-  Serial.println(GunName);
-}
-//**********************************************************************************************
-void SyncScores() {
-  if (FAKESCORE) { // CHECK IF WE ARE DOING A TEST ONLY FOR DATA SENDING
-     CompletedObjectives = random(25);
-     int playercounter = 0;
-     while (playercounter < 12) {
-      PlayerKillCount[playercounter] = random(20);
-      playercounter++;
-     }
-     PlayerKillCount[GunID] = 0;
-     TeamKillCount[0] = PlayerKillCount[0] + PlayerKillCount[1] + PlayerKillCount[2];
-     TeamKillCount[1] = PlayerKillCount[3] + PlayerKillCount[4] + PlayerKillCount[5];
-     TeamKillCount[2] = PlayerKillCount[6] + PlayerKillCount[7] + PlayerKillCount[8];
-     TeamKillCount[3] = PlayerKillCount[9] + PlayerKillCount[10] + PlayerKillCount[11];
-     if (GunID < 3) {
-      SetTeam = 0;
-     }
-     if (GunID < 6 && GunID > 2) {
-       SetTeam = 1;
-     }
-     if (GunID < 9 && GunID > 5) {
-      SetTeam = 2;
-     } 
-     if (GunID > 8) {
-      SetTeam = 3;
-     }
-  }
-  // create a string that looks like this: 
-  // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
-  String ScoreData = String(GunID)+","+String(SetTeam)+","+String(CompletedObjectives)+","+String(TeamKillCount[0])+","+String(TeamKillCount[1])+","+String(TeamKillCount[2])+","+String(TeamKillCount[3])+","+String(TeamKillCount[4])+","+String(TeamKillCount[5])+","+String(PlayerKillCount[0])+","+String(PlayerKillCount[1])+","+String(PlayerKillCount[2])+","+String(PlayerKillCount[3])+","+String(PlayerKillCount[4])+","+String(PlayerKillCount[5])+","+String(PlayerKillCount[6])+","+String(PlayerKillCount[7])+","+String(PlayerKillCount[8])+","+String(PlayerKillCount[9])+","+String(PlayerKillCount[10])+","+String(PlayerKillCount[11])+","+String(PlayerKillCount[12])+","+String(PlayerKillCount[13])+","+String(PlayerKillCount[14])+","+String(PlayerKillCount[15])+","+String(PlayerKillCount[16])+","+String(PlayerKillCount[17])+","+String(PlayerKillCount[18])+","+String(PlayerKillCount[19])+","+String(PlayerKillCount[20])+","+String(PlayerKillCount[21])+","+String(PlayerKillCount[22])+","+String(PlayerKillCount[23])+","+String(PlayerKillCount[24])+","+String(PlayerKillCount[25])+","+String(PlayerKillCount[26])+","+String(PlayerKillCount[27])+","+String(PlayerKillCount[28])+","+String(PlayerKillCount[29])+","+String(PlayerKillCount[30])+","+String(PlayerKillCount[31])+","+String(PlayerKillCount[32])+","+String(PlayerKillCount[33])+","+String(PlayerKillCount[34])+","+String(PlayerKillCount[35])+","+String(PlayerKillCount[36])+","+String(PlayerKillCount[37])+","+String(PlayerKillCount[38])+","+String(PlayerKillCount[39])+","+String(PlayerKillCount[40])+","+String(PlayerKillCount[41])+","+String(PlayerKillCount[42])+","+String(PlayerKillCount[43])+","+String(PlayerKillCount[44])+","+String(PlayerKillCount[45])+","+String(PlayerKillCount[46])+","+String(PlayerKillCount[47])+","+String(PlayerKillCount[48])+","+String(PlayerKillCount[49])+","+String(PlayerKillCount[50])+","+String(PlayerKillCount[51])+","+String(PlayerKillCount[52])+","+String(PlayerKillCount[53])+","+String(PlayerKillCount[54])+","+String(PlayerKillCount[55])+","+String(PlayerKillCount[56])+","+String(PlayerKillCount[57])+","+String(PlayerKillCount[58])+","+String(PlayerKillCount[59])+","+String(PlayerKillCount[60])+","+String(PlayerKillCount[61])+","+String(PlayerKillCount[62])+","+String(PlayerKillCount[63]);
-  Serial.println("Sending the following Score Data to Server");
-  Serial.println(ScoreData);
-  bridge1.virtualWrite(V100, ScoreData); // sending the whole string from esp32
-  Serial.println("Sent Score data to Server");
-  //reset sent scores:
-  Serial.println("resetting all scores");
-  CompletedObjectives = 0;
-  int teamcounter = 0;
-  while (teamcounter < 6) {
-    TeamKillCount[teamcounter] = 0;
-    teamcounter++;
-    vTaskDelay(1);
-  }
-  int playercounter = 0;
-  while (playercounter < 64) {
-    PlayerKillCount[playercounter] = 0;
-    playercounter++;
-    vTaskDelay(1);
-  }
-  Serial.println("Scores Reset");  
-}
+
 //********************************************************************************************
 // This main game object
 void MainGame() {
@@ -1585,10 +2129,7 @@ void MainGame() {
     }
     Deaths = 0;
     if (STEALTH){
-      Serial.println("delaying stealth start");
-      delay(2000);
-      sendString("$GLED,,,,5,,,*"); // TURNS OFF SIDE LIGHTS
-      Serial.println("sent command to kill leds");
+      sendString("$GLED,,,,5,,,"); // TURNS OFF SIDE LIGHTS
     }
   }
   if (!INGAME) {
@@ -2247,10 +2788,16 @@ void ProcessBRXData() {
       if ((tokenStrings[1] == "0") && (tokenStrings[2] == "0") && (tokenStrings[3] == "0")) { // player is dead
         if (HASFLAG) { HASFLAG = false; AudioSelection1 = "VA2I"; AUDIO1 = true;}
         PlayerKillCount[lastTaggedPlayer]++; // adding a point to the last player who killed us
+        datapacket1 = lastTaggedPlayer; // setting an identifier for who recieves the tag
+        datapacket2 = 32000; // identifier to tell player they got a kill
+        if (GameMode == 4) {
+          datapacket3 = PreviousSpecialWeapon; // current special weapon equiped
+        } else {
+          datapacket3 = GunID; // null action to send
+        }
+        getReadings();
+        BROADCASTESPNOW = true;
         TeamKillCount[lastTaggedTeam]++; // adding a point to the team who caused the last kill
-        playerkillconfirmation = lastTaggedPlayer; // prep for sending kill confirmation to server
-        teamkillconfirmation = lastTaggedTeam; // prep for sending kill confirmation to server
-        KILLCONFIRMATION = true; // enable kill confirmation sending to server
         PlayerLives--; // taking our preset lives and subtracting one life then talking about it on the monitor
         Deaths++;
         //AudioSelection1="KBP"+String(lastTaggedPlayer);
@@ -2291,66 +2838,6 @@ void ProcessBRXData() {
   }
 }
 //******************************************************************************************
-void CheckConnection() {
-  Connected2Blynk = Blynk.connected();
-  if (!Connected2Blynk) {
-    Serial.println("Not connected to Blynk server");
-    //Blynk.config(auth, server, 8080); // used to connect to blynk cloud server
-    //Blynk.connect(3333);
-    // if the LED is off turn it on 
-    digitalWrite(led,  HIGH);
-    // play an audio notification that there is a disconnect to blynk server
-    AudioSelection1="VA8R"; 
-    AUDIO1=true;
-    if (WiFi.status() == WL_CONNECTED) {
-      Serial.println("Wifi Connected but Blynk is Not, Status Error");
-      ErrorCounter++;
-      if (ErrorCounter == 6) {
-        sendString("$PLAY,VA5G,4,6,,,,,*"); // says self destruct initiated
-        ESP.restart();
-      }
-      if (ErrorCounter == 2  or ErrorCounter == 4) {
-        // issue detected more than twice back to back, time to reset ESP
-        sendString("$PLAY,VA9R,4,6,,,,,*"); // says "testing initiated"
-        Serial.println("Resetting ESP wifi");
-        //delay(2000);
-        WiFi.disconnect();
-        while (WiFi.status() == WL_CONNECTED) {
-          //delay(500);
-          Serial.print(".");
-        }
-        Serial.println("Disconnected from Wifi");
-        Serial.println("Reconnecting to Wifi");
-        WiFi.begin(ssid, pass);
-        while(WiFi.status() != WL_CONNECTED) {
-          //delay(500);
-          Serial.print(".");
-        }
-        Serial.println();
-        Serial.println("Reconnected to Wifi");
-        sendString("$PLAY,VA9Q,4,6,,,,,*"); // says "testing complete"
-        WiFiResetCount++;
-        Serial.println("Rest count = " + String(WiFiResetCount));
-      }
-    } else {
-      Serial.println("Just out of range of Wifi, Low Power WiFi with delays");
-      delay(2000);  
-    }
-  }
-  else {
-    Serial.println(" - Connected to Blynk Server - Wifi Resets Counter: " + String(WiFiResetCount));
-    digitalWrite(led,  LOW);
-    if (WiFiResetCount > PreviousWiFiResetCount) {
-      PreviousWiFiResetCount = WiFiResetCount;
-      sendString("$PLAY,VA20,4,6,,,,,*"); // says "connection established"
-    }
-    if (ErrorCounter > 0) {
-      ErrorCounter = 0;
-      sendString("$PLAY,VA20,4,6,,,,,*"); // says "connection established"
-    }
-    
-  }
-}
 //******************************************************************************************
 void SoftWareReset() {
   ESP.restart();
@@ -2363,988 +2850,1058 @@ void ChangeColors() {
   sendString(colorstring);
   ChangeMyColor = 99;
 }
-
-//***************************************************************
-// Blynk Functions and Objects to configure settings on brx
-// these assign a values and or enable emidiate functions to send to the brx
-BLYNK_WRITE(V0) { // Sets Weapon Slot 0
-int b=param.asInt();
-  if (INGAME==false){
-    if (b == 1) {
-      settingsallowed=1; 
-      AudioSelection="VA5F";
-      SetSlotA=100;
-      Serial.println("Weapon Slot 0 set to Manual");
-    }
-    if (b > 1 && b < 50) {
-      SetSlotA=b-1;
-      Serial.println("Weapon Slot 0 set"); 
-      if(SetSlotA < 10) {
-        AudioSelection = ("GN0" + String(SetSlotA));
-      }
-      if (SetSlotA > 9) {
-        AudioSelection = ("GN" + String(SetSlotA));
-      }
-      if(SetSlotA == 20) {
-        AudioSelection = ("VA50");
-      }
-    }
-  AUDIO=true;
+//**************************************************************
+void ProcessIncomingCommands() {
+  int IncomingTeam = 99;
+  if (incomingData1 > 199) {
+    IncomingTeam = incomingData1 - 200;
   }
-}
-BLYNK_WRITE(V1) {  // Sets Weapon Slot 1
-  int b=param.asInt();
-  if (INGAME==false){
-    if (b==1) {
-      settingsallowed=2; 
-      AudioSelection="VA5F"; 
-      SetSlotB=100; 
-      Serial.println("Weapon Slot 1 set to Manual");
-    }
-    if (b>1 && b < 50) {
-      SetSlotB=b-1; 
-      Serial.println("Weapon Slot 1 set"); 
-      if(SetSlotB < 10) {
-        AudioSelection = ("GN0" + String(SetSlotB));
-      }
-      if (SetSlotB > 9) {
-      AudioSelection = ("GN" + String(SetSlotB));
-      }
-    }
-    AUDIO=true;
-}
-}
-BLYNK_WRITE(V2) { // Terminal Widget
-  TerminalInput = param.asStr(); // storing the input from widget as a string to use elswhere if needed
-  // if you type "ping" into Terminal Widget, it will respond "pong"
-  Serial.println("Received something from widget terminal");
-  Serial.println(TerminalInput);
-  if(String("ping") == param.asStr()) {
-    //int terminaldelay = 1000 * GunID;
-    //delay(terminaldelay);
-    terminal.println("You said: 'ping'");
-    terminal.print("I said: 'pong' - from: ");
-    terminal.println(GunName);
-  } else {
-    // process command as a request to command brx taggers
-    terminal.print("You said: ");
-    terminal.write(param.getBuffer(), param.getLength());
-    terminal.println();
-    terminal.println("Sending this data to tagger");
-    TERMINALINPUT = true;
-  }
-  //ensure everything is sent
-  terminal.flush();
-}
-BLYNK_WRITE(V3) {// Player/Team Selector
-  int b = param.asInt() - 1;
-  int teamselector = 99;
-  if (b == 68) {
-    INGAME = false;
-  } else {
-    if (b > 63) {
-      teamselector = b - 64;
-    }
-    if (teamselector < 99) {
-      if (teamselector == SetTeam) {
-        INGAME = false;
-      } else {
-        INGAME = true;
-      }
-    } else {
-        if (b == GunID) {
-          INGAME = false;
-        } else {
-          INGAME = true;
+  if (incomingData1 == GunID || incomingData1 == 99 || IncomingTeam == SetTeam) { // data checked out to be intended for this player ID or for all players
+    digitalWrite(2, HIGH);
+    if (incomingData2 < 100) { // setting primary weapon or slot 0
+      int b = incomingData2;
+      if (INGAME==false){
+        if (b == 1) {
+          settingsallowed=1; 
+          AudioSelection="VA5F";
+          SetSlotA=100;
+          Serial.println("Weapon Slot 0 set to Manual");
         }
-    }
-  }
-}
-BLYNK_WRITE(V4) {// Sets Lives);
-int b=param.asInt();
-if (INGAME==false){
-if (b==7) {SetLives = 32000; Serial.println("Lives is set to Unlimited"); AudioSelection="VA6V";}
-if (b==6) {SetLives = 25; Serial.println("Lives is set to 25"); AudioSelection="VA0P";}
-if (b==5) {SetLives = 15; Serial.println("Lives is set to 15"); AudioSelection="VA0F";}
-if (b==4) {SetLives = 10; Serial.println("Lives is set to 10"); AudioSelection="VA0A";}
-if (b==3) {SetLives = 5; Serial.println("Lives is set to 5"); AudioSelection="VA05";}
-if (b==2) {SetLives = 3; Serial.println("Lives is set to 3"); AudioSelection="VA03";}
-if (b==1) {SetLives = 1; Serial.println("Lives is set to 1"); AudioSelection="VA01";}
-        AUDIO=true;
-}
-}
-BLYNK_WRITE(V5) {// Sets Game Time
-int b=param.asInt();
-if (INGAME==false){
-if (b==1) {
-        SetTime=60000; 
-        Serial.println("Game time set to 1 minute");
-        AudioSelection="VA0V";
-        }
-if (b==2) {
-        SetTime=300000;
-        Serial.println("Game time set to 5 minute");
-        AudioSelection="VA2S";
-        }
-if (b==3) {
-        SetTime=600000; 
-        Serial.println("Game time set to 10 minute"); 
-        AudioSelection="VA6H";
-        }
-if (b==4) {
-        SetTime=900000;
-        Serial.println("Game time set to 15 minute"); 
-        AudioSelection="VA2P";
-        }
-if (b==5) {
-        SetTime=1200000; 
-        Serial.println("Game time set to 20 minute");
-        AudioSelection="VA6Q";
-        }
-if (b==6) {
-        SetTime=1500000;
-        Serial.println("Game time set to 25 minute"); 
-        AudioSelection="VA6P";
-        }
-if (b==7) {
-        SetTime=1800000; 
-        Serial.println("Game time set to 30 minute");
-        AudioSelection="VA0Q";
-        }
-if (b==8) {
-        SetTime=2000000000; 
-        Serial.println("Game time set to Unlimited");
-        AudioSelection="VA6V";
+        if (b > 1 && b < 50) {
+          GETSLOT1=false;
+          GETSLOT0=false;
+          SetSlotA=b-1;
+          Serial.println("Weapon Slot 0 set"); 
+          if(SetSlotA < 10) {
+            AudioSelection = ("GN0" + String(SetSlotA));
+          }
+          if (SetSlotA > 9) {
+            AudioSelection = ("GN" + String(SetSlotA));
+          }
+          if(SetSlotA == 20) {
+            AudioSelection = ("VA50");
+          }
         }
         AUDIO=true;
-}
-}
-BLYNK_WRITE(V6) {// Sets Lighting-Ambience
-int b=param.asInt();
-  if (INGAME==false){
-    if (b==1) {
-      SetODMode=0;
-      Serial.println("Outdoor Mode On"); 
-      AudioSelection="VA4W";
-      STEALTH = false;
+        if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
+        }
+      }
     }
-    if (b==2) {
-      SetODMode=1; 
-      Serial.println("Indoor Mode On"); 
-      AudioSelection="VA3W";
-      STEALTH = false;
-    }
-    if (b==3) {
-      SetODMode=1; 
-      Serial.println("Stealth Mode On"); 
-      AudioSelection="VA60";
-      STEALTH = true;
-    }
-  AUDIO=true;
-  }
-}
-BLYNK_WRITE(V7) {// Sets Team Modes
-  int b=param.asInt();
-  if (GETTEAM) {
-    GETTEAM=false;
-  }
-  if (INGAME==false){
-  int A = 0;
-  int B = 1;
-  int C = 2;
-  int D = 3;
-  if (b==1) {
-    Serial.println("Free For All"); 
-    SetTeam=0;
-    SetFF=1;
-    AudioSelection="VA30";
-  }
-  if (b==2) {
-    Serial.println("Teams Mode Two Teams (odds/evens)");
-    if (GunID % 2) {
-      SetTeam=0; 
-      AudioSelection="VA13";
-    } else {
-      SetTeam=1; 
-      AudioSelection="VA1L";
-    }
-  }
-  if (b==3) {
-    Serial.println("Teams Mode Three Teams (every third player)");
-    while (A < 64) {
-      if (GunID == A) {
-        SetTeam=0;
-        AudioSelection="VA13";
-      }
-      if (GunID == B) {
-        SetTeam=1;
-        AudioSelection="VA1L";
-      }
-      if (GunID == C) {
-        SetTeam=3;
-        AudioSelection1="VA27";
-      }
-      A = A + 3;
-      B = B + 3;
-      C = C + 3;
-      vTaskDelay(1);
-    }
-    A = 0;
-    B = 1;
-    C = 2;
-  }    
-  if (b==4) {
-    Serial.println("Teams Mode Four Teams (every fourth player)");
-    while (A < 64) {
-      if (GunID == A) {
-        SetTeam=0;
-        AudioSelection="VA13";
-      }
-      if (GunID == B) {
-        SetTeam=1;
-        AudioSelection="VA1L";
-      }
-      if (GunID == C) {
-        SetTeam=2;
-        AudioSelection="VA1R";
-      }
-      if (GunID == D) {
-        SetTeam=3;
-        AudioSelection="VA27";
-      }
-      A = A + 4;
-      B = B + 4;
-      C = C + 4;
-      D = D + 4;
-      vTaskDelay(1);
-    }
-    A = 0;
-    B = 1;
-    C = 2;
-    D = 3;
-  }
-  if (b==5) {
-    Serial.println("Teams Mode Player's Choice"); 
-    settingsallowed=3; 
-    SetTeam=100; 
-    AudioSelection="VA5E";
-  } // this one allows for manual input of settings... each gun will need to select a team now
-  AUDIO=true;
-  ChangeMyColor = SetTeam; // triggers a gun/tagger color change
-  }
-}
-BLYNK_WRITE(V8) {// Sets Game Mode
-int b=param.asInt();
-if (INGAME==false){
-if (b==1) {
-        GameMode=1; // Default Mode
-        /*
-         * Weapon 0 - AMR
-         * Weapon 1 - Unarmed
-         * Lives - Unlimited
-         * Game Time - Unlimited
-         * Delay Start - Off
-         * Ammunitions - Unlimited magazines
-         * Lighting/Ambience - Outdoor mode
-         * Teams - Free for all
-         * Respawn - Immediate
-         * Gender - Male
-         * Friendly Fire - On
-         * Volume - 3
-         */
-        SetSlotA = 2; // set weapon slot 0 as AMR
-        Serial.println("Weapon slot 0 set to AMR");
-        SetSlotB = 1; // set weapon slot 1 as unarmed
-        Serial.println("Weapon slot 1 set to Unarmed");
-        SetLives = 32000; // set lives to unlimited
-        Serial.println("Lives is set to Unlimited");
-        SetTime=2000000000; // set game time to unlimited
-        Serial.println("Game time set to Unlimited");
-        DelayStart=0; // set delay start to immediate
-        Serial.println("Delay Start Set to Immediate"); 
-        UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
-        Serial.println("Ammo set to unlimited magazies"); 
-        SetODMode=0; // outdoor mode set
-        Serial.println("Outdoor Mode On");
-        SetTeam=0; // set to red/alpha team
-        Serial.println("Set teams to free for all, red");
-        SetRSPNMode=1; // set respon mode to auto
-        RespawnTimer=10; // set delay timer for respawns
-        Serial.println("Respawn Set to Immediate"); 
-        SetGNDR=0; // male player audio selection engaged
-        Serial.println("Gender set to Male");
-        SetFF=1; // free for all set to on
-        Serial.println("Friendly Fire On");
-        SetVol = 80;
-        Serial.println("Volume set to" + String(SetVol));
-        VOLUMEADJUST=true;
-        Serial.println("Game mode set to Defaults");
-        AudioSelection="VA5Z";
+    if (incomingData2 < 200 && incomingData2 > 100) { // setting seconczry weapon or slot 1
+      int b = incomingData2 - 100;
+      if (INGAME==false){
+        if (b==1) {
+          settingsallowed=2; 
+          AudioSelection="VA5F"; 
+          SetSlotB=100; 
+          Serial.println("Weapon Slot 1 set to Manual");
         }
-if (b==2) { // 5 min F4A AR + ShotGun
-        GameMode=2;
-        /*
-         * Weapon 0 - Assault Rifle
-         * Weapon 1 - Shotgun
-         * Lives - 5
-         * Game Time - 5 minutes
-         * Delay Start - 30 seconds
-         * Ammunitions - Unlimited magazines
-         * Lighting/Ambience - Outdoor mode
-         * Teams - Free for all
-         * Respawn - 15 seconds Automatic
-         * Gender - Male
-         * Friendly Fire - On
-         * Volume - 5
-         */
-        SetSlotA = 3; // set weapon slot 0 as Assault Rifle
-        Serial.println("Weapon slot 0 set to Assault Rifle");
-        SetSlotB = 15; // set weapon slot 1 as Shotgun
-        Serial.println("Weapon slot 1 set to Shotgun");
-        SetLives = 5; // set lives to 5 minutes
-        Serial.println("Lives is set to Unlimited");
-        SetTime=300000; // set game time to 5 minutes
-        Serial.println("Game time set to 5 minutes");
-        DelayStart=30000; // set delay start to 30 seconds
-        Serial.println("Delay Start Set to 30 seconds"); 
-        UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
-        Serial.println("Ammo set to unlimited magazies"); 
-        SetODMode=0; // outdoor mode set
-        Serial.println("Outdoor Mode On");
-        SetTeam=0; // set to red/alpha team
-        Serial.println("Set teams to free for all, red");
-        SetRSPNMode=2; // set respon mode to auto
-        RespawnTimer=15000; // set delay timer for respawns
-        Serial.println("Respawn Set to auto 15 seconds"); 
-        SetGNDR=0; // male player audio selection engaged
-        Serial.println("Gender set to Male");
-        SetFF=1; // free for all set to on
-        Serial.println("Friendly Fire On");
-        SetVol = 100;
-        Serial.println("Volume set to" + String(SetVol));
-        VOLUMEADJUST=true;
-        Serial.println("Game mode set to 5Min F4A AR + Shotguns"); 
-        AudioSelection="VA8I";
-        }
-if (b==3) { // 10Min F4A Rndm Weap
-        GameMode=3; 
-        /*
-         * Weapon 0 - Random
-         * Weapon 1 - Random
-         * Lives - 10
-         * Game Time - 10 minutes
-         * Delay Start - 30 seconds
-         * Ammunitions - Unlimited magazines
-         * Lighting/Ambience - Outdoor mode
-         * Teams - Free for all
-         * Respawn - Immediate
-         * Gender - Male
-         * Friendly Fire - On
-         * Volume - 5
-         */
-        SetSlotA = random(2, 19); // set weapon slot 0 as Random
-        Serial.println("Weapon slot 0 set to Random");
-        SetSlotB = random(2, 19); // set weapon slot 1 as random
-        Serial.println("Weapon slot 1 set to random");
-        SetLives = 10; // set lives to 10 
-        Serial.println("Lives is set to 10");
-        SetTime=600000; // set game time to 10 minutes
-        Serial.println("Game time set to 10 minutes");
-        DelayStart=30000; // set delay start to 30 seconds
-        Serial.println("Delay Start Set to 30 seconds"); 
-        UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
-        Serial.println("Ammo set to unlimited magazies"); 
-        SetODMode=0; // outdoor mode set
-        Serial.println("Outdoor Mode On");
-        SetTeam=0; // set to red/alpha team
-        Serial.println("Set teams to free for all, red");
-        SetRSPNMode=2; // set respon mode to auto
-        RespawnTimer=15000; // set delay timer for respawns
-        Serial.println("Respawn Set to auto 15 seconds"); 
-        SetGNDR=0; // male player audio selection engaged
-        Serial.println("Gender set to Male");
-        SetFF=1; // free for all set to on
-        Serial.println("Friendly Fire On");
-        SetVol = 100;
-        Serial.println("Volume set to" + String(SetVol));
-        VOLUMEADJUST=true;
-        Serial.println("Game mode set to 10 Min F4A Rndm Weapon");
-        AudioSelection="VA8I";
-        
-        }
-if (b==4) { // SwapBRX
-        GameMode=4;
-        /*
-         * Weapon 0 - PISTOL
-         * Weapon 1 - Unarmed
-         * Lives - 1
-         * Game Time - Unlimited
-         * Delay Start - 30 Seconds
-         * Ammunitions - Limited magazines
-         * Lighting/Ambience - Outdoor mode
-         * Teams - Free for all
-         * Respawn - Immediate
-         * Gender - Male
-         * Friendly Fire - On
-         * Volume - 5
-         * 
-         * integrate IR protocol for random weapon swap...
-         */
-        SetSlotA = 20; // set weapon slot 0 as pistol
-        Serial.println("Weapon slot 0 set to PISTOL");
-        SetSlotB = 1; // set weapon slot 1 as uarmed
-        Serial.println("Weapon slot 1 set to unarmed");
-        SetLives = 1; // set lives to 1 
-        Serial.println("Lives is set to 1");
-        SetTime=2000000000; // set game time to unlimited minutes
-        Serial.println("Game time set to unlimited");
-        DelayStart=30000; // set delay start to 30 seconds
-        Serial.println("Delay Start Set to 30 seconds"); 
-        UNLIMITEDAMMO=1; // set ammunitions to limited mags
-        Serial.println("Ammo set to limited magazies"); 
-        SetODMode=0; // outdoor mode set
-        Serial.println("Outdoor Mode On");
-        SetTeam=0; // set to red/alpha team
-        Serial.println("Set teams to free for all, red");
-        SetRSPNMode=9; // set respon mode to manual
-        RespawnTimer=10; // set delay timer for respawns
-        Serial.println("Respawn Set to manual (station)"); 
-        SetGNDR=0; // male player audio selection engaged
-        Serial.println("Gender set to Male");
-        SetFF=1; // free for all set to on
-        Serial.println("Friendly Fire On");
-        SetVol = 100;
-        Serial.println("Volume set to" + String(SetVol));
-        VOLUMEADJUST=true;
-        Serial.println("Game mode set to Battle Royale or SwapBRX"); 
-        AudioSelection="VA8J";
-        }
-if (b==5) { // Capture the Flag
-        GameMode=5; 
-        /*
-         * Weapon 0 - SMG
-         * Weapon 1 - Sniper Rifle
-         * Lives - Unlimited
-         * Game Time - 15 Minutes
-         * Delay Start - 30 seconds
-         * Ammunitions - Unlimited magazines
-         * Lighting/Ambience - Outdoor mode
-         * Teams - Manual Select
-         * Respawn - Manual Respawn (station)
-         * Gender - Male
-         * Friendly Fire - Off
-         * Volume - 5
-         */
-        SetSlotA = 16; // set weapon slot 0 as SMG
-        Serial.println("Weapon slot 0 set to SMG");
-        SetSlotB = 17; // set weapon slot 1 as sniper rifle
-        Serial.println("Weapon slot 1 set to sniper rifle");
-        SetLives = 32000; // set lives to unlimited
-        Serial.println("Lives is set to Unlimited");
-        SetTime=900000;
-        Serial.println("Game time set to 15 minute");
-        DelayStart=30000; // set delay start to 30 seconds
-        Serial.println("Delay Start Set to 30 seconds"); 
-        UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
-        Serial.println("Ammo set to unlimited magazies"); 
-        SetODMode=0; // outdoor mode set
-        Serial.println("Outdoor Mode On");
-        SetRSPNMode=9; // set respon mode to manual
-        RespawnTimer=10; // set delay timer for respawns
-        Serial.println("Respawn Set to manual (station)"); 
-        SetGNDR=0; // male player audio selection engaged
-        Serial.println("Gender set to Male");
-        SetFF=2; // free for all set to off
-        Serial.println("Friendly Fire off");
-        SetVol = 100;
-        Serial.println("Volume set to" + String(SetVol));
-        VOLUMEADJUST=true;
-        Serial.println("Game mode set to Capture the Flag");
-        AudioSelection="VA8P";
-        AUDIO=true;
-        vTaskDelay(3000);
-        Serial.println("Teams Mode Player's Choice"); 
-        settingsallowed=3; 
-        SetTeam=100; 
-        AudioSelection="VA5E";
-        }
-if (b==6) { // Own the Zone
-        GameMode=6; 
-        /*
-         * Weapon 0 - Force Rifle
-         * Weapon 1 - Ion Sniper
-         * Lives - Unlimited
-         * Game Time - 15 Minutes
-         * Delay Start - 30 seconds
-         * Ammunitions - Unlimited magazines
-         * Lighting/Ambience - Outdoor mode
-         * Teams - Manual Select
-         * Respawn - Manual (station)
-         * Gender - Male
-         * Friendly Fire - Off
-         * Volume - 5
-         */
-        SetSlotA = 9; // set weapon slot 0 as force rifle
-        Serial.println("Weapon slot 0 set to force rifle");
-        SetSlotB = 10; // set weapon slot 1 as ion sniper rifle
-        Serial.println("Weapon slot 1 set to ion sniper rifle");
-        SetLives = 32000; // set lives to unlimited
-        Serial.println("Lives is set to Unlimited");
-        SetTime=900000;
-        Serial.println("Game time set to 15 minute");
-        DelayStart=30000; // set delay start to 30 seconds
-        Serial.println("Delay Start Set to 30 seconds"); 
-        UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
-        Serial.println("Ammo set to unlimited magazies"); 
-        SetODMode=0; // outdoor mode set
-        Serial.println("Outdoor Mode On");
-        SetRSPNMode=9; // set respon mode to manual
-        RespawnTimer=10; // set delay timer for respawns
-        Serial.println("Respawn Set to manual (station)"); 
-        SetGNDR=0; // male player audio selection engaged
-        Serial.println("Gender set to Male");
-        SetFF=2; // free for all set to off
-        Serial.println("Friendly Fire off");
-        SetVol = 100;
-        Serial.println("Volume set to" + String(SetVol));
-        VOLUMEADJUST=true;
-        Serial.println("Game mode set to Own the Zone");
-        AudioSelection="VA93";
-        AUDIO=true;
-        vTaskDelay(3000);
-        Serial.println("Teams Mode Player's Choice"); 
-        settingsallowed=3; 
-        SetTeam=100; 
-        AudioSelection="VA5E";
-        }
-if (b==7) { // Survival/Infection
-        GameMode=7; 
-        /*
-         * Weapon 0 - Burst Rifle
-         * Weapon 1 - medic heal dart with alt fire
-         * Lives - Unlimited
-         * Game Time - 10
-         * Delay Start - 30 sec
-         * Ammunitions - ulimited mags
-         * Lighting/Ambience - outdoor
-         * Teams - manual set (just red and green) human and infected
-         * Respawn - Auto 15 seconds
-         * Gender - Male
-         * Friendly Fire - Off
-         * Volume - 5
-         */
-        SetSlotA = 5; // set weapon slot 0 as burst rifle
-        Serial.println("Weapon slot 0 set to burst rifle");
-        // change game start sequence to make alt fire a health "perk" instead of "weapon selection/cycle"
-        // SetSlotB = 10; // set weapon slot 1 as ion sniper rifle
-        // Serial.println("Weapon slot 1 set to ion sniper rifle");
-        SetLives = 32000; // set lives to unlimited
-        Serial.println("Lives is set to Unlimited");
-        SetTime=600000;
-        Serial.println("Game time set to 10 minute");
-        DelayStart=30000; // set delay start to 30 seconds
-        Serial.println("Delay Start Set to 30 seconds"); 
-        UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
-        Serial.println("Ammo set to unlimited magazies"); 
-        SetODMode=0; // outdoor mode set
-        Serial.println("Outdoor Mode On");
-        SetRSPNMode=2; // set respon mode to auto
-        RespawnTimer=15000; // set delay timer for respawns
-        Serial.println("Respawn Set to auto 15 seconds");
-        SetGNDR=0; // male player audio selection engaged
-        Serial.println("Gender set to Male");
-        SetFF=2; // free for all set to off
-        Serial.println("Friendly Fire off");
-        SetVol = 100;
-        Serial.println("Volume set to" + String(SetVol));
-        VOLUMEADJUST=true;
-        Serial.println("Game mode set to Survival / Infection");
-        AudioSelection="VA64";
-        AUDIO=true;
-        vTaskDelay(3000);
-        Serial.println("Teams Mode Player's Choice"); 
-        settingsallowed=3; 
-        SetTeam=100; 
-        Team = 0;
-        AudioSelection="VA5E";
-        }
-if (b==8) { // Assimilation
-        /*
-         * Weapon 0 - 
-         * Weapon 1 - 
-         * Lives - 
-         * Game Time - 
-         * Delay Start - 
-         * Ammunitions - 
-         * Lighting/Ambience - 
-         * Teams - 
-         * Respawn - 
-         * Gender - 
-         * Friendly Fire - 
-         * Volume - 
-         */
-        GameMode=8; 
-        Serial.println("Game mode set to Assimilation");
-        AudioSelection="VA9P";
-        SetSlotA = 3; // set weapon slot 0 as Assault Rifle
-        Serial.println("Weapon slot 0 set to Assault Rifle");
-        SetSlotB = 15; // set weapon slot 1 as Shotgun
-        Serial.println("Weapon slot 1 set to Shotgun");
-        SetLives = 32000; // set lives to 5 minutes
-        Serial.println("Lives is set to Unlimited");
-        SetTime=900000; // set game time to 15 minutes
-        Serial.println("Game time set to 15 minutes");
-        DelayStart=30000; // set delay start to 30 seconds
-        Serial.println("Delay Start Set to 30 seconds"); 
-        UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
-        Serial.println("Ammo set to unlimited magazies"); 
-        SetODMode=0; // outdoor mode set
-        Serial.println("Outdoor Mode On");
-        SetTeam=0; // set to red/alpha team
-        Serial.println("Set teams to free for all, red");
-        SetRSPNMode=2; // set respon mode to auto
-        RespawnTimer=15000; // set delay timer for respawns
-        Serial.println("Respawn Set to auto 15 seconds"); 
-        SetGNDR=0; // male player audio selection engaged
-        Serial.println("Gender set to Male");
-        SetFF=0; // friendly fire set to off
-        Serial.println("Friendly Fire Off");
-        SetVol = 100;
-        Serial.println("Volume set to" + String(SetVol));
-        VOLUMEADJUST=true;
-        }
-if (b==9) { // Gun Game
-        GameMode=9;
-        Serial.println("Game mode set to Gun Game");
-        AudioSelection="VA9T";
-        }
-if (b==10) {
-        GameMode=10; 
-        Serial.println("Game mode set to One Domination"); 
-        AudioSelection="VA21";
-        }
-if (b==11) {
-        GameMode=11; 
-        Serial.println("Game mode set to Battle Royale"); 
-        
-        }
-AUDIO=true;
-}
-}
-BLYNK_WRITE(V9) {// Sets Respawn Mode
-int b=param.asInt();
-if (INGAME==false){
-if (b==1) {
-        SetRSPNMode=1;
-        RespawnTimer=10; 
-        Serial.println("Respawn Set to Immediate"); 
-        AudioSelection="VA54";
-        }
-if (b==2) {
-        SetRSPNMode=2; 
-        RespawnTimer=15000;
-        Serial.println("Respawn Set to 15 seconds"); 
-        AudioSelection="VA2Q";
-        }
-if (b==3) {
-        SetRSPNMode=3;
-        RespawnTimer=30000; 
-        Serial.println("Respawn Set to 30 seconds"); 
-        AudioSelection="VA0R";
-        }
-if (b==4) {
-        SetRSPNMode=4; 
-        RespawnTimer=45000; 
-        Serial.println("Respawn Set to 45 seconds"); 
-        AudioSelection="VA0T";
-        }
-if (b==5) {
-        SetRSPNMode=5; 
-        RespawnTimer=60000;
-        Serial.println("Respawn Set to 60 seconds");
-        AudioSelection="VA0V";
-        }
-if (b==6) {
-        SetRSPNMode=6;
-        RespawnTimer=90000;
-        Serial.println("Respawn Set to 90 seconds"); 
-        AudioSelection="VA0X";
-        }
-if (b==7) {
-        SetRSPNMode=7; 
-        RespawnTimer=120000;
-        Serial.println("Respawn Set to 120 seconds");
-        AudioSelection="VA0S";
-        }
-if (b==8) {
-        SetRSPNMode=8; 
-        RespawnTimer=150000;
-        Serial.println("Respawn Set to 150 seconds");
-        AudioSelection="VA0W";
-        }
-if (b==9) {
-        SetRSPNMode=9;
-        RespawnTimer=10; 
-        Serial.println("Respawn Set to Manual/Respawn Station");
-        AudioSelection="VA9H";
+        if (b>1 && b < 50) {
+          GETSLOT1=false;
+          GETSLOT0=false;
+          SetSlotB=b-1; 
+          Serial.println("Weapon Slot 1 set"); 
+          if(SetSlotB < 10) {
+            AudioSelection = ("GN0" + String(SetSlotB));
+          }
+          if (SetSlotB > 9) {
+            AudioSelection = ("GN" + String(SetSlotB));
+          }
+          if(SetSlotA == 20) {
+            AudioSelection = ("VA50");
+          }
         }
         AUDIO=true;
-}
-}
-BLYNK_WRITE(V10) {// Sets Delayed Start Time
-int b=param.asInt();
-if (INGAME==false){
-if (b==1) {
-        DelayStart=0;
-        Serial.println("Delay Start Set to Immediate"); 
-        AudioSelection="VA4T";
+        if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
         }
-if (b==2) {
-        DelayStart=15000;
-        Serial.println("Delay Start Set to 15 seconds"); 
-        AudioSelection="VA2Q";
+      }
+    }
+    if (incomingData2 < 300 && incomingData2 > 200) { // setting player lives
+      int b = incomingData2 - 200;
+      if (INGAME==false){
+        if (b==7) {
+          SetLives = 32000; 
+          Serial.println("Lives is set to Unlimited"); 
+          AudioSelection="VA6V";
         }
-if (b==3) {
-        DelayStart=30000; 
-        Serial.println("Delay Start Set to 30 seconds");
-        AudioSelection="VA0R";
+        if (b==6) {
+          SetLives = 25; 
+          Serial.println("Lives is set to 25"); 
+          AudioSelection="VA0P";
         }
-if (b==4) {
-        DelayStart=45000; 
-        Serial.println("Delay Start Set to 45 seconds");
-        AudioSelection="VA0T";
+        if (b==5) {
+          SetLives = 15; 
+          Serial.println("Lives is set to 15"); 
+          AudioSelection="VA0F";
         }
-if (b==5) {
-        DelayStart=60000;
-        Serial.println("Delay Start Set to 60 seconds"); 
-        AudioSelection="VA0V";
+        if (b==4) {
+          SetLives = 10; 
+          Serial.println("Lives is set to 10"); 
+          AudioSelection="VA0A";
         }
-if (b==6) {        
-        DelayStart=90000;
-        Serial.println("Delay Start Set to 90 seconds");
-        AudioSelection="VA0X";
+        if (b==3) {
+          SetLives = 5; 
+          Serial.println("Lives is set to 5"); 
+          AudioSelection="VA05";
         }
-if (b==7) {
-        DelayStart=300000; 
-        Serial.println("Delay Start Set to 5 minutes"); 
-        AudioSelection="VA2S";
+        if (b==2) {
+          SetLives = 3; 
+          Serial.println("Lives is set to 3"); 
+          AudioSelection="VA03";
         }
-if (b==8) {
-        DelayStart=600000; 
-        Serial.println("Delay Start Set to 10 minutes"); 
-        AudioSelection="VA6H";
-        }
-if (b==9) {
-        DelayStart=900000;
-        Serial.println("Delay Start Set to 15 minutes"); 
-        AudioSelection="VA2P";
+        if (b==1) {
+          SetLives = 1; 
+          Serial.println("Lives is set to 1"); 
+          AudioSelection="VA01";
         }
         AUDIO=true;
-}
-}
-BLYNK_WRITE(V11) { // Scoresync
-int b=param.asInt(); // set up a temporary object based variable to assign as the incoming data
-if (b == GunID) {
-        SyncScores();
+        if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
+        }
+      }
+    }
+    if (incomingData2 < 400 && incomingData2 > 300) { // setting game time
+      int b = incomingData2 - 300;
+      if (INGAME==false){
+        if (b==1) {
+          SetTime=60000; 
+          Serial.println("Game time set to 1 minute");
+          AudioSelection="VA0V";
+        }
+        if (b==2) {
+          SetTime=300000;
+          Serial.println("Game time set to 5 minute");
+          AudioSelection="VA2S";
+        }
+        if (b==3) {
+          SetTime=600000; 
+          Serial.println("Game time set to 10 minute"); 
+          AudioSelection="VA6H";
+        }
+        if (b==4) {
+          SetTime=900000;
+          Serial.println("Game time set to 15 minute"); 
+          AudioSelection="VA2P";
+        }
+        if (b==5) {
+          SetTime=1200000; 
+          Serial.println("Game time set to 20 minute");
+          AudioSelection="VA6Q";
+        }
+        if (b==6) {
+          SetTime=1500000;
+          Serial.println("Game time set to 25 minute"); 
+          AudioSelection="VA6P";
+        }
+        if (b==7) {
+          SetTime=1800000; 
+          Serial.println("Game time set to 30 minute");
+          AudioSelection="VA0Q";
+        }
+        if (b==8) {
+          SetTime=2000000000; 
+          Serial.println("Game time set to Unlimited");
+          AudioSelection="VA6V";
+        }
+        AUDIO=true;
+        if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
+        }
+      }
+    }
+    if (incomingData2 < 500 && incomingData2 > 400) { // setting outdoor/indoor
+      int b = incomingData2 - 400;
+      if (INGAME==false){
+        if (b==1) {
+          SetODMode=0;
+          Serial.println("Outdoor Mode On"); 
+          AudioSelection="VA4W";
+          STEALTH = false;
+        }
+        if (b==2) {
+          SetODMode=1; 
+          Serial.println("Indoor Mode On"); 
+          AudioSelection="VA3W";
+          STEALTH = false;
+        }
+        if (b==3) {
+          SetODMode=1; 
+          Serial.println("Stealth Mode On"); 
+          AudioSelection="VA60";
+          STEALTH = true;
+        }
+        AUDIO=true;
+        if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
+        }
+      }
+    }
+    if (incomingData2 < 600 && incomingData2 > 500) { // setting team modes
+      int b = incomingData2 - 500;
+      if (GETTEAM) {
+        GETTEAM=false;
+      }
+      if (INGAME==false){
+        int A = 0;
+        int B = 1;
+        int C = 2;
+        int D = 3;
+        if (b==1) {
+          Serial.println("Free For All"); 
+          SetTeam=0;
+          SetFF=1;
+          AudioSelection="VA30";
+        }
+        if (b==2) {
+          Serial.println("Teams Mode Two Teams (odds/evens)");
+          if (GunID % 2) {
+            SetTeam=0; 
+            AudioSelection="VA13";
+          } else {
+            SetTeam=1; 
+            AudioSelection="VA1L";
+          }
+        }
+        if (b==3) {
+          Serial.println("Teams Mode Three Teams (every third player)");
+          while (A < 64) {
+            if (GunID == A) {
+              SetTeam=0;
+              AudioSelection="VA13";
+            }
+            if (GunID == B) {
+              SetTeam=1;
+              AudioSelection="VA1L";
+            }
+            if (GunID == C) {
+              SetTeam=3;
+              AudioSelection1="VA27";
+            }
+            A = A + 3;
+            B = B + 3;
+            C = C + 3;
+            vTaskDelay(1);
+          }
+          A = 0;
+          B = 1;
+          C = 2;
+        }    
+        if (b==4) {
+          Serial.println("Teams Mode Four Teams (every fourth player)");
+          while (A < 64) {
+            if (GunID == A) {
+              SetTeam=0;
+              AudioSelection="VA13";
+            }
+            if (GunID == B) {
+              SetTeam=1;
+              AudioSelection="VA1L";
+            }
+            if (GunID == C) {
+              SetTeam=2;
+              AudioSelection="VA1R";
+            }
+            if (GunID == D) {
+              SetTeam=3;
+              AudioSelection="VA27";
+            }
+            A = A + 4;
+            B = B + 4;
+            C = C + 4;
+            D = D + 4;
+            vTaskDelay(1);
+          }
+          A = 0;
+          B = 1;
+          C = 2;
+          D = 3;
+        }
+        if (b==5) {
+          Serial.println("Teams Mode Player's Choice"); 
+          settingsallowed=3; 
+          SetTeam=100; 
+          AudioSelection="VA5E";
+        } // this one allows for manual input of settings... each gun will need to select a team now
+        AUDIO=true;
+        ChangeMyColor = SetTeam; // triggers a gun/tagger color change
+      }
+    }
+    if (incomingData2 < 700 && incomingData2 > 600) { // setting preset or quick game modes
+      int b = incomingData2 - 600;
+      if (INGAME==false){
+        if (b==1) {
+          GameMode=1; // Default Mode
+          /*
+           * Weapon 0 - AMR
+           * Weapon 1 - Unarmed
+           * Lives - Unlimited
+           * Game Time - Unlimited
+           * Delay Start - Off
+           * Ammunitions - Unlimited magazines
+           * Lighting/Ambience - Outdoor mode
+           * Teams - Free for all
+           * Respawn - Immediate
+           * Gender - Male
+           * Friendly Fire - On
+           * Volume - 3
+           */
+          SetSlotA = 2; // set weapon slot 0 as AMR
+          Serial.println("Weapon slot 0 set to AMR");
+          SetSlotB = 1; // set weapon slot 1 as unarmed
+          Serial.println("Weapon slot 1 set to Unarmed");
+          SetLives = 32000; // set lives to unlimited
+          Serial.println("Lives is set to Unlimited");
+          SetTime=2000000000; // set game time to unlimited
+          Serial.println("Game time set to Unlimited");
+          DelayStart=0; // set delay start to immediate
+          Serial.println("Delay Start Set to Immediate"); 
+          UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
+          Serial.println("Ammo set to unlimited magazies"); 
+          SetODMode=0; // outdoor mode set
+          Serial.println("Outdoor Mode On");
+          SetTeam=0; // set to red/alpha team
+          Serial.println("Set teams to free for all, red");
+          SetRSPNMode=1; // set respon mode to auto
+          RespawnTimer=10; // set delay timer for respawns
+          Serial.println("Respawn Set to Immediate"); 
+          SetGNDR=0; // male player audio selection engaged
+          Serial.println("Gender set to Male");
+          SetFF=1; // free for all set to on
+          Serial.println("Friendly Fire On");
+          SetVol = 80;
+          Serial.println("Volume set to" + String(SetVol));
+          VOLUMEADJUST=true;
+          Serial.println("Game mode set to Defaults");
+          AudioSelection="VA5Z";
+        }
+        if (b==2) { // 5 min F4A AR + ShotGun
+          GameMode=2;
+          /*
+           * Weapon 0 - Assault Rifle
+           * Weapon 1 - Shotgun
+           * Lives - 5
+           * Game Time - 5 minutes
+           * Delay Start - 30 seconds
+           * Ammunitions - Unlimited magazines
+           * Lighting/Ambience - Outdoor mode
+           * Teams - Free for all
+           * Respawn - 15 seconds Automatic
+           * Gender - Male
+           * Friendly Fire - On
+           * Volume - 5
+           */
+          SetSlotA = 3; // set weapon slot 0 as Assault Rifle
+          Serial.println("Weapon slot 0 set to Assault Rifle");
+          SetSlotB = 15; // set weapon slot 1 as Shotgun
+          Serial.println("Weapon slot 1 set to Shotgun");
+          SetLives = 5; // set lives to 5 minutes
+          Serial.println("Lives is set to Unlimited");
+          SetTime=300000; // set game time to 5 minutes
+          Serial.println("Game time set to 5 minutes");
+          DelayStart=30000; // set delay start to 30 seconds
+          Serial.println("Delay Start Set to 30 seconds"); 
+          UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
+          Serial.println("Ammo set to unlimited magazies"); 
+          SetODMode=0; // outdoor mode set
+          Serial.println("Outdoor Mode On");
+          SetTeam=0; // set to red/alpha team
+          Serial.println("Set teams to free for all, red");
+          SetRSPNMode=2; // set respon mode to auto
+          RespawnTimer=15000; // set delay timer for respawns
+          Serial.println("Respawn Set to auto 15 seconds"); 
+          SetGNDR=0; // male player audio selection engaged
+          Serial.println("Gender set to Male");
+          SetFF=1; // free for all set to on
+          Serial.println("Friendly Fire On");
+          SetVol = 100;
+          Serial.println("Volume set to" + String(SetVol));
+          VOLUMEADJUST=true;
+          Serial.println("Game mode set to 5Min F4A AR + Shotguns"); 
+          AudioSelection="VA8I";
+        }
+        if (b==3) { // 10Min F4A Rndm Weap
+          GameMode=3; 
+          /*
+           * Weapon 0 - Random
+           * Weapon 1 - Random
+           * Lives - 10
+           * Game Time - 10 minutes
+           * Delay Start - 30 seconds
+           * Ammunitions - Unlimited magazines
+           * Lighting/Ambience - Outdoor mode
+           * Teams - Free for all
+           * Respawn - Immediate
+           * Gender - Male
+           * Friendly Fire - On
+           * Volume - 5
+           */
+          SetSlotA = random(2, 19); // set weapon slot 0 as Random
+          Serial.println("Weapon slot 0 set to Random");
+          SetSlotB = random(2, 19); // set weapon slot 1 as random
+          Serial.println("Weapon slot 1 set to random");
+          SetLives = 10; // set lives to 10 
+          Serial.println("Lives is set to 10");
+          SetTime=600000; // set game time to 10 minutes
+          Serial.println("Game time set to 10 minutes");
+          DelayStart=30000; // set delay start to 30 seconds
+          Serial.println("Delay Start Set to 30 seconds"); 
+          UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
+          Serial.println("Ammo set to unlimited magazies"); 
+          SetODMode=0; // outdoor mode set
+          Serial.println("Outdoor Mode On");
+          SetTeam=0; // set to red/alpha team
+          Serial.println("Set teams to free for all, red");
+          SetRSPNMode=2; // set respon mode to auto
+          RespawnTimer=15000; // set delay timer for respawns
+          Serial.println("Respawn Set to auto 15 seconds"); 
+          SetGNDR=0; // male player audio selection engaged
+          Serial.println("Gender set to Male");
+          SetFF=1; // free for all set to on
+          Serial.println("Friendly Fire On");
+          SetVol = 100;
+          Serial.println("Volume set to" + String(SetVol));
+          VOLUMEADJUST=true;
+          Serial.println("Game mode set to 10 Min F4A Rndm Weapon");
+          AudioSelection="VA8I";
+        }
+        if (b==4) { // SwapBRX
+          GameMode=4;
+          /*
+           * Weapon 0 - PISTOL
+           * Weapon 1 - Unarmed
+           * Lives - 1
+           * Game Time - Unlimited
+           * Delay Start - 30 Seconds
+           * Ammunitions - Limited magazines
+           * Lighting/Ambience - Outdoor mode
+           * Teams - Free for all
+           * Respawn - Immediate
+           * Gender - Male
+           * Friendly Fire - On
+           * Volume - 5
+           * 
+           * integrate IR protocol for random weapon swap...
+           */
+          SetSlotA = 20; // set weapon slot 0 as pistol
+          Serial.println("Weapon slot 0 set to PISTOL");
+          SetSlotB = 1; // set weapon slot 1 as uarmed
+          Serial.println("Weapon slot 1 set to unarmed");
+          SetLives = 1; // set lives to 1 
+          Serial.println("Lives is set to 1");
+          SetTime=2000000000; // set game time to unlimited minutes
+          Serial.println("Game time set to unlimited");
+          DelayStart=30000; // set delay start to 30 seconds
+          Serial.println("Delay Start Set to 30 seconds"); 
+          UNLIMITEDAMMO=1; // set ammunitions to limited mags
+          Serial.println("Ammo set to limited magazies"); 
+          SetODMode=0; // outdoor mode set
+          Serial.println("Outdoor Mode On");
+          SetTeam=0; // set to red/alpha team
+          Serial.println("Set teams to free for all, red");
+          SetRSPNMode=9; // set respon mode to manual
+          RespawnTimer=10; // set delay timer for respawns
+          Serial.println("Respawn Set to manual (station)"); 
+          SetGNDR=0; // male player audio selection engaged
+          Serial.println("Gender set to Male");
+          SetFF=1; // free for all set to on
+          Serial.println("Friendly Fire On");
+          SetVol = 100;
+          Serial.println("Volume set to" + String(SetVol));
+          VOLUMEADJUST=true;
+          Serial.println("Game mode set to Battle Royale or SwapBRX"); 
+          AudioSelection="VA8J";
+        }
+        if (b==5) { // Capture the Flag
+          GameMode=5; 
+          /*
+           * Weapon 0 - SMG
+           * Weapon 1 - Sniper Rifle
+           * Lives - Unlimited
+           * Game Time - 15 Minutes
+           * Delay Start - 30 seconds
+           * Ammunitions - Unlimited magazines
+           * Lighting/Ambience - Outdoor mode
+           * Teams - Manual Select
+           * Respawn - Manual Respawn (station)
+           * Gender - Male
+           * Friendly Fire - Off
+           * Volume - 5
+           */
+          SetSlotA = 16; // set weapon slot 0 as SMG
+          Serial.println("Weapon slot 0 set to SMG");
+          SetSlotB = 17; // set weapon slot 1 as sniper rifle
+          Serial.println("Weapon slot 1 set to sniper rifle");
+          SetLives = 32000; // set lives to unlimited
+          Serial.println("Lives is set to Unlimited");
+          SetTime=900000;
+          Serial.println("Game time set to 15 minute");
+          DelayStart=30000; // set delay start to 30 seconds
+          Serial.println("Delay Start Set to 30 seconds"); 
+          UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
+          Serial.println("Ammo set to unlimited magazies"); 
+          SetODMode=0; // outdoor mode set
+          Serial.println("Outdoor Mode On");
+          SetRSPNMode=9; // set respon mode to manual
+          RespawnTimer=10; // set delay timer for respawns
+          Serial.println("Respawn Set to manual (station)"); 
+          SetGNDR=0; // male player audio selection engaged
+          Serial.println("Gender set to Male");
+          SetFF=2; // free for all set to off
+          Serial.println("Friendly Fire off");
+          SetVol = 100;
+          Serial.println("Volume set to" + String(SetVol));
+          VOLUMEADJUST=true;
+          Serial.println("Game mode set to Capture the Flag");
+          AudioSelection="VA8P";
+          AUDIO=true;
+          Serial.println("Teams Mode Player's Choice"); 
+          settingsallowed=3; 
+          SetTeam=100; 
+          AudioSelection="VA5E";
+        }
+        if (b==6) { // Own the Zone
+          GameMode=6; 
+          /*
+           * Weapon 0 - Force Rifle
+           * Weapon 1 - Ion Sniper
+           * Lives - Unlimited
+           * Game Time - 15 Minutes
+           * Delay Start - 30 seconds
+           * Ammunitions - Unlimited magazines
+           * Lighting/Ambience - Outdoor mode
+           * Teams - Manual Select
+           * Respawn - Manual (station)
+           * Gender - Male
+           * Friendly Fire - Off
+           * Volume - 5
+           */
+          SetSlotA = 9; // set weapon slot 0 as force rifle
+          Serial.println("Weapon slot 0 set to force rifle");
+          SetSlotB = 10; // set weapon slot 1 as ion sniper rifle
+          Serial.println("Weapon slot 1 set to ion sniper rifle");
+          SetLives = 32000; // set lives to unlimited
+          Serial.println("Lives is set to Unlimited");
+          SetTime=900000;
+          Serial.println("Game time set to 15 minute");
+          DelayStart=30000; // set delay start to 30 seconds
+          Serial.println("Delay Start Set to 30 seconds"); 
+          UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
+          Serial.println("Ammo set to unlimited magazies"); 
+          SetODMode=0; // outdoor mode set
+          Serial.println("Outdoor Mode On");
+          SetRSPNMode=9; // set respon mode to manual
+          RespawnTimer=10; // set delay timer for respawns
+          Serial.println("Respawn Set to manual (station)"); 
+          SetGNDR=0; // male player audio selection engaged
+          Serial.println("Gender set to Male");
+          SetFF=2; // free for all set to off
+          Serial.println("Friendly Fire off");
+          SetVol = 100;
+          Serial.println("Volume set to" + String(SetVol));
+          VOLUMEADJUST=true;
+          Serial.println("Game mode set to Own the Zone");
+          AudioSelection="VA93";
+          AUDIO=true;
+          vTaskDelay(3000);
+          Serial.println("Teams Mode Player's Choice"); 
+          settingsallowed=3; 
+          SetTeam=100; 
+          AudioSelection="VA5E";
+        }
+        if (b==7) { // Survival/Infection
+          GameMode=7; 
+          /*
+           * Weapon 0 - Burst Rifle
+           * Weapon 1 - medic heal dart with alt fire
+           * Lives - Unlimited
+           * Game Time - 10
+           * Delay Start - 30 sec
+           * Ammunitions - ulimited mags
+           * Lighting/Ambience - outdoor
+           * Teams - manual set (just red and green) human and infected
+           * Respawn - Auto 15 seconds
+           * Gender - Male
+           * Friendly Fire - Off
+           * Volume - 5
+           */
+          SetSlotA = 5; // set weapon slot 0 as burst rifle
+          Serial.println("Weapon slot 0 set to burst rifle");
+          // change game start sequence to make alt fire a health "perk" instead of "weapon selection/cycle"
+          // SetSlotB = 10; // set weapon slot 1 as ion sniper rifle
+          // Serial.println("Weapon slot 1 set to ion sniper rifle");
+          SetLives = 32000; // set lives to unlimited
+          Serial.println("Lives is set to Unlimited");
+          SetTime=600000;
+          Serial.println("Game time set to 10 minute");
+          DelayStart=30000; // set delay start to 30 seconds
+          Serial.println("Delay Start Set to 30 seconds"); 
+          UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
+          Serial.println("Ammo set to unlimited magazies"); 
+          SetODMode=0; // outdoor mode set
+          Serial.println("Outdoor Mode On");
+          SetRSPNMode=2; // set respon mode to auto
+          RespawnTimer=15000; // set delay timer for respawns
+          Serial.println("Respawn Set to auto 15 seconds");
+          SetGNDR=0; // male player audio selection engaged
+          Serial.println("Gender set to Male");
+          SetFF=2; // free for all set to off
+          Serial.println("Friendly Fire off");
+          SetVol = 100;
+          Serial.println("Volume set to" + String(SetVol));
+          VOLUMEADJUST=true;
+          Serial.println("Game mode set to Survival / Infection");
+          AudioSelection="VA64";
+          AUDIO=true;
+          vTaskDelay(3000);
+          Serial.println("Teams Mode Player's Choice"); 
+          settingsallowed=3; 
+          SetTeam=100; 
+          Team = 0;
+          AudioSelection="VA5E";
+        }
+        if (b==8) { // Assimilation
+          /*
+           * Weapon 0 - 
+           * Weapon 1 - 
+           * Lives - 
+           * Game Time - 
+           * Delay Start - 
+           * Ammunitions - 
+           * Lighting/Ambience - 
+           * Teams - 
+           * Respawn - 
+           * Gender - 
+           * Friendly Fire - 
+           * Volume - 
+           */
+          GameMode=8; 
+          Serial.println("Game mode set to Assimilation");
+          AudioSelection="VA9P";
+          SetSlotA = 3; // set weapon slot 0 as Assault Rifle
+          Serial.println("Weapon slot 0 set to Assault Rifle");
+          SetSlotB = 15; // set weapon slot 1 as Shotgun
+          Serial.println("Weapon slot 1 set to Shotgun");
+          SetLives = 32000; // set lives to 5 minutes
+          Serial.println("Lives is set to Unlimited");
+          SetTime=900000; // set game time to 15 minutes
+          Serial.println("Game time set to 15 minutes");
+          DelayStart=30000; // set delay start to 30 seconds
+          Serial.println("Delay Start Set to 30 seconds"); 
+          UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
+          Serial.println("Ammo set to unlimited magazies"); 
+          SetODMode=0; // outdoor mode set
+          Serial.println("Outdoor Mode On");
+          SetTeam=0; // set to red/alpha team
+          Serial.println("Set teams to free for all, red");
+          SetRSPNMode=2; // set respon mode to auto
+          RespawnTimer=15000; // set delay timer for respawns
+          Serial.println("Respawn Set to auto 15 seconds"); 
+          SetGNDR=0; // male player audio selection engaged
+          Serial.println("Gender set to Male");
+          SetFF=0; // friendly fire set to off
+          Serial.println("Friendly Fire Off");
+          SetVol = 100;
+          Serial.println("Volume set to" + String(SetVol));
+          VOLUMEADJUST=true;
+        }
+        if (b==9) { // Gun Game
+          GameMode=9;
+          Serial.println("Game mode set to Gun Game");
+          AudioSelection="VA9T";
+        }
+        if (b==10) {
+          GameMode=10; 
+          Serial.println("Game mode set to One Domination"); 
+          AudioSelection="VA21";
+        }
+        if (b==11) {
+          GameMode=11; 
+          Serial.println("Game mode set to Battle Royale"); 
+        }
+        AUDIO=true;
+        if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
+        }
+      }
+    }
+    if (incomingData2 < 800 && incomingData2 > 700) { // setting respawn time
+      int b = incomingData2 - 700;
+      if (INGAME==false){
+        if (b==1) {
+          SetRSPNMode=1;
+          RespawnTimer=10; 
+          Serial.println("Respawn Set to Immediate"); 
+          AudioSelection="VA54";
+        }
+        if (b==2) {
+          SetRSPNMode=2; 
+          RespawnTimer=15000;
+          Serial.println("Respawn Set to 15 seconds"); 
+          AudioSelection="VA2Q";
+        }
+        if (b==3) {
+          SetRSPNMode=3;
+          RespawnTimer=30000; 
+          Serial.println("Respawn Set to 30 seconds"); 
+          AudioSelection="VA0R";
+        }
+        if (b==4) {
+          SetRSPNMode=4; 
+          RespawnTimer=45000; 
+          Serial.println("Respawn Set to 45 seconds"); 
+          AudioSelection="VA0T";
+        }
+        if (b==5) {
+         SetRSPNMode=5; 
+          RespawnTimer=60000;
+          Serial.println("Respawn Set to 60 seconds");
+          AudioSelection="VA0V";
+        }
+        if (b==6) {
+          SetRSPNMode=6;
+          RespawnTimer=90000;
+          Serial.println("Respawn Set to 90 seconds"); 
+          AudioSelection="VA0X";
+        }
+        if (b==7) {
+          SetRSPNMode=7; 
+          RespawnTimer=120000;
+          Serial.println("Respawn Set to 120 seconds");
+          AudioSelection="VA0S";
+        }
+        if (b==8) {
+          SetRSPNMode=8; 
+          RespawnTimer=150000;
+          Serial.println("Respawn Set to 150 seconds");
+          AudioSelection="VA0W";
+        }
+        if (b==9) {
+          SetRSPNMode=9;
+          RespawnTimer=10; 
+          Serial.println("Respawn Set to Manual/Respawn Station");
+          AudioSelection="VA9H";
+        }
+        AUDIO=true;
+        if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
+        }
+      }
+    }
+    if (incomingData2 < 900 && incomingData2 > 800) { // setting delay start
+      int b = incomingData2 - 800;
+      if (INGAME==false){
+        if (b==1) {
+          DelayStart=0;
+          Serial.println("Delay Start Set to Immediate"); 
+          AudioSelection="VA4T";
+        }
+        if (b==2) {
+          DelayStart=15000;
+          Serial.println("Delay Start Set to 15 seconds"); 
+          AudioSelection="VA2Q";
+        }
+        if (b==3) {
+          DelayStart=30000; 
+          Serial.println("Delay Start Set to 30 seconds");
+          AudioSelection="VA0R";
+        }
+        if (b==4) {
+          DelayStart=45000; 
+          Serial.println("Delay Start Set to 45 seconds");
+          AudioSelection="VA0T";
+        }
+        if (b==5) {
+          DelayStart=60000;
+          Serial.println("Delay Start Set to 60 seconds"); 
+          AudioSelection="VA0V";
+        }
+        if (b==6) {        
+          DelayStart=90000;
+          Serial.println("Delay Start Set to 90 seconds");
+          AudioSelection="VA0X";
+        }
+        if (b==7) {
+          DelayStart=300000; 
+          Serial.println("Delay Start Set to 5 minutes"); 
+          AudioSelection="VA2S";
+        }
+        if (b==8) {
+          DelayStart=600000; 
+          Serial.println("Delay Start Set to 10 minutes"); 
+          AudioSelection="VA6H";
+        }
+        if (b==9) {
+          DelayStart=900000;
+          Serial.println("Delay Start Set to 15 minutes"); 
+          AudioSelection="VA2P";
+        }
+        AUDIO=true;
+        if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
+        }
+      }
+    }
+    if (incomingData2 < 1000 && incomingData2 > 900) { // Syncing scores
+      int b = incomingData2 - 900;
+      if (b == 1) {
+        //SyncScores();
         Serial.println("Request Recieved to Sync Scoring");
         AudioSelection="VA91";
-        }
-        Serial.println("not this taggers turn to sync scores");
         AUDIO=true;
-}
-BLYNK_WRITE(V12) {// Sets Player Gender
-int b=param.asInt();
-if (INGAME==false){
-if (b==0) {
-        SetGNDR=0; 
-        Serial.println("Gender set to Male");
-        AudioSelection="V3I";
+        if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
         }
-if (b==1) {
-        SetGNDR=1;
-        Serial.println("Gender set to Female");
-        AudioSelection="VBI";
-        }
-        AUDIO=true;
-}
-}
-BLYNK_WRITE(V13) {// Sets Ammo Settings
-int b=param.asInt();
-if (INGAME==false){
-if (b==3) {
-        UNLIMITEDAMMO=3; 
-        Serial.println("Ammo set to unlimited rounds"); 
-        AudioSelection="VA6V";
-        }
-if (b==2) {
-        UNLIMITEDAMMO=2;
-        Serial.println("Ammo set to unlimited magazies"); 
-        AudioSelection="VA6V";
-        }
-if (b==1) {
-        UNLIMITEDAMMO=1; 
-        Serial.println("Ammo set to limited"); 
-        AudioSelection="VA14";
-        }
-        AUDIO=true;
-}
-}
-BLYNK_WRITE(V14) {// Sets Friendly Fire
-int b=param.asInt();
-if (INGAME==false){
-if (b==0) {
-        SetFF=0; 
-        Serial.println("Friendly Fire Off");
-        AudioSelection="VA31";
-        }
-if (b==1) {
-        SetFF=1;
-        Serial.println("Friendly Fire On"); 
-        AudioSelection="VA32";
-        }
-        AUDIO=true;
-}
-}
-BLYNK_WRITE(V15) {// Sets Volume of taggers
-int b=param.asInt();
-if (INGAME==false){
-   if (b == 1) {
-    SetVol = 60;
-    AudioSelection="VA01";
-    Serial.println("Volume set to" + String(SetVol));
-   }
-   if (b == 2) {
-    SetVol = 70;
-    AudioSelection="VA02";
-    Serial.println("Volume set to" + String(SetVol));
-   }
-   if (b == 3) {
-    SetVol = 80;
-    AudioSelection="VA03";
-    Serial.println("Volume set to" + String(SetVol));
-   }
-   if (b == 4) {
-    SetVol = 90;
-    AudioSelection="VA04";
-    Serial.println("Volume set to" + String(SetVol));
-   }
-   if (b == 5) {
-    SetVol = 100;
-    AudioSelection="VA05";
-    Serial.println("Volume set to" + String(SetVol));
-   }
-   if (b == 6) {
-    SetVol = 20;
-    AudioSelection="VA05";
-    Serial.println("Volume set to" + String(SetVol));
-   }
-   VOLUMEADJUST=true;
-   AUDIO=true;
-   }
-}
-BLYNK_WRITE(V16) {// Start/Ends a game
-int b=param.asInt();
-  if (b==0) {
-    if (INGAME){
-      GAMEOVER=true; 
-      Serial.println("ending game");
-    }
-  }
-  // enable audio notification for changes
-  if (b==1) {
-    if (!INGAME){
-      GAMESTART=true; 
-      Serial.println("starting game");
-      if (SetTeam == 100) {
-        SetTeam=Team;
-      }
-      if (ALLOWESPNOWINGAME) {
-        STARTESPNOW = true;
-        RUNBLYNK = false;
       }
     }
-  }
-  //AUDIO=true;
-}
-BLYNK_WRITE(V17) {// Locks out Tagger user
-int b=param.asInt();
-if (b==1) {
-  InitializeJEDGE();
-  }
-}
-BLYNK_WRITE(V18) {// Re-Sync Taggers (reset wifi)
-int b=param.asInt();
-if (b==1) {
-        Serial.println("Resetting ESP wifi");
-        //delay(2000);
-        WiFi.disconnect();
-        while (WiFi.status() == WL_CONNECTED) {
-          //delay(500);
-          Serial.print(".");
+    if (incomingData2 < 1100 && incomingData2 > 999) { // Setting Gender
+      int b = incomingData2 - 1000;
+      if (INGAME==false){
+        if (b == 0) {
+          SetGNDR=0; 
+          Serial.println("Gender set to Male");
+          AudioSelection="V3I";
         }
-        Serial.println("Disconnected from Wifi");
-        Serial.println("Reconnecting to Wifi");
-        WiFi.begin(ssid, pass);
-        while(WiFi.status() != WL_CONNECTED) {
-          //delay(500);
-          Serial.print(".");
+        if (b == 1) {
+          SetGNDR=1;
+          Serial.println("Gender set to Female");
+          AudioSelection="VBI";
         }
-        Serial.println();
-        Serial.println("Reconnected to Wifi");
-        //ESP.restart();
-        ErrorCounter = 0;
-        WiFiResetCount++;
-}
-}
-BLYNK_WRITE(V19) {// Restart ESP
-int b=param.asInt();
-if (b==1) {
-        ESP.restart();
+        AUDIO=true;
+        if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
         }
+      }
+    }
+    if (incomingData2 < 1200 && incomingData2 > 1100) { // Setting ammo
+      int b = incomingData2 - 1100;
+      if (INGAME==false){
+        if (b==3) {
+          UNLIMITEDAMMO=3; 
+          Serial.println("Ammo set to unlimited rounds"); 
+          AudioSelection="VA6V";
+        }
+        if (b==2) {
+          UNLIMITEDAMMO=2;
+          Serial.println("Ammo set to unlimited magazies"); 
+          AudioSelection="VA6V";
+        }
+        if (b==1) {
+          UNLIMITEDAMMO=1; 
+          Serial.println("Ammo set to limited"); 
+          AudioSelection="VA14";
+        }
+        AUDIO=true;
+        if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
+        }
+      }
+    }
+    if (incomingData2 < 1300 && incomingData2 > 1199) { // Setting friendly fire
+      int b = incomingData2 - 1200;
+      if (INGAME==false){
+        if (b==0) {
+          SetFF=0; 
+          Serial.println("Friendly Fire Off");
+          AudioSelection="VA31";
+        }
+        if (b==1) {
+          SetFF=1;
+          Serial.println("Friendly Fire On"); 
+          AudioSelection="VA32";
+        }
+        AUDIO=true;
+        if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
+        }
+      }
+    }
+    if (incomingData2 < 1400 && incomingData2 > 1299) { // Setting volume
+      int b = incomingData2 - 1300;
+      if (INGAME==false){
+       if (b == 1) {
+         SetVol = 60;
+         AudioSelection="VA01";
+         Serial.println("Volume set to" + String(SetVol));
+       }
+       if (b == 2) {
+         SetVol = 70;
+         AudioSelection="VA02";
+         Serial.println("Volume set to" + String(SetVol));
+       }
+       if (b == 3) {
+         SetVol = 80;
+         AudioSelection="VA03";
+         Serial.println("Volume set to" + String(SetVol));
+       }
+       if (b == 4) {
+         SetVol = 90;
+         AudioSelection="VA04";
+         Serial.println("Volume set to" + String(SetVol));
+       }
+       if (b == 5) {
+         SetVol = 100;
+         AudioSelection="VA05";
+         Serial.println("Volume set to" + String(SetVol));
+       }
+       if (b == 6) {
+         SetVol = 20;
+         AudioSelection="VA05";
+         Serial.println("Volume set to" + String(SetVol));
+       }
+       VOLUMEADJUST=true;
+       AUDIO=true;
+       if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
+        }
+     }
+   }
+   if (incomingData2 < 1500 && incomingData2 > 1399) { // Starting/Ending Game
+     int b = incomingData2 - 1400;
+     if (b==0) {
+       if (INGAME){
+         GAMEOVER=true; 
+         Serial.println("ending game");
+       }
+     }
+     if (b==1) {
+       if (!INGAME){
+         GAMESTART=true; 
+         Serial.println("starting game");
+         if (SetTeam == 100) {
+           SetTeam=Team;
+         }
+       }
+     }
+   }
+   if (incomingData2 < 1600 && incomingData2 > 1499) { // Misc. Debug
+     int b = incomingData2 - 1500;
+     if (b==1) {
+       InitializeJEDGE();
+       ChangeMyColor = SetTeam; // triggers a gun/tagger color change
+     }
+     if (b==2) {
+       ESP.restart();
+     }
+     if (b==3) {
+       int fakescorecounter = 0;
+       while (fakescorecounter < 64) {
+         PlayerKillCount[fakescorecounter] = random(25);
+         Serial.println("Player " + String(fakescorecounter) + " kills: " + String(PlayerKillCount[fakescorecounter]));
+         fakescorecounter++;
+         vTaskDelay(1);
+       }
+       fakescorecounter = 0;
+       while (fakescorecounter < 4) {
+         TeamKillCount[fakescorecounter] = random(100);
+         Serial.println("Team " + String(fakescorecounter) + " kills: " + String(TeamKillCount[fakescorecounter]));
+         fakescorecounter++;
+       }
+       if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
+        }
+     }
+     if (b==4) {
+       Serial.println("received request to report in, waiting in line...");
+       //int terminaldelay = GunID * 1000;
+       //delay(terminaldelay);
+       //terminal.print(GunName);
+       //terminal.println(" is connected to the JEDGE server");
+       //terminal.flush();
+       Serial.println("Reported to Server");
+       if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
+        }
+     }
+     if (b==5) {
+       Serial.println("OTA Update Mode");
+       ENABLEOTAUPDATE = true;
+       if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
+        }
+     }
+   }
+   if (incomingData2 < 1700 && incomingData2 > 1599) { // Player-Team Selector
+     int b = incomingData2 - 1600;
+     int teamselector = 99;
+     if (b == 68) {
+       INGAME = false;
+       ChangeMyColor = 7; // triggers a gun/tagger color change
+     } else {
+      if (b > 63) {
+        teamselector = b - 64;
+      }
+      if (teamselector < 99) {
+        if (teamselector == SetTeam) {
+          INGAME = false;
+          ChangeMyColor = 7; // triggers a gun/tagger color change
+        } else {
+          INGAME = true;
+          ChangeMyColor = 9; // triggers a gun/tagger color change
+        }
+      } else {
+        if (b == GunID) {
+          INGAME = false;
+          ChangeMyColor = 7; // triggers a gun/tagger color change
+        } else {
+          INGAME = true;
+          ChangeMyColor = 9; // triggers a gun/tagger color change
+        }
+      }
+     }
+    }    
+    if (incomingData2 == 32000) { // if true, this is a kill confirmation
+      MyKills++; // accumulate one kill count
+      AudioSelection="VN8"; // set audio play for "kill confirmed
+      AUDIO=true;
+      AudioDelay = 2000;
+      AudioPreviousMillis = millis();
+      if (GameMode == 4) {
+        // apply weapon pick up from kill  
+        SpecialWeapon = incomingData3;
+        // Enable special weapon load by select button
+        SELECTCONFIRM = true; // enables trigger for select button
+        SPECIALWEAPONLOADOUT = true;
+        SelectButtonTimer = millis();
+        AudioSelection1="VA9B"; // set audio playback to "press select button"   
+      }
+    }
+    digitalWrite(2, LOW);
+  }  
 }
-BLYNK_WRITE(V20) {// Force Taggers to update OTA
-  int b=param.asInt();
-  if (b==1) {
-    Serial.println("OTA Update Mode");
-    ENABLEOTAUPDATE = true;
-    RUNBLYNK = false;
-  }
-}
-BLYNK_WRITE(V21) {// Force Taggers to Report
-  int b=param.asInt();
-  if (b==1) {
-    Serial.println("received request to report in, waiting in line...");
-    //int terminaldelay = GunID * 1000;
-    //delay(terminaldelay);
-    terminal.print(GunName);
-    terminal.println(" is connected to the JEDGE server");
-    terminal.flush();
-    Serial.println("Reported to Server");
-  }
-}
-BLYNK_WRITE(V22) { // used for kill confirmations
-  int b = param.asInt();
-  if (b == GunID) {
-    // we just received a confirmation that we made a kill
-    Serial.println("We killed someone");
-    MyKills++; // added one to my score
-    AudioSelection="VA8E"; // kill confirmed audio
-    AUDIO = true; // enabling tagger audio playback
-  } else {
-    // it is someone elses confirmation
-    Serial.print("someone else got a kill, not me");
-  }
-}
-BLYNK_WRITE(V23) {// Disable ESPNOW
-  int b=param.asInt();
-  if (b==1) {
-    ALLOWESPNOWINGAME = false; // default
-  }
-  if (b==0) {
-    ALLOWESPNOWINGAME = true;
-  }
-}
-//**************************************************************
 
 
 //******************************************************************************************
@@ -3354,7 +3911,7 @@ void loop1(void *pvParameters) {
   Serial.print("Dirty loop running on core ");
   Serial.println(xPortGetCoreID());   
   //auto control brx start up:
-  InitializeJEDGE();
+  //InitializeJEDGE();
   while(1) { // starts the forever loop
     // put all the serial activities in here for communication with the brx
     if (Serial1.available()) {
@@ -3366,71 +3923,26 @@ void loop1(void *pvParameters) {
   }
 }
 // *****************************************************************************************
-// **************************************  BLYNK LOOP  *************************************
+// **************************************  Comms LOOP  *************************************
 // *****************************************************************************************
 void loop2(void *pvParameters) {
-  Serial.print("Blynk loop running on core ");
+  Serial.print("cOMMS loop running on core ");
   Serial.println(xPortGetCoreID());
+  Menu[0] = 3;
+  Menu[1] = 102;
+  Menu[2] = 207;
+  Menu[3] = 308;
+  Menu[4] = 401;
+  Menu[5] = 501;
   while (1) { // starts the forever loop
-    // place main blynk functions in here, everything wifi related:
-    if (RUNBLYNK) {
-      Blynk.run();
-      if (WRITETOTERMINAL) {
-        WRITETOTERMINAL = false;
-        terminal.println(TerminalInput);
-        terminal.flush(); // sets max volume on gun 0-100 feet distance
-      }
-      if (!INGAME) {
-        CheckBlynkConnection.run();
-      }
-      if (INGAME) {
-        if (KILLCONFIRMATION) {
-          KILLCONFIRMATION = false;
-          bridge1.virtualWrite(V101, playerkillconfirmation); // sends notification to the scoring device that xx player tagged him
-          bridge1.virtualWrite(V103, teamkillconfirmation); // sends notification to the scoring device that xx team tagged him
-        }
-        // for score reportin testing only
-        unsigned long CurrentMillis = millis();
-        if (CurrentMillis - 4000 > previousMillis) {
-          previousMillis = CurrentMillis;
-          playerkillconfirmation = random(0, 64); // prep for sending kill confirmation to server
-          teamkillconfirmation = random(0, 4); // prep for sending kill confirmation to server
-          KILLCONFIRMATION = true; // enable kill confirmation sending to server
-        }
-      }
-    }
-    if (ENABLEOTAUPDATE) {
-      // we are in OTA update mode
-      ArduinoOTA.handle(); // for OTA
-      // check if wifi is connected 
-      if (WiFi.status() == WL_CONNECTED) {
-        // blink the onboard led
-        if (millis() > previousMillis + interval) {
-          previousMillis = millis();
-          if (ledState == LOW) {
-            ledState = HIGH; 
-          } else {
-            ledState = LOW;
-          } 
-          digitalWrite(led, ledState);  
-        }
-      }
-    }
-    if (STARTESPNOW) {
-      STARTESPNOW = false;
-      StartESPNOW();
-    }
-    if (RESTARTBLYNK) {
-      RUNBLYNK = true;
-      RESTARTBLYNK = false;
-      BlynkSetup();
-    }
-    if (INGAME == true && ALLOWESPNOWINGAME == true) {
-      unsigned long CurrentMillis = millis();
-      if (CurrentMillis - 1000 > previousMillis) {
-        previousMillis = CurrentMillis;
-        digitalWrite(led, LOW);
-      }
+    ws.cleanupClients();
+    digitalWrite(ledPin, LEDState);
+    if (BROADCASTESPNOW) {
+      BROADCASTESPNOW = false;
+      getReadings();
+      BroadcastData(); // sending data via ESPNOW
+      Serial.println("Sent Data Via ESPNOW");
+      ResetReadings();
     }
     delay(1); // this has to be here or the esp32 will just keep rebooting
   }
@@ -3440,17 +3952,25 @@ void loop2(void *pvParameters) {
 //******************************************************************************************
 void setup() {
   Serial.begin(115200); // set serial monitor to match this baud rate
-  Serial.print("ESP Board MAC Address:  ");
-  Serial.println(WiFi.macAddress());
-  BlynkSetup(); // runs the blynk set up
   Serial.println("Serial Buad Rate set for: " + String(BaudRate));
   Serial1.begin(BaudRate, SERIAL_8N1, SERIAL1_RXPIN, SERIAL1_TXPIN); // setting up the serial pins for sending data to BRX
   pinMode(led, OUTPUT);
   digitalWrite(led, LOW);
   Serial.print("setup() running on core ");
-  AllowTimeout = false;
-  // Clear the terminal content
-  terminal.clear();
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, LOW);
+  InitAP();
+  initWebSocket();
+  // Route for root / web page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send_P(200, "text/html", index_html, processor);
+  });
+  // Start server
+  server.begin();
+  Serial.print("ESP Board MAC Address:  ");
+  Serial.println(WiFi.macAddress());
+  Serial.println("Starting ESPNOW");
+  IntializeESPNOW();
   Serial.println(xPortGetCoreID());
   xTaskCreatePinnedToCore(loop1, "loop1", 4096, NULL, 1, NULL, 0);
   xTaskCreatePinnedToCore(loop2, "loop2", 4096, NULL, 1, NULL, 1);
