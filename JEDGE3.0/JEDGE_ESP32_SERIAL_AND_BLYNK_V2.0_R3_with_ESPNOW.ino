@@ -93,7 +93,8 @@
  *                    removed OTA update for now for simplicity, can add back in later.
  * updated 04/16/2021 added in all the webserver objects and declarations and started working on app-less controls
  *                    added some of the menu options for controls and tested between two esps
- *                    
+ * updated 4/18/2021  found and fixed baudrate bug, i had it originally in the blynk set up and when removing blynk the baudrate check for generations of taggers was deleted as well
+ *                    it has now been added back in... oops.
  *                    
  */
 
@@ -119,10 +120,10 @@ int BaudRate = 57600; // 115200 is for GEN2/3, 57600 is for GEN1, this is set au
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
-int GunID = 0; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+int GunID = 1; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
 int GunGeneration = 2; // change to gen 1, 2, 3
 // Replace with your network credentials
-const char* ssid = "Gun_0";
+const char* ssid = "Gun_1";
 const char* password = "123456789";
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -1925,7 +1926,6 @@ void delaystart() {
 
 // process used to send string properly to gun... splits up longer strings in bytes of 20
 // to make sure gun understands them all... not sure about all of what does what below...
-// had some major help from Sri Lanka Guy!
 void sendString(String value) {
   const char * c_string = value.c_str();
   Serial.print("sending: ");
@@ -3952,6 +3952,10 @@ void loop2(void *pvParameters) {
 //******************************************************************************************
 void setup() {
   Serial.begin(115200); // set serial monitor to match this baud rate
+  Serial.println("Initializing serial output settings, Tagger Generation set to Gen: " + String(GunGeneration));
+  if (GunGeneration > 1) {
+    BaudRate = 115200;
+  }
   Serial.println("Serial Buad Rate set for: " + String(BaudRate));
   Serial1.begin(BaudRate, SERIAL_8N1, SERIAL1_RXPIN, SERIAL1_TXPIN); // setting up the serial pins for sending data to BRX
   pinMode(led, OUTPUT);
