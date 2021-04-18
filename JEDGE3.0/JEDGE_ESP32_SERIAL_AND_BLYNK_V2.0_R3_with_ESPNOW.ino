@@ -1012,12 +1012,12 @@ const char index_html[] PROGMEM = R"rawliteral(
       document.getElementById('AMO').innerHTML = AMO;
     }
     if (event.data == "1200"){
-      GND = "OFF";
-      document.getElementById('GND').innerHTML = GND;
+      FF = "OFF";
+      document.getElementById('FF').innerHTML = FF;
     }
     if (event.data == "1201"){
-      GND = "On";
-      document.getElementById('GND').innerHTML = GND;
+      FF = "On";
+      document.getElementById('FF').innerHTML = FF;
     }
     if (event.data == "1301"){
       VOL = "One";
@@ -1064,8 +1064,8 @@ const char index_html[] PROGMEM = R"rawliteral(
     document.getElementById('ambience').addEventListener('click', toggle4);
     document.getElementById('teams0').addEventListener('click', toggle5);
     document.getElementById('gamemode').addEventListener('click', toggle6);
-    document.getElementById('delaystarttimer').addEventListener('click', toggle7);
-    document.getElementById('respawnmode').addEventListener('click', toggle8);
+    document.getElementById('respawnmode').addEventListener('click', toggle7);
+    document.getElementById('delaystarttimer').addEventListener('click', toggle8);
     document.getElementById('syncscores').addEventListener('click', toggle9);
     document.getElementById('playergender').addEventListener('click', toggle10);
     document.getElementById('ammosetting').addEventListener('click', toggle11);
@@ -1305,7 +1305,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       Menu[9] = 901;
       WebSocketData = Menu[9];
       notifyClients();
-      Serial.println("delay start timer menu = " + String(Menu[9]));
+      Serial.println(" menu = " + String(Menu[9]));
       datapacket2 = Menu[9];
       datapacket1 = 99;
       BROADCASTESPNOW = true;
@@ -1323,7 +1323,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       }
       WebSocketData = Menu[10];
       notifyClients();
-      Serial.println("delay start timer menu = " + String(Menu[10]));
+      Serial.println(" menu = " + String(Menu[10]));
       datapacket2 = Menu[10];
       datapacket1 = 99;
       BROADCASTESPNOW = true;
@@ -1341,7 +1341,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       }
       WebSocketData = Menu[11];
       notifyClients();
-      Serial.println("delay start timer menu = " + String(Menu[11]));
+      Serial.println(" = " + String(Menu[11]));
       datapacket2 = Menu[11];
       datapacket1 = 99;
       BROADCASTESPNOW = true;
@@ -1359,7 +1359,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       }
       WebSocketData = Menu[12];
       notifyClients();
-      Serial.println("delay start timer menu = " + String(Menu[12]));
+      Serial.println("menu = " + String(Menu[12]));
       datapacket2 = Menu[12];
       datapacket1 = 99;
       BROADCASTESPNOW = true;
@@ -1377,7 +1377,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       }
       WebSocketData = Menu[13];
       notifyClients();
-      Serial.println("delay start timer menu = " + String(Menu[11]));
+      Serial.println(" menu = " + String(Menu[11]));
       datapacket2 = Menu[13];
       datapacket1 = 99;
       BROADCASTESPNOW = true;
@@ -1391,7 +1391,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       Menu[14] = 1401;
       WebSocketData = Menu[14];
       notifyClients();
-      Serial.println("delay start timer menu = " + String(Menu[14]));
+      Serial.println("menu = " + String(Menu[14]));
       datapacket2 = Menu[14];
       datapacket1 = 99;
       BROADCASTESPNOW = true;
@@ -1405,7 +1405,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       Menu[14] = 1400;
       WebSocketData = Menu[14];
       notifyClients();
-      Serial.println("delay start timer menu = " + String(Menu[14]));
+      Serial.println("menu = " + String(Menu[14]));
       datapacket2 = Menu[14];
       datapacket1 = 99;
       BROADCASTESPNOW = true;
@@ -1419,7 +1419,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       Menu[15] = 1501;
       WebSocketData = Menu[15];
       notifyClients();
-      Serial.println("delay start timer menu = " + String(Menu[15]));
+      Serial.println("menu = " + String(Menu[15]));
       datapacket2 = Menu[15];
       datapacket1 = 99;
       BROADCASTESPNOW = true;
@@ -1914,7 +1914,7 @@ void ProcessIncomingCommands() {
            * Delay Start - 30 seconds
            * Ammunitions - Unlimited magazines
            * Lighting/Ambience - Outdoor mode
-           * Teams - Manual Select
+           * Teams - Free For All
            * Respawn - Manual Respawn (station)
            * Gender - Male
            * Friendly Fire - Off
@@ -1947,10 +1947,6 @@ void ProcessIncomingCommands() {
           Serial.println("Game mode set to Capture the Flag");
           AudioSelection="VA8P";
           AUDIO=true;
-          Serial.println("Teams Mode Player's Choice"); 
-          settingsallowed=3; 
-          SetTeam=100; 
-          AudioSelection="VA5E";
         }
         if (b==6) { // Own the Zone
           GameMode=6; 
@@ -1962,7 +1958,7 @@ void ProcessIncomingCommands() {
            * Delay Start - 30 seconds
            * Ammunitions - Unlimited magazines
            * Lighting/Ambience - Outdoor mode
-           * Teams - Manual Select
+           * Teams - No change
            * Respawn - Manual (station)
            * Gender - Male
            * Friendly Fire - Off
@@ -1996,10 +1992,7 @@ void ProcessIncomingCommands() {
           AudioSelection="VA93";
           AUDIO=true;
           vTaskDelay(3000);
-          Serial.println("Teams Mode Player's Choice"); 
-          settingsallowed=3; 
-          SetTeam=100; 
-          AudioSelection="VA5E";
+          
         }
         if (b==7) { // Survival/Infection
           GameMode=7; 
@@ -2046,11 +2039,6 @@ void ProcessIncomingCommands() {
           AudioSelection="VA64";
           AUDIO=true;
           vTaskDelay(3000);
-          Serial.println("Teams Mode Player's Choice"); 
-          settingsallowed=3; 
-          SetTeam=100; 
-          Team = 0;
-          AudioSelection="VA5E";
         }
         if (b==8) { // Assimilation
           /*
@@ -2083,8 +2071,6 @@ void ProcessIncomingCommands() {
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
           SetODMode=0; // outdoor mode set
-          Serial.println("Outdoor Mode On");
-          SetTeam=0; // set to red/alpha team
           Serial.println("Set teams to free for all, red");
           SetRSPNMode=2; // set respon mode to auto
           RespawnTimer=15000; // set delay timer for respawns
