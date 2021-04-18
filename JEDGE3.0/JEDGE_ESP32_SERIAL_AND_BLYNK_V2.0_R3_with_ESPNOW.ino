@@ -93,8 +93,7 @@
  *                    removed OTA update for now for simplicity, can add back in later.
  * updated 04/16/2021 added in all the webserver objects and declarations and started working on app-less controls
  *                    added some of the menu options for controls and tested between two esps
- * updated 4/18/2021  found and fixed baudrate bug, i had it originally in the blynk set up and when removing blynk the baudrate check for generations of taggers was deleted as well
- *                    it has now been added back in... oops.
+ *                    
  *                    
  */
 
@@ -120,10 +119,10 @@ int BaudRate = 57600; // 115200 is for GEN2/3, 57600 is for GEN1, this is set au
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
-int GunID = 1; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+int GunID = 2; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
 int GunGeneration = 2; // change to gen 1, 2, 3
 // Replace with your network credentials
-const char* ssid = "Gun_1";
+const char* ssid = "Gun_2";
 const char* password = "123456789";
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -209,6 +208,7 @@ int shield =70;
 int SpecialWeapon = 0;
 int PreviousSpecialWeapon = 0;
 int ChangeMyColor = 99; // default, change value from 99 to execute tagger and headset change
+int CurrentColor = 99; // default, change value from 99 to execute tagger and headset change
 bool VOLUMEADJUST=false; // trigger for audio adjustment
 bool RESPAWN = false; // trigger to enable auto respawn when killed in game
 bool MANUALRESPAWN = false; // trigger to enable manual respawn from base stations when killed
@@ -524,6 +524,57 @@ const char index_html[] PROGMEM = R"rawliteral(
       <p class="state">Selected: <span id="TM">%TEAM%</span></p>
       <p><button id="teams0" class="button">Toggle</button></p>
     </div>
+    <div class="card">
+      <h2>Preset Game Modes</h2>
+      <p class="state">Selected: <span id="GMD">%GMODE%</span></p>
+      <p><button id="gamemode" class="button">Toggle</button></p>
+    </div>
+    <div class="card">
+      <h2>Respawn Setting</h2>
+      <p class="state">Selected: <span id="RSPWN">%RSPWNMODE%</span></p>
+      <p><button id="respawnmode" class="button">Toggle</button></p>
+    </div>
+    <div class="card">
+      <h2>Delayed Start Timer</h2>
+      <p class="state">Selected: <span id="DST">%DLYSTM%</span></p>
+      <p><button id="delaystarttimer" class="button">Toggle</button></p>
+    </div>
+    <div class="card">
+      <h2>Sync Scores</h2>
+      <p class="state">Press <span id="SS">%SYNC%</span></p>
+      <p><button id="syncscores" class="button">Sync</button></p>
+    </div>
+    <div class="card">
+      <h2>Player Gender</h2>
+      <p class="state">Selected: <span id="GND">%GENDER%</span></p>
+      <p><button id="playergender" class="button">Toggle</button></p>
+    </div>
+    <div class="card">
+      <h2>Ammunitions Setting</h2>
+      <p class="state">Selected: <span id="AMO">%AMMUNITION%</span></p>
+      <p><button id="ammosetting" class="button">Toggle</button></p>
+    </div>
+    <div class="card">
+      <h2>Friendly Fire</h2>
+      <p class="state">Selected: <span id="FF">%FRIENDLY%</span></p>
+      <p><button id="friendlyfire" class="button">Toggle</button></p>
+    </div>
+    <div class="card">
+      <h2>Tagger Volume</h2>
+      <p class="state">Selected: <span id="VOL">%VOLUME%</span></p>
+      <p><button id="taggervolume" class="button">Toggle</button></p>
+    </div>
+    <div class="card">
+      <h2>Start/End Game</h2>
+      <p class="state">Selected: <span id="IG">%INGAME%</span></p>
+      <p><button id="gamestart" class="button">Start</button></p>
+      <p><button id="gameend" class="button">End</button></p>
+    </div>
+    <div class="card">
+      <h2>Initialize JEDGE</h2>
+      <p class="state">Selected: <span id="IJ">%JEDGE%</span></p>
+      <p><button id="initializejedge" class="button">Toggle</button></p>
+    </div>
   </div>
 <script>
   var gateway = `ws://${window.location.hostname}/ws`;
@@ -544,12 +595,22 @@ const char index_html[] PROGMEM = R"rawliteral(
     setTimeout(initWebSocket, 2000);
   }
   function onMessage(event) {
+    var IG;
+    var FF;
+    var SS;
+    var DST;
+    var RSPWN;
+    var GMD;
     var TM;
     var W0;
     var W1;
     var L0;
     var GT;
     var AMB;
+    var GND;
+    var AMO;
+    var VOL;
+    var IJ;
     if (event.data == "1"){
       W0 = "Manual Selection";
       document.getElementById('W0').innerHTML = W0;
@@ -810,6 +871,186 @@ const char index_html[] PROGMEM = R"rawliteral(
       TM = "Manual Selection";
       document.getElementById('TM').innerHTML = TM;
     }
+    if (event.data == "601"){
+      GMD = "Defaults";
+      document.getElementById('GMD').innerHTML = GMD;
+    }
+    if (event.data == "602"){
+      GMD = "5min F4A W/ AR + Shotguns";
+      document.getElementById('GMD').innerHTML = GMD;
+    }
+    if (event.data == "603"){
+      GMD = "10 W/ Rndm Weapons";
+      document.getElementById('GMD').innerHTML = GMD;
+    }
+    if (event.data == "604"){
+      GMD = "Swap BRX (Battle Royale)";
+      document.getElementById('GMD').innerHTML = GMD;
+    }
+    if (event.data == "605"){
+      GMD = "Capture The Flag";
+      document.getElementById('GMD').innerHTML = GMD;
+    }
+    if (event.data == "606"){
+      GMD = "Own The Zone";
+      document.getElementById('GMD').innerHTML = GMD;
+    }
+    if (event.data == "607"){
+      GMD = "Survival/Infection";
+      document.getElementById('GMD').innerHTML = GMD;
+    }
+    if (event.data == "608"){
+      GMD = "Assimilation";
+      document.getElementById('GMD').innerHTML = GMD;
+    }
+    if (event.data == "609"){
+      GMD = "Gun Game";
+      document.getElementById('GMD').innerHTML = GMD;
+    }
+    if (event.data == "610"){
+      GMD = "Basic Team Domination";
+      document.getElementById('GMD').innerHTML = GMD;
+    }
+    if (event.data == "611"){
+      GMD = "Trouble in Terrorist Town";
+      document.getElementById('GMD').innerHTML = GMD;
+    }
+    if (event.data == "701"){
+      RSPWN = "Auto - No Delay";
+      document.getElementById('RSPWN').innerHTML = RSPWN;
+    }
+    if (event.data == "702"){
+      RSPWN = "Auto - 15 Seconds";
+      document.getElementById('RSPWN').innerHTML = RSPWN;
+    }
+    if (event.data == "703"){
+      RSPWN = "Auto - 30 Seconds";
+      document.getElementById('RSPWN').innerHTML = RSPWN;
+    }
+    if (event.data == "704"){
+      RSPWN = "Auto - 45 Seconds";
+      document.getElementById('RSPWN').innerHTML = RSPWN;
+    }
+    if (event.data == "705"){
+      RSPWN = "Auto - 60 Seconds";
+      document.getElementById('RSPWN').innerHTML = RSPWN;
+    }
+    if (event.data == "706"){
+      RSPWN = "Auto - 90 Seconds";
+      document.getElementById('RSPWN').innerHTML = RSPWN;
+    }
+    if (event.data == "707"){
+      RSPWN = "Auto - 120 Seconds";
+      document.getElementById('RSPWN').innerHTML = RSPWN;
+    }
+    if (event.data == "708"){
+      RSPWN = "Auto - 150 Seconds";
+      document.getElementById('RSPWN').innerHTML = RSPWN;
+    }
+    if (event.data == "709"){
+      RSPWN = "Manual - Respawn Stations";
+      document.getElementById('RSPWN').innerHTML = RSPWN;
+    }
+    if (event.data == "801"){
+      DST = "Immediate";
+      document.getElementById('DST').innerHTML = DST;
+    }
+    if (event.data == "802"){
+      DST = "15 Seconds";
+      document.getElementById('DST').innerHTML = DST;
+    }
+    if (event.data == "803"){
+      DST = "30 Seconds";
+      document.getElementById('DST').innerHTML = DST;
+    }
+    if (event.data == "804"){
+      DST = "45 Seconds";
+      document.getElementById('DST').innerHTML = DST;
+    }
+    if (event.data == "805"){
+      DST = "60 Seconds";
+      document.getElementById('DST').innerHTML = DST;
+    }
+    if (event.data == "806"){
+      DST = "90 Seconds";
+      document.getElementById('DST').innerHTML = DST;
+    }
+    if (event.data == "807"){
+      DST = "5 Minutes";
+      document.getElementById('DST').innerHTML = DST;
+    }
+    if (event.data == "808"){
+      DST = "10 Minutes";
+      document.getElementById('DST').innerHTML = DST;
+    }
+    if (event.data == "809"){
+      DST = "15 Minutes";
+      document.getElementById('DST').innerHTML = DST;
+    }
+    if (event.data == "901"){
+      SS = "to Sync";
+      document.getElementById('SS').innerHTML = SS;
+    }
+    if (event.data == "1000"){
+      GND = "Male";
+      document.getElementById('GND').innerHTML = GND;
+    }
+    if (event.data == "1001"){
+      GND = "Female";
+      document.getElementById('GND').innerHTML = GND;
+    }
+    if (event.data == "1101"){
+      AMO = "Limited";
+      document.getElementById('AMO').innerHTML = AMO;
+    }
+    if (event.data == "1102"){
+      AMO = "Infinite Mags";
+      document.getElementById('AMO').innerHTML = AMO;
+    }
+    if (event.data == "1103"){
+      AMO = "Infinite Rounds";
+      document.getElementById('AMO').innerHTML = AMO;
+    }
+    if (event.data == "1200"){
+      GND = "OFF";
+      document.getElementById('GND').innerHTML = GND;
+    }
+    if (event.data == "1201"){
+      GND = "On";
+      document.getElementById('GND').innerHTML = GND;
+    }
+    if (event.data == "1301"){
+      VOL = "One";
+      document.getElementById('VOL').innerHTML = VOL;
+    }
+    if (event.data == "1302"){
+      VOL = "Two";
+      document.getElementById('VOL').innerHTML = VOL;
+    }
+    if (event.data == "1303"){
+      VOL = "Three";
+      document.getElementById('VOL').innerHTML = VOL;
+    }
+    if (event.data == "1304"){
+      VOL = "Four";
+      document.getElementById('VOL').innerHTML = VOL;
+    }
+    if (event.data == "1305"){
+      VOL = "Five";
+      document.getElementById('VOL').innerHTML = VOL;
+    }
+    if (event.data == "1400"){
+      IG = "Standby";
+      document.getElementById('IG').innerHTML = IG;
+    }
+    if (event.data == "1401"){
+      IG = "Game Started";
+      document.getElementById('IG').innerHTML = IG;
+    }
+    if (event.data == "1501"){
+      IJ = "JEDGE Initialized";
+      document.getElementById('IJ').innerHTML = IJ;
+    }
   }
   function onLoad(event) {
     initWebSocket();
@@ -822,6 +1063,17 @@ const char index_html[] PROGMEM = R"rawliteral(
     document.getElementById('gtime0').addEventListener('click', toggle3);
     document.getElementById('ambience').addEventListener('click', toggle4);
     document.getElementById('teams0').addEventListener('click', toggle5);
+    document.getElementById('gamemode').addEventListener('click', toggle6);
+    document.getElementById('delaystarttimer').addEventListener('click', toggle7);
+    document.getElementById('respawnmode').addEventListener('click', toggle8);
+    document.getElementById('syncscores').addEventListener('click', toggle9);
+    document.getElementById('playergender').addEventListener('click', toggle10);
+    document.getElementById('ammosetting').addEventListener('click', toggle11);
+    document.getElementById('friendlyfire').addEventListener('click', toggle12);
+    document.getElementById('taggervolume').addEventListener('click', toggle13);
+    document.getElementById('gamestart').addEventListener('click', toggle14s);
+    document.getElementById('gameend').addEventListener('click', toggle14e);
+    document.getElementById('initializejedge').addEventListener('click', toggle15);
   }
   function toggle0(){
     websocket.send('toggle0');
@@ -840,6 +1092,39 @@ const char index_html[] PROGMEM = R"rawliteral(
   }
   function toggle5(){
     websocket.send('toggle5');
+  }
+  function toggle6(){
+    websocket.send('toggle6');
+  }
+  function toggle7(){
+    websocket.send('toggle7');
+  }
+  function toggle8(){
+    websocket.send('toggle8');
+  }
+  function toggle9(){
+    websocket.send('toggle9');
+  }
+  function toggle10(){
+    websocket.send('toggle10');
+  }
+  function toggle11(){
+    websocket.send('toggle11');
+  }
+  function toggle12(){
+    websocket.send('toggle12');
+  }
+  function toggle13(){
+    websocket.send('toggle13');
+  }
+  function toggle14s(){
+    websocket.send('toggle14s');
+  }
+  function toggle14e(){
+    websocket.send('toggle14e');
+  }
+  function toggle15(){
+    websocket.send('toggle15');
   }
 </script>
 </body>
@@ -962,1893 +1247,189 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
        ProcessIncomingCommands();      
       }
     }
-  }
-}
-
-void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
-             void *arg, uint8_t *data, size_t len) {
-  switch (type) {
-    case WS_EVT_CONNECT:
-      Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-      break;
-    case WS_EVT_DISCONNECT:
-      Serial.printf("WebSocket client #%u disconnected\n", client->id());
-      break;
-    case WS_EVT_DATA:
-      handleWebSocketMessage(arg, data, len);
-      break;
-    case WS_EVT_PONG:
-    case WS_EVT_ERROR:
-      break;
-  }
-}
-
-void initWebSocket() {
-  ws.onEvent(onEvent);
-  server.addHandler(&ws);
-}
-
-String processor(const String& var){
-  Serial.println(var);
-  if(var == "WEAP0"){
-    if (SetSlotA == 0){
-      return "Manual Selection";
-    }
-    if (SetSlotA == 1) {
-      return "Unarmed";
-    }
-    if (SetSlotA > 1) {
-      return "AMR";
-    }
-  }
-  if(var == "WEAP1"){
-    if (SetSlotB == 0){
-      return "Manual Selection";
-    }
-    if (SetSlotB == 1) {
-      return "Unarmed";
-    }
-    if (SetSlotB > 1) {
-      return "AMR";
-    }
-  }
-  if(var == "LVS0"){
-    if (SetLives == 32000){
-      return "Unlimited";
-    }
-    if (SetLives == 1) {
-      return "1";
-    }
-    if (SetLives == 5) {
-      return "5";
-    }
-  }
-  if(var == "GTM"){
-    if (SetTime == 2000000000){
-      return "Unlimited";
-    }
-  }
-  if(var == "OUTDR"){
-    if (SetODMode == 0){
-      return "Outdoor Mode";
-    }
-  }
-  if(var == "TEAM"){
-    if (Menu[5] == 501){
-      return "Free For All";
-    }
-  }
-}
-
-void InitAP() {
-  // Connect to Wi-Fi network with SSID and password
-  Serial.print("Setting AP (Access Point)…");
-  // Remove the password parameter, if you want the AP (Access Point) to be open
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.softAP(ssid, password);
-
-  IPAddress IP = WiFi.softAPIP();
-  Serial.print("AP IP address: ");
-  Serial.println(IP);
-}
-//******************************************************************************************
-void InitializeJEDGE() {
-  Serial.println();
-  Serial.println();
-  Serial.println("*****************************************************");
-  Serial.println("************* Initializing JEDGE 2.0 ****************");
-  Serial.println("*****************************************************");
-  Serial.println();
-  Serial.println("Waiting for BRX to Boot...");
-  /*
-  int forfun = 5;
-  while (forfun > 0) { 
-    delay(1000);
-    Serial.print(String(forfun) + ", ");
-    forfun--;
-  }
-  */
-  sendString("$_BAT,4162,*"); // test for gen3
-  sendString("$PLAYX,0,*"); // test for gen3
-  sendString("$VERSION,*"); // test for gen3
-  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
-  Serial.println();
-  Serial.println("JEDGE is taking over the BRX");
-  //sendString("$CLEAR,*"); // clears any brx settings
-  sendString("$STOP,*"); // starts the callsign mode up
-  delay(300);
-  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
-  sendString("$PLAY,VA20,4,6,,,,,*"); // says "connection established"
-  sendString("$HLED,0,0,,,10,,*"); // test for gen3
-  sendString("$GLED,0,0,0,0,10,,*"); // test for gen3
-}
-//**********************************************************************************************
-void SyncScores() {
-  // create a string that looks like this: 
-  // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
-  String ScoreData = String(GunID)+","+String(SetTeam)+","+String(CompletedObjectives)+","+String(TeamKillCount[0])+","+String(TeamKillCount[1])+","+String(TeamKillCount[2])+","+String(TeamKillCount[3])+","+String(TeamKillCount[4])+","+String(TeamKillCount[5])+","+String(PlayerKillCount[0])+","+String(PlayerKillCount[1])+","+String(PlayerKillCount[2])+","+String(PlayerKillCount[3])+","+String(PlayerKillCount[4])+","+String(PlayerKillCount[5])+","+String(PlayerKillCount[6])+","+String(PlayerKillCount[7])+","+String(PlayerKillCount[8])+","+String(PlayerKillCount[9])+","+String(PlayerKillCount[10])+","+String(PlayerKillCount[11])+","+String(PlayerKillCount[12])+","+String(PlayerKillCount[13])+","+String(PlayerKillCount[14])+","+String(PlayerKillCount[15])+","+String(PlayerKillCount[16])+","+String(PlayerKillCount[17])+","+String(PlayerKillCount[18])+","+String(PlayerKillCount[19])+","+String(PlayerKillCount[20])+","+String(PlayerKillCount[21])+","+String(PlayerKillCount[22])+","+String(PlayerKillCount[23])+","+String(PlayerKillCount[24])+","+String(PlayerKillCount[25])+","+String(PlayerKillCount[26])+","+String(PlayerKillCount[27])+","+String(PlayerKillCount[28])+","+String(PlayerKillCount[29])+","+String(PlayerKillCount[30])+","+String(PlayerKillCount[31])+","+String(PlayerKillCount[32])+","+String(PlayerKillCount[33])+","+String(PlayerKillCount[34])+","+String(PlayerKillCount[35])+","+String(PlayerKillCount[36])+","+String(PlayerKillCount[37])+","+String(PlayerKillCount[38])+","+String(PlayerKillCount[39])+","+String(PlayerKillCount[40])+","+String(PlayerKillCount[41])+","+String(PlayerKillCount[42])+","+String(PlayerKillCount[43])+","+String(PlayerKillCount[44])+","+String(PlayerKillCount[45])+","+String(PlayerKillCount[46])+","+String(PlayerKillCount[47])+","+String(PlayerKillCount[48])+","+String(PlayerKillCount[49])+","+String(PlayerKillCount[50])+","+String(PlayerKillCount[51])+","+String(PlayerKillCount[52])+","+String(PlayerKillCount[53])+","+String(PlayerKillCount[54])+","+String(PlayerKillCount[55])+","+String(PlayerKillCount[56])+","+String(PlayerKillCount[57])+","+String(PlayerKillCount[58])+","+String(PlayerKillCount[59])+","+String(PlayerKillCount[60])+","+String(PlayerKillCount[61])+","+String(PlayerKillCount[62])+","+String(PlayerKillCount[63]);
-  Serial.println("Sending the following Score Data to Server");
-  Serial.println(ScoreData);
-  //bridge1.virtualWrite(V0, ScoreData); // sending the whole string from esp32
-  Serial.println("Sent Score data to Server");
-  //reset sent scores:
-  Serial.println("resetting all scores");
-  CompletedObjectives = 0;
-  int teamcounter = 0;
-  while (teamcounter < 6) {
-    TeamKillCount[teamcounter] = 0;
-    teamcounter++;
-    vTaskDelay(1);
-  }
-  int playercounter = 0;
-  while (playercounter < 64) {
-    PlayerKillCount[playercounter] = 0;
-    playercounter++;
-    vTaskDelay(1);
-  }
-  Serial.println("Scores Reset");  
-}
-// ****************************************************************************************
-/*Analyzing incoming tag to determine if a perk action is needed
-        space 2 is for he type of tag recieved/shot. almost all are 0 and im thinking other types are medic etc.
-        space 3 is the player id, in this case it was player 0 hitting player 1.
-        space 4 is the team id, this was team 0 or red team
-        space 5 is the damage dealt to the player, this took 13 hit points off the player 1
-        space 6 is "is critical" if critical a damage multiplier would apply, rare.
-        space 7 is "power", not sure what that does.*/
-void TagPerks() {
-  Serial.println("IR Direction: "+String(tokenStrings[1]));
-  Serial.println("Bullet Type: "+String(tokenStrings[2]));
-  Serial.println("Player ID: "+String(tokenStrings[3]));
-  Serial.println("Team: "+String(tokenStrings[4]));
-  Serial.println("Damage: "+String(tokenStrings[5]));
-  Serial.println("Is Critical: "+String(tokenStrings[6]));
-  Serial.println("Power: "+String(tokenStrings[7]));
-  //  Checking for special tags
-  if (tokenStrings[2] == "15" && tokenStrings[6] == "1" && tokenStrings[7] == "0") { // we just determined that it is a respawn tag
-      Serial.println("Received a respawn tag");
-      if (tokenStrings[4].toInt() == SetTeam) {
-        Serial.println("Respawn Tag Team is a Match");
-        if (PENDINGRESPAWNIR) { // checks if we are awaiting a respawn signal
-          RESPAWN = true; // triggers a respawn
-          PENDINGRESPAWNIR = false; // closing the process of checking for a respawining tag and enables all other normal in game functions
-        }
+    if (strcmp((char*)data, "toggle6") == 0) {
+      if (Menu[6] > 610) {
+        Menu[6] = 601;
       } else {
-        Serial.println("Respawn Tag Team does not match");        
+        Menu[6]++;
       }
-  }
-  if (tokenStrings[2] == "1" && tokenStrings[7] == "1") { // we determined that it is a custom tag for game interaction
-    Serial.println("received a game interaction tag");
-    // now that we know weve got a special tag, what to do with it...
-    // respawning tag
-    if (tokenStrings[5] == "1") { // We have a random weapon selection tag
-      Serial.println("SWAPBRX Tag Received, Randomizing Weapon/Perk");
-      //if (tokenStrings[3].toInt() == GunID) {
-        // player ID is a match, therefore this tagger deserves the loot...
-        swapbrx(); // Running SwapBRX (Battle Royale Loot Box object)
-      //}
-    }
-    /*
-    // Own The Zone Tag received
-    if (tokenStrings[7] == "1") { // just determined that this is an objective tag - is critical, bullet 0, power 1, damage 1
-      Serial.println("Received an Objective Tag");
-      if (GameMode == 2) { // we're playing capture the flag
-        if (tokenStrings[4].toInt() == SetTeam) {
-          Serial.println("Objective Tag Team is a Match");
-          AudioSelection1="VA2K"; // setting audio play to notify we captured the flag
-          AUDIO1 = true; // enabling play back of audio
-          HASFLAG = true; // set condition that we have flag to true
-          SpecialWeapon = 99; // loads a new weapon that will deposit flag into base
-          SPECIALWEAPON = true; // enables program to load the new weapon
-        } else {
-          Serial.println("Objective tag team does not match");
-        }
-        } else {
-          CompletedObjectives++; // added one point to player objectives
-          AudioSelection1="VAR"; // set an announcement "good job team"
-          AUDIO1=true; // enabling BLE Audio Announcement Send
-        }
-    }
-    */
-  }
-}
-//******************************************************************************************
-// sets and sends game settings based upon the stored settings
-void SetFFOutdoor() {
-  // token one of the following command is free for all, 0 is off and 1 is on
-  if(SetODMode == 0 && SetFF == 1) {
-    sendString("$GSET,1,0,1,0,1,0,50,1,*");
-    }
-  if(SetODMode == 1 && SetFF == 1) {
-    sendString("$GSET,1,1,1,0,1,0,50,1,*");
-    }
-  if(SetODMode == 1 && SetFF == 0) {
-    sendString("$GSET,0,1,1,0,1,0,50,1,*");
-    }
-  if(SetODMode == 0 && SetFF == 0) {
-    sendString("$GSET,0,0,1,0,1,0,50,1,*");
-    }
-}
-//******************************************************************************************
-// sets and sends gun type to slot 0 based upon stored settings
-void weaponsettingsA() {
-  if (SLOTA != 100) {
-    SetSlotA=SLOTA; 
-    SLOTA=100;
-  }
-  if (UNLIMITEDAMMO==3){ // unlimited rounds
-    if(SetSlotA == 1) {
-      Serial.println("Weapon 0 set to Unarmed"); 
-      sendString("$WEAP,0,*");
-    } // cleared out weapon 0
-    if(SetSlotA == 2) {
-      Serial.println("Weapon 0 set to AMR"); 
-      sendString("$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,0,1400,10,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
-    }
-    if(SetSlotA == 3) {
-      Serial.println("Weapon 0 set to Assault Rifle"); 
-      sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,100,850,32,0,1400,10,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,192,75,,*");
-    }
-    if(SetSlotA == 4) {
-      Serial.println("Weapon 0 set to Bolt Rifle"); 
-      sendString("$WEAP,0,,100,0,3,13,0,,,,,,,,225,850,18,0,2000,10,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,90,75,,*");
-    }
-    if(SetSlotA == 5) {
-      Serial.println("Weapon 0 set to BurstRifle"); 
-      sendString("$WEAP,0,,100,0,3,9,0,,,,,,,,75,850,36,0,1700,10,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,108,75,,*");
-    }
-    if(SetSlotA == 6) {
-      Serial.println("Weapon 0 set to ChargeRifle"); 
-      sendString("$WEAP,0,,100,8,0,100,0,,,,,,,,1250,850,100,0,2500,10,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,100,75,,*");
-    }
-    if(SetSlotA == 7) {
-      Serial.println("Weapon 0 set to Energy Launcher");
-      sendString("$WEAP,0,,100,9,3,115,0,,,,,,,,360,850,1,0,1400,10,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,3,75,,*");
-    }
-    if(SetSlotA == 8) {
-      Serial.println("Weapon 0 set to Energy Rifle"); 
-      sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,90,850,300,0,2400,10,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,300,75,,*");
-    }
-    if(SetSlotA == 9) {
-      Serial.println("Weapon 0 set to Force Rifle");
-      sendString("$WEAP,0,,100,0,1,9,0,,,,,,,,100,850,36,0,1700,10,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,72,75,,*");
-    }
-    if(SetSlotA == 10) {
-      Serial.println("Weapon 0 set to Ion Sniper"); 
-      sendString("$WEAP,0,,100,0,0,115,0,,,,,,,,1000,850,2,0,2000,10,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,6,75,,*");
-    }
-    if(SetSlotA == 11) {
-      Serial.println("Weapon 0 set to Laser Cannon"); 
-      sendString("$WEAP,0,,100,0,0,115,0,,,,,,,,1500,850,4,0,2000,10,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,4,75,,*");
-    }
-    if(SetSlotA == 12) {
-      Serial.println("Weapon 0 set to Plasma Sniper");
-      sendString("$WEAP,0,2,100,0,0,80,0,,,,,,80,80,225,850,10,0,2000,10,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,40,75,40,*");
-    }
-    if(SetSlotA == 13) {
-      Serial.println("Weapon 0 set to Rail Gun");
-      sendString("$WEAP,0,0,100,6,0,115,0,,,,,,,,1200,850,1,0,2400,10,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,3,75,,*");
-    }
-    if(SetSlotA == 14) {
-      Serial.println("Weapon 0 set to Rocket Launcher");
-      sendString("$WEAP,0,2,100,10,0,115,0,,,,,,115,80,1000,850,2,0,1200,10,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,4,75,30,*");
-    }
-    if(SetSlotA == 15) {
-      Serial.println("Weapon 0 set to Shotgun");
-      sendString("$WEAP,0,2,100,0,0,45,0,,,,,,70,80,900,850,6,0,400,10,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,12,75,30,*");
-    }
-    if(SetSlotA == 16) {
-      Serial.println("Weapon 0 set to SMG");
-      sendString("$WEAP,0,,100,0,0,8,0,,,,,,,,90,850,72,0,2500,10,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,144,75,,*");
-    }
-    if(SetSlotA == 17) {
-      Serial.println("Weapon 0 set to Sniper Rifle");
-      sendString("$WEAP,0,,100,0,1,80,0,,,,,,,,300,850,4,0,1700,10,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,12,75,,*");
-    }
-    if(SetSlotA == 18) {
-      Serial.println("Weapon 0 set to Stinger");
-      sendString("$WEAP,0,,100,0,0,15,0,,,,,,,,120,850,18,0,1700,10,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,36,75,,*");
-    }
-    if(SetSlotA == 19) {
-      Serial.println("Weapon 0 set to Suppressor"); 
-      sendString("$WEAP,0,,100,0,0,8,0,,,,,,,,75,850,48,0,2000,10,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,144,75,,*");
-    }
-    if(SetSlotA == 20) {
-      Serial.println("Weapon 0 set to Pistol"); 
-      sendString("$WEAP,0,,35,0,0,8,0,,,,,,,,225,850,9,27,400,10,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,27,20,,*");
-    }
-  }
-  if (UNLIMITEDAMMO==2) { // unlimited mags
-    if(SetSlotA == 1) {
-      Serial.println("Weapon 0 set to Unarmed");
-      sendString("$WEAP,0,*");
-    } // cleared out weapon 0
-    if(SetSlotA == 2) {
-      Serial.println("Weapon 0 set to AMR"); 
-      sendString("$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,32768,1400,0,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,9999999,75,,*");
-    }
-    if(SetSlotA == 3) {
-      Serial.println("Weapon 0 set to Assault Rifle");
-      sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,100,850,32,32768,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,9999999,75,,*");
-    }
-    if(SetSlotA == 4) {
-      Serial.println("Weapon 0 set to Bolt Rifle");
-      sendString("$WEAP,0,,100,0,3,13,0,,,,,,,,225,850,18,32768,2000,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,9999999,75,,*");
-    }
-    if(SetSlotA == 5) {
-      Serial.println("Weapon 0 set to BurstRifle"); 
-      sendString("$WEAP,0,,100,0,3,9,0,,,,,,,,75,850,36,32768,1700,0,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,9999999,75,,*");
-    }
-    if(SetSlotA == 6) {
-      Serial.println("Weapon 0 set to ChargeRifle"); 
-      sendString("$WEAP,0,,100,8,0,100,0,,,,,,,,1250,850,100,32768,2500,0,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,9999999,75,,*");
-    }
-    if(SetSlotA == 7) {
-      Serial.println("Weapon 0 set to Energy Launcher");
-      sendString("$WEAP,0,,100,9,3,115,0,,,,,,,,360,850,1,32768,1400,0,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,9999999,75,,*");
-    }
-    if(SetSlotA == 8) {
-      Serial.println("Weapon 0 set to Energy Rifle"); 
-      sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,90,850,300,32768,2400,0,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,9999999,75,,*");
-    }
-    if(SetSlotA == 9) {
-      Serial.println("Weapon 0 set to Force Rifle"); 
-      sendString("$WEAP,0,,100,0,1,9,0,,,,,,,,100,850,36,32768,1700,0,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,9999999,75,,*");
-    }
-    if(SetSlotA == 10) {
-      Serial.println("Weapon 0 set to Ion Sniper"); 
-      sendString("$WEAP,0,,100,0,0,115,0,,,,,,,,1000,850,2,32768,2000,0,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,9999999,75,,*");
-    }
-    if(SetSlotA == 11) {
-      Serial.println("Weapon 0 set to Laser Cannon"); 
-      sendString("$WEAP,0,,100,0,0,115,0,,,,,,,,1500,850,4,32768,2000,0,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,9999999,75,,*");
-    }
-    if(SetSlotA == 12) {
-      Serial.println("Weapon 0 set to Plasma Sniper"); 
-      sendString("$WEAP,0,2,100,0,0,80,0,,,,,,80,80,225,850,10,32768,2000,0,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,9999999,75,40,*");
-    }
-    if(SetSlotA == 13) {
-      Serial.println("Weapon 0 set to Rail Gun"); 
-      sendString("$WEAP,0,0,100,6,0,115,0,,,,,,,,1200,850,1,32768,2400,0,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,9999999,75,,*");
-    }
-    if(SetSlotA == 14) {
-      Serial.println("Weapon 0 set to Rocket Launcher"); 
-      sendString("$WEAP,0,2,100,10,0,115,0,,,,,,115,80,1000,850,2,32768,1200,0,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,9999999,75,30,*");
-    }
-    if(SetSlotA == 15) {
-      Serial.println("Weapon 0 set to Shotgun"); 
-      sendString("$WEAP,0,2,100,0,0,45,0,,,,,,70,80,900,850,6,32768,400,2,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,9999999,75,30,*");
-    }
-    if(SetSlotA == 16) {
-      Serial.println("Weapon 0 set to SMG"); 
-      sendString("$WEAP,0,,100,0,0,8,0,,,,,,,,90,850,72,32768,2500,0,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,9999999,75,,*");
-    }
-    if(SetSlotA == 17) {
-      Serial.println("Weapon 0 set to Sniper Rifle");
-      sendString("$WEAP,0,,100,0,1,80,0,,,,,,,,300,850,4,32768,1700,0,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,9999999,75,,*");
-    }
-    if(SetSlotA == 18) {
-      Serial.println("Weapon 0 set to Stinger");
-      sendString("$WEAP,0,,100,0,0,15,0,,,,,,,,120,850,18,32768,1700,0,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,9999999,75,,*");
-    }
-    if(SetSlotA == 19) {
-      Serial.println("Weapon 0 set to Suppressor"); 
-      sendString("$WEAP,0,,100,0,0,8,0,,,,,,,,75,850,48,32768,2000,0,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,9999999,75,,*");
-    }
-    if(SetSlotA == 20) {
-      Serial.println("Weapon 0 set to Pistol"); 
-      sendString("$WEAP,0,,35,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,20,,*");
-    }
-  }
-  if (UNLIMITEDAMMO==1) { // limited mags
-      if(SetSlotA == 1) {
-        Serial.println("Weapon 0 set to Unarmed");
-        sendString("$WEAP,0,*");
-        } // cleared out weapon 0
-      if(SetSlotA == 2) {
-        Serial.println("Weapon 0 set to AMR");
-        sendString("$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,56,1400,0,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
-        }
-      if(SetSlotA == 3) {
-        Serial.println("Weapon 0 set to Assault Rifle"); 
-        sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,100,850,32,384,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,192,75,,*");
-        }
-      if(SetSlotA == 4) {
-        Serial.println("Weapon 0 set to Bolt Rifle"); 
-        sendString("$WEAP,0,,100,0,3,13,0,,,,,,,,225,850,18,180,2000,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,90,75,,*");
-        }
-      if(SetSlotA == 5) {
-        Serial.println("Weapon 0 set to BurstRifle"); 
-        sendString("$WEAP,0,,100,0,3,9,0,,,,,,,,75,850,36,216,1700,0,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,108,75,,*");
-        }
-      if(SetSlotA == 6) {
-        Serial.println("Weapon 0 set to ChargeRifle");
-        sendString("$WEAP,0,,100,8,0,100,0,,,,,,,,1250,850,100,200,2500,0,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,100,75,,*");
-        }
-      if(SetSlotA == 7) {
-        Serial.println("Weapon 0 set to Energy Launcher"); 
-        sendString("$WEAP,0,,100,9,3,115,0,,,,,,,,360,850,1,6,1400,0,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,3,75,,*");
-        }
-      if(SetSlotA == 8) {
-        Serial.println("Weapon 0 set to Energy Rifle"); 
-        sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,90,850,300,600,2400,0,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,300,75,,*");
-        }
-      if(SetSlotA == 9) {
-        Serial.println("Weapon 0 set to Force Rifle"); 
-        sendString("$WEAP,0,,100,0,1,9,0,,,,,,,,100,850,36,144,1700,0,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,72,75,,*");
-        }
-      if(SetSlotA == 10) {
-        Serial.println("Weapon 0 set to Ion Sniper");
-        sendString("$WEAP,0,,100,0,0,115,0,,,,,,,,1000,850,2,12,2000,0,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,6,75,,*");
-        }
-      if(SetSlotA == 11) {
-        Serial.println("Weapon 0 set to Laser Cannon"); 
-        sendString("$WEAP,0,,100,0,0,115,0,,,,,,,,1500,850,4,8,2000,0,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,4,75,,*");
-        }
-      if(SetSlotA == 12) {
-        Serial.println("Weapon 0 set to Plasma Sniper");
-        sendString("$WEAP,0,2,100,0,0,80,0,,,,,,80,80,225,850,10,80,2000,0,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,40,75,40,*");
-        }
-      if(SetSlotA == 13) {
-        Serial.println("Weapon 0 set to Rail Gun");
-        sendString("$WEAP,0,0,100,6,0,115,0,,,,,,,,1200,850,1,6,2400,0,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,3,75,,*");
-        }
-      if(SetSlotA == 14) {
-        Serial.println("Weapon 0 set to Rocket Launcher"); 
-        sendString("$WEAP,0,2,100,10,0,115,0,,,,,,115,80,1000,850,2,8,1200,0,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,4,75,30,*");
-        }
-      if(SetSlotA == 15) {
-        Serial.println("Weapon 0 set to Shotgun"); 
-        sendString("$WEAP,0,2,100,0,0,45,0,,,,,,70,80,900,850,6,24,400,2,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,12,75,30,*");
-        }
-      if(SetSlotA == 16) {
-        Serial.println("Weapon 0 set to SMG"); 
-        sendString("$WEAP,0,,100,0,0,8,0,,,,,,,,90,850,72,288,2500,0,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,144,75,,*");
-        }
-      if(SetSlotA == 17) {
-        Serial.println("Weapon 0 set to Sniper Rifle"); 
-        sendString("$WEAP,0,,100,0,1,80,0,,,,,,,,300,850,4,24,1700,0,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,12,75,,*");
-        }
-      if(SetSlotA == 18) {
-        Serial.println("Weapon 0 set to Stinger");
-        sendString("$WEAP,0,,100,0,0,15,0,,,,,,,,120,850,18,72,1700,0,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,36,75,,*");
-        }
-      if(SetSlotA == 19) {
-        Serial.println("Weapon 0 set to Suppressor"); 
-        sendString("$WEAP,0,,100,0,0,8,0,,,,,,,,75,850,48,288,2000,0,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,144,75,,*");
-      }
-      if(SetSlotA == 20) {
-        Serial.println("Weapon 0 set to Pistol"); 
-        sendString("$WEAP,0,,35,0,0,8,0,,,,,,,,225,850,9,27,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,27,20,,*");
-      }
-  }
-}
-//*****************************************************************************************
-// In Game Weapon Upgrade
-void LoadSpecialWeapon() {
-  
-  if(SpecialWeapon == 1) {
-    Serial.println("Weapon 1 set to Unarmed"); 
-    sendString("$WEAP,1,*");
-    } // cleared out weapon 0
-  if(SpecialWeapon == 2) {
-    Serial.println("Weapon 1 set to AMR"); 
-    sendString("$WEAP,1,,100,0,3,18,0,,,,,,,,360,850,14,56,1400,0,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
-    }
-  if(SpecialWeapon == 3) {
-    Serial.println("Weapon 1 set to Assault Rifle");
-    sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,100,850,32,384,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,192,75,,*");
-    }
-  if(SpecialWeapon == 4) {
-    Serial.println("Weapon 1 set to Bolt Rifle"); 
-    sendString("$WEAP,1,,100,0,3,13,0,,,,,,,,225,850,18,180,2000,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,90,75,,*");
-    }
-  if(SpecialWeapon == 5) {
-    Serial.println("Weapon 1 set to BurstRifle");
-    sendString("$WEAP,1,,100,0,3,9,0,,,,,,,,75,850,36,216,1700,0,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,108,75,,*");
-    }
-  if(SpecialWeapon == 6) {
-    Serial.println("Weapon 1 set to ChargeRifle");
-    sendString("$WEAP,1,,100,8,0,100,0,,,,,,,,1250,850,100,200,2500,0,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,100,75,,*");
-    }
-  if(SpecialWeapon == 7) {
-    Serial.println("Weapon 1 set to Energy Launcher"); 
-    sendString("$WEAP,1,,100,9,3,115,0,,,,,,,,360,850,1,6,1400,0,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,3,75,,*");
-    }
-  if(SpecialWeapon == 8) {
-    Serial.println("Weapon 1 set to Energy Rifle");
-    sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,90,850,300,600,2400,0,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,300,75,,*");
-    }
-  if(SpecialWeapon == 9) {
-    Serial.println("Weapon 1 set to Force Rifle");
-    sendString("$WEAP,1,,100,0,1,9,0,,,,,,,,100,850,36,144,1700,0,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,72,75,,*");
-    }
-  if(SpecialWeapon == 10) {
-    Serial.println("Weapon 1 set to Ion Sniper"); 
-    sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1000,850,2,12,2000,0,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,6,75,,*");
-    }
-  if(SpecialWeapon == 11) {
-    Serial.println("Weapon 1 set to Laser Cannon"); 
-    sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1500,850,4,8,2000,0,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,4,75,,*");
-    }
-  if(SpecialWeapon == 12) {
-    Serial.println("Weapon 1 set to Plasma Sniper"); 
-    sendString("$WEAP,1,2,100,0,0,80,0,,,,,,80,80,225,850,10,80,2000,0,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,40,75,40,*");
-    }
-  if(SpecialWeapon == 13) {
-    Serial.println("Weapon 1 set to Rail Gun"); 
-    sendString("$WEAP,1,0,100,6,0,115,0,,,,,,,,1200,850,1,6,2400,0,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,3,75,,*");
-    }
-  if(SpecialWeapon == 14) {
-    Serial.println("Weapon 1 set to Rocket Launcher"); 
-    sendString("$WEAP,1,2,100,10,0,115,0,,,,,,115,80,1000,850,2,8,1200,0,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,4,75,30,*");
-    }
-  if(SpecialWeapon == 15) {
-    Serial.println("Weapon 1 set to Shotgun"); 
-    sendString("$WEAP,1,2,100,0,0,45,0,,,,,,70,80,900,850,6,24,400,2,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,12,75,30,*");
-    }
-  if(SpecialWeapon == 16) {
-    Serial.println("Weapon 1 set to SMG"); 
-    sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,90,850,72,288,2500,0,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,144,75,,*");
-    }
-  if(SpecialWeapon == 17) {
-    Serial.println("Weapon 1 set to Sniper Rifle"); 
-    sendString("$WEAP,1,,100,0,1,80,0,,,,,,,,300,850,4,24,1700,0,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,12,75,,*");
-    }
-  if(SpecialWeapon == 18) {
-    Serial.println("Weapon 1 set to Stinger"); 
-    sendString("$WEAP,1,,100,0,0,15,0,,,,,,,,120,850,18,72,1700,0,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,36,75,,*");
-    }
-  if(SpecialWeapon == 19) {
-    Serial.println("Weapon 1 set to Suppressor"); 
-    sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,75,850,48,288,2000,0,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,144,75,,*");
-    }
-  if(SpecialWeapon == 99) {
-    Serial.println("Flag Capture, Gun becomes the flag"); 
-    sendString("$WEAP,1,*"); 
-    sendString("$WEAP,1,*");
-    sendString("$WEAP,1,*"); 
-    sendString("$BMAP,3,2,,,,,*");
-    sendString("$WEAP,3,,100,2,0,0,0,,,,,,,,100,850,32,32768,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,32768,75,,*");
-  }
-  PreviousSpecialWeapon = SpecialWeapon;
-  SpecialWeapon == 0; // reset the special weapon to zero after use     
-}
-
-//******************************************************************************************
-
-// sets and sends gun for slot 0 based upon stored settings
-void weaponsettingsB() {
-  if (SLOTB != 100) {
-    SetSlotB=SLOTB; 
-    SLOTB=100;
-  }
-  if (UNLIMITEDAMMO==3){
-    if(SetSlotB == 1) {
-      Serial.println("Weapon 1 set to Unarmed"); 
-      sendString("$WEAP,1,*");
-    } // cleared out weapon 0
-    if(SetSlotB == 2) {
-      Serial.println("Weapon 1 set to AMR"); 
-      sendString("$WEAP,1,,100,0,3,18,0,,,,,,,,360,850,14,0,1400,10,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
-    }
-    if(SetSlotB == 3) {
-      Serial.println("Weapon 1 set to Assault Rifle"); 
-      sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,100,850,32,0,1400,10,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,192,75,,*");
-    }
-    if(SetSlotB == 4) {
-      Serial.println("Weapon 1 set to Bolt Rifle"); 
-      sendString("$WEAP,1,,100,0,3,13,0,,,,,,,,225,850,18,0,2000,10,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,90,75,,*");
-    }
-    if(SetSlotB == 5) {
-      Serial.println("Weapon 1 set to BurstRifle");
-      sendString("$WEAP,1,,100,0,3,9,0,,,,,,,,75,850,36,0,1700,10,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,108,75,,*");
-    }
-    if(SetSlotB == 6) {
-      Serial.println("Weapon 1 set to ChargeRifle"); 
-      sendString("$WEAP,1,,100,8,0,100,0,,,,,,,,1250,850,100,0,2500,10,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,100,75,,*");
-    }
-    if(SetSlotB == 7) {
-      Serial.println("Weapon 1 set to Energy Launcher"); 
-      sendString("$WEAP,1,,100,9,3,115,0,,,,,,,,360,850,1,0,1400,10,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,3,75,,*");
-    }
-    if(SetSlotB == 8) {
-      Serial.println("Weapon 1 set to Energy Rifle"); 
-      sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,90,850,300,0,2400,10,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,300,75,,*");
-    }
-    if(SetSlotB == 9) {
-      Serial.println("Weapon 1 set to Force Rifle"); 
-      sendString("$WEAP,1,,100,0,1,9,0,,,,,,,,100,850,36,0,1700,10,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,72,75,,*");
-    }
-    if(SetSlotB == 10) {
-      Serial.println("Weapon 1 set to Ion Sniper"); 
-      sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1000,850,2,0,2000,10,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,6,75,,*");
-    }
-    if(SetSlotB == 11) {
-      Serial.println("Weapon 1 set to Laser Cannon"); 
-      sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1500,850,4,0,2000,10,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,4,75,,*");
-    }
-    if(SetSlotB == 12) {
-      Serial.println("Weapon 1 set to Plasma Sniper");
-      sendString("$WEAP,1,2,100,0,0,80,0,,,,,,80,80,225,850,10,0,2000,10,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,40,75,40,*");
-    }
-    if(SetSlotB == 13) {
-      Serial.println("Weapon 1 set to Rail Gun"); 
-      sendString("$WEAP,1,0,100,6,0,115,0,,,,,,,,1200,850,1,0,2400,10,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,3,75,,*");
-    }
-    if(SetSlotB == 14) {
-      Serial.println("Weapon 1 set to Rocket Launcher");
-      sendString("$WEAP,1,2,100,10,0,115,0,,,,,,115,80,1000,850,2,0,1200,10,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,4,75,30,*");
-    }
-    if(SetSlotB == 15) {
-      Serial.println("Weapon 1 set to Shotgun");
-      sendString("$WEAP,1,2,100,0,0,45,0,,,,,,70,80,900,850,6,0,400,10,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,12,75,30,*");
-    }
-    if(SetSlotB == 16) {
-      Serial.println("Weapon 1 set to SMG"); 
-      sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,90,850,72,0,2500,10,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,144,75,,*");
-    }
-    if(SetSlotB == 17) {
-      Serial.println("Weapon 1 set to Sniper Rifle"); 
-      sendString("$WEAP,1,,100,0,1,80,0,,,,,,,,300,850,4,0,1700,10,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,12,75,,*");
-    }
-    if(SetSlotB == 18) {
-      Serial.println("Weapon 1 set to Stinger"); 
-      sendString("$WEAP,1,,100,0,0,15,0,,,,,,,,120,850,18,0,1700,10,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,36,75,,*");
-    }
-    if(SetSlotB == 19) {
-      Serial.println("Weapon 1 set to Suppressor"); 
-      sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,75,850,48,0,2000,10,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,144,75,,*");
-    }
-  }  
-  if (UNLIMITEDAMMO==2) {
-      if(SetSlotB == 1) {
-        Serial.println("Weapon 1 set to Unarmed"); 
-        sendString("$WEAP,1,*");
-        } // cleared out weapon 0
-      if(SetSlotB == 2) {
-        Serial.println("Weapon 1 set to AMR"); 
-        sendString("$WEAP,1,,100,0,3,18,0,,,,,,,,360,850,14,32768,1400,0,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,9999999,75,,*");
-        }
-      if(SetSlotB == 3) {
-        Serial.println("Weapon 1 set to Assault Rifle");
-        sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,100,850,32,32768,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,9999999,75,,*");
-        }
-      if(SetSlotB == 4) {
-        Serial.println("Weapon 1 set to Bolt Rifle"); 
-        sendString("$WEAP,1,,100,0,3,13,0,,,,,,,,225,850,18,32768,2000,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,9999999,75,,*");
-        }
-      if(SetSlotB == 5) {
-        Serial.println("Weapon 1 set to BurstRifle"); 
-        sendString("$WEAP,1,,100,0,3,9,0,,,,,,,,75,850,36,32768,1700,0,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,9999999,75,,*");
-        }
-      if(SetSlotB == 6) {
-        Serial.println("Weapon 1 set to ChargeRifle"); 
-        sendString("$WEAP,1,,100,8,0,100,0,,,,,,,,1250,850,100,32768,2500,0,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,9999999,75,,*");
-        }
-      if(SetSlotB == 7) {
-        Serial.println("Weapon 1 set to Energy Launcher"); 
-        sendString("$WEAP,1,,100,9,3,115,0,,,,,,,,360,850,1,32768,1400,0,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,9999999,75,,*");
-        }
-      if(SetSlotB == 8) {
-        Serial.println("Weapon 1 set to Energy Rifle");
-        sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,90,850,300,32768,2400,0,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,9999999,75,,*");
-        }
-      if(SetSlotB == 9) {
-        Serial.println("Weapon 1 set to Force Rifle");
-        sendString("$WEAP,1,,100,0,1,9,0,,,,,,,,100,850,36,32768,1700,0,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,9999999,75,,*");
-        }
-      if(SetSlotB == 10) {
-        Serial.println("Weapon 1 set to Ion Sniper"); 
-        sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1000,850,2,32768,2000,0,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,9999999,75,,*");
-        }
-      if(SetSlotB == 11) {
-        Serial.println("Weapon 1 set to Laser Cannon");
-        sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1500,850,4,32768,2000,0,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,9999999,75,,*");
-        }
-      if(SetSlotB == 12) {
-        Serial.println("Weapon 1 set to Plasma Sniper");
-        sendString("$WEAP,1,2,100,0,0,80,0,,,,,,80,80,225,850,10,32768,2000,0,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,9999999,75,40,*");
-        }
-      if(SetSlotB == 13) {
-        Serial.println("Weapon 1 set to Rail Gun");
-        sendString("$WEAP,1,0,100,6,0,115,0,,,,,,,,1200,850,1,32768,2400,0,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,9999999,75,,*");
-        }
-      if(SetSlotB == 14) {
-        Serial.println("Weapon 1 set to Rocket Launcher"); 
-        sendString("$WEAP,1,2,100,10,0,115,0,,,,,,115,80,1000,850,2,32768,1200,0,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,9999999,75,30,*");
-        }
-      if(SetSlotB == 15) {
-        Serial.println("Weapon 1 set to Shotgun"); 
-        sendString("$WEAP,1,2,100,0,0,45,0,,,,,,70,80,900,850,6,32768,400,2,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,9999999,75,30,*");
-        }
-      if(SetSlotB == 16) {
-        Serial.println("Weapon 1 set to SMG"); 
-        sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,90,850,72,32768,2500,0,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,9999999,75,,*");
-        }
-      if(SetSlotB == 17) {
-        Serial.println("Weapon 1 set to Sniper Rifle"); 
-        sendString("$WEAP,1,,100,0,1,80,0,,,,,,,,300,850,4,32768,1700,0,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,9999999,75,,*");
-        }
-      if(SetSlotB == 18) {
-        Serial.println("Weapon 1 set to Stinger");
-        sendString("$WEAP,1,,100,0,0,15,0,,,,,,,,120,850,18,32768,1700,0,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,9999999,75,,*");
-        }
-      if(SetSlotB == 19) {
-        Serial.println("Weapon 1 set to Suppressor"); 
-        sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,75,850,48,32768,2000,0,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,9999999,75,,*");
-        }
-    }
-    if (UNLIMITEDAMMO==1) {
-      if(SetSlotB == 1) {
-        Serial.println("Weapon 1 set to Unarmed");
-        sendString("$WEAP,1,*");
-        } // cleared out weapon 0
-      if(SetSlotB == 2) {
-        Serial.println("Weapon 1 set to AMR"); 
-        sendString("$WEAP,1,,100,0,3,18,0,,,,,,,,360,850,14,56,1400,0,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
-        }
-      if(SetSlotB == 3) {
-        Serial.println("Weapon 1 set to Assault Rifle"); 
-        sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,100,850,32,384,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,192,75,,*");
-        }
-      if(SetSlotB == 4) {
-        Serial.println("Weapon 1 set to Bolt Rifle");
-        sendString("$WEAP,1,,100,0,3,13,0,,,,,,,,225,850,18,180,2000,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,90,75,,*");
-        }
-      if(SetSlotB == 5) {
-        Serial.println("Weapon 1 set to BurstRifle"); 
-        sendString("$WEAP,1,,100,0,3,9,0,,,,,,,,75,850,36,216,1700,0,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,108,75,,*");
-        }
-      if(SetSlotB == 6) {
-        Serial.println("Weapon 1 set to ChargeRifle");
-        sendString("$WEAP,1,,100,8,0,100,0,,,,,,,,1250,850,100,200,2500,0,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,100,75,,*");
-        }
-      if(SetSlotB == 7) {
-        Serial.println("Weapon 1 set to Energy Launcher");
-        sendString("$WEAP,1,,100,9,3,115,0,,,,,,,,360,850,1,6,1400,0,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,3,75,,*");
-        }
-      if(SetSlotB == 8) {
-        Serial.println("Weapon 1 set to Energy Rifle"); 
-        sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,90,850,300,600,2400,0,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,300,75,,*");
-        }
-      if(SetSlotB == 9) {
-        Serial.println("Weapon 1 set to Force Rifle"); 
-        sendString("$WEAP,1,,100,0,1,9,0,,,,,,,,100,850,36,144,1700,0,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,72,75,,*");
-        }
-      if(SetSlotB == 10) {
-        Serial.println("Weapon 1 set to Ion Sniper"); 
-        sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1000,850,2,12,2000,0,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,6,75,,*");
-        }
-      if(SetSlotB == 11) {
-        Serial.println("Weapon 1 set to Laser Cannon"); 
-        sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1500,850,4,8,2000,0,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,4,75,,*");
-        }
-      if(SetSlotB == 12) {
-        Serial.println("Weapon 1 set to Plasma Sniper"); 
-        sendString("$WEAP,1,2,100,0,0,80,0,,,,,,80,80,225,850,10,80,2000,0,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,40,75,40,*");
-        }
-      if(SetSlotB == 13) {
-        Serial.println("Weapon 1 set to Rail Gun"); 
-        sendString("$WEAP,1,0,100,6,0,115,0,,,,,,,,1200,850,1,6,2400,0,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,3,75,,*");
-        }
-      if(SetSlotB == 14) {
-        Serial.println("Weapon 1 set to Rocket Launcher"); 
-        sendString("$WEAP,1,2,100,10,0,115,0,,,,,,115,80,1000,850,2,8,1200,0,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,4,75,30,*");
-        }
-      if(SetSlotB == 15) {
-        Serial.println("Weapon 1 set to Shotgun"); 
-        sendString("$WEAP,1,2,100,0,0,45,0,,,,,,70,80,900,850,6,24,400,2,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,12,75,30,*");
-        }
-      if(SetSlotB == 16) {
-        Serial.println("Weapon 1 set to SMG"); 
-        sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,90,850,72,288,2500,0,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,144,75,,*");
-        }
-      if(SetSlotB == 17) {
-        Serial.println("Weapon 1 set to Sniper Rifle"); 
-        sendString("$WEAP,1,,100,0,1,80,0,,,,,,,,300,850,4,24,1700,0,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,12,75,,*");
-        }
-      if(SetSlotB == 18) {
-        Serial.println("Weapon 1 set to Stinger"); 
-        sendString("$WEAP,1,,100,0,0,15,0,,,,,,,,120,850,18,72,1700,0,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,36,75,,*");
-        }
-      if(SetSlotB == 19) {
-        Serial.println("Weapon 1 set to Suppressor"); 
-        sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,75,850,48,288,2000,0,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,144,75,,*");
-        }
-    }
-}
-
-void weaponsettingsC() {
-  if(SetSlotC == 0){
-    Serial.println("Weapon 3 set to Unarmed"); 
-    sendString("$WEAP,3,*"); // Set weapon 3 as unarmed
-  }
-  if(SetSlotC == 1){
-    Serial.println("Weapon 3 set to Respawn"); 
-    sendString("$WEAP,3,1,90,15,0,6,100,,,,,,,,1000,100,1,0,0,10,15,100,100,,0,0,,,,,,,,,,,,,,1,0,20,,*"); // Set weapon 3 as respawn
-  }
-  if(SetSlotD == 0){
-    Serial.println("Weapon 5 set to Unarmed"); 
-    sendString("$WEAP,5,*"); // Set weapon 5 as unarmed
-  }
-  if(SetSlotD == 1) {
-    Serial.println("Weapon 5 set to Medic");
-    sendString("$WEAP,5,1,90,1,0,40,0,,,,,,,,1400,50,10,0,0,10,1,100,100,,0,,,H29,,,,,,,,,,,,10,9999999,20,,*");
-  }
-  if(SetSlotD == 2) {
-    Serial.println("Weapon 5 set to Sheilds");
-    sendString("$WEAP,5,1,90,2,1,70,0,,,,,,,,1400,50,10,0,0,10,2,100,100,,0,,,H29,,,,,,,,,,,,10,9999999,20,,*");
-  }
-  if(SetSlotD == 3) {
-    Serial.println("Weapon 5 set to Armor");
-    sendString("$WEAP,5,1,90,3,0,70,0,,,,,,,,1400,50,10,0,0,10,3,100,100,,0,,,H29,,,,,,,,,,,,10,9999999,20,,*");
-  }
-  if(SetSlotD == 4) {
-    Serial.println("Weapon 5 set to Tear Gas");
-    sendString("$WEAP,5,2,100,11,1,1,0,,,,,,1,80,1400,50,10,0,0,10,11,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,10,9999999,75,30,*");
-  }
-  if(SetSlotD == 5) {
-    Serial.println("Weapon 5 set to Medic at Range");
-    sendString("$WEAP,5,2,100,1,0,20,0,,,,,,20,80,1400,50,10,0,0,10,1,100,100,,0,,,H29,,,,,,,,,,,,18,9999999,75,30,*");
-  }
-  if(SetSlotD == 6) {
-    Serial.println("Weapon 5 set to Armor at Range");
-    sendString("$WEAP,5,2,100,2,1,30,0,,,,,,40,80,1400,50,10,0,0,10,2,100,100,,0,,,H29,,,,,,,,,,,,18,9999999,75,30,*");
-  }
-  if(SetSlotD == 7) {
-    Serial.println("Weapon 5 set to Sheilds at range");
-    sendString("$WEAP,5,2,100,3,0,30,0,,,,,,40,80,1400,50,10,0,0,10,3,100,100,,0,,,H29,,,,,,,,,,,,18,9999999,75,30,*");
-  }
-}
-//****************************************************************************************
-//************** This sends Settings to Tagger *******************************************
-//****************************************************************************************
-// loads all the game configuration settings into the gun
-void gameconfigurator() {
-  Serial.println("Running Game Configurator based upon recieved inputs");
-  sendString("$CLEAR,*");
-  sendString("$START,*");
-  SetFFOutdoor();
-  playersettings();
-  /* SIR commands to configure the incoming hits recognition
-   *  $SIR,0,0,,1,0,0,1,,*  Assault Rifle Energy Rifle  Ion Sniper  Laser Cannon  Plasma Sniper Shotgun SMG Stinger Suppressor
-   *  $SIR,0,1,,36,0,0,1,,* Force Rifle Sniper Rifle         
-   *  $SIR,0,3,,37,0,0,1,,* AMR Bolt Rifle  BurstRifle              
-   *  $SIR,1,0,H29,10,0,0,1,,*  Respawn and Add HP                  
-   *  $SIR,2,1,VA8C,11,0,0,1,,* Add Shields                      
-   *  $SIR,3,0,VA16,13,0,0,1,,* Add Armor                
-   *  $SIR,6,0,H02,1,0,90,1,40,*  Rail Gun                    
-   *  $SIR,8,0,,38,0,0,1,,* ChargeRifle               
-   *  $SIR,9,3,,24,10,0,,,* Energy Launcher               
-   *  $SIR,10,0,X13,1,0,100,2,60,*  Rocket Launcher               
-   *  $SIR,11,0,VA2,28,0,0,1,,* Tear Gas - not working yet                        
-   *  $SIR,13,0,H50,1,0,0,1,,*  Energy Blade 
-   *  $SIR,13,1,H57,1,0,0,1,,*  Rifle Bash                  
-   *  $SIR,13,3,H49,1,0,100,0,60,*  WarHammer               
-   *  $SIR,15,0,H29,10,0,0,1,,* Add HP Or Respawns Player
-   */
-  sendString("$SIR,0,0,,1,0,0,1,,*"); // standard weapon, damages shields then armor then HP
-  sendString("$SIR,0,1,,36,0,0,1,,*"); // force rifle, sniper rifle ?pass through damage?
-  sendString("$SIR,0,3,,37,0,0,1,,*"); // bolt rifle, burst rifle, AMR
-  sendString("$SIR,1,0,,10,0,0,1,,*"); // adds HP with this function
-  sendString("$SIR,2,1,VA8C,11,0,0,1,,*"); // adds shields
-  sendString("$SIR,3,0,VA16,13,0,0,1,,*"); // adds armor
-  sendString("$SIR,6,0,H02,1,0,90,1,40,*"); // rail gun
-  sendString("$SIR,8,0,,38,0,0,1,,*"); // charge rifle
-  sendString("$SIR,9,3,,24,10,0,,,*"); // energy launcher
-  sendString("$SIR,10,0,X13,1,0,100,2,60,*"); // rocket launcher
-  sendString("$SIR,11,0,VA2,28,0,0,1,,*"); // tear gas, out of possible ir recognitions, max = 14
-  sendString("$SIR,13,1,H57,1,0,0,1,,*"); // energy blade
-  sendString("$SIR,13,0,H50,1,0,0,1,,*"); // rifle bash
-  sendString("$SIR,13,3,H49,1,0,100,0,60,*"); // war hammer
-  sendString("$SIR,1,1,,8,0,100,0,60,*"); // no damage just vibe on impact - use for SWAPBRX, and other game features based upon player ID 0-63
-  // protocol for SWAPBRX: bullet type: 1, power: 1, damage: 1, player: 0, team: 2, critical: 0; just look for bullet, power, player for trigger weapon swap
-  //sendString("$SIR,15,1,,50,0,0,1,,*");
-  //sendString("$SIR,14,0,,14,0,0,1,,*");
-  // The $SIR functions above can be changed to incorporate more in game IR based functions (health boosts, armor, shields) or customized over BLE to support game functions/modes
-  //delay(500);
-  sendString("$BMAP,0,0,,,,,*"); // sets the trigger on tagger to weapon 0
-  sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-  sendString("$BMAP,2,97,,,,,*"); // sets the reload handle as the reload button
-  sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5
-  sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4
-  sendString("$BMAP,5,3,,,,,*"); // Sets the right button as weapon 3, using for perks/respawns etc. 
-  sendString("$BMAP,8,4,,,,,*"); // sets the gyro as weapon 4
-  Serial.println("Finished Game Configuration set up");
-}
-
-//****************************************************************************************
-//************************ This starts a game *******************************************
-//****************************************************************************************
-// this starts a game
-void delaystart() {
-  Serial.println("Starting Delayed Game Start");
-  sendString("$HLED,,6,,,,,*"); // changes headset to end of game
-  // this portion creates a hang up in the program to delay until the time is up
-  bool RunInitialDelay = true;
-  long actualdelay = 0; // used to count the actual delay versus desired delay
-  long delaybeginning = millis(); // sets variable as the current time to track when the actual delay started
-  long initialdelay = DelayStart - 3000; // this will be used to track current time in milliseconds and compared to the start of the delay
-  int audibletrigger = 0; // used as a trigger once we get to 10 seconds left
-  if (DelayStart > 10) {
-    Serial.println("Delayed Start timer = " + String(DelayStart));
-    while(initialdelay > actualdelay) {
-      actualdelay = millis() - delaybeginning;
-      Serial.println("Actual Delay Counter = " + String(actualdelay));
-      vTaskDelay(1);
-    }
-    sendString("$PLAY,VA80,4,6,,,,,*");
-    Serial.println("Running 3 second countdown");
-    actualdelay = 0;
-    delaybeginning = millis(); // sets variable as the current time to track when the actual delay started
-    while(3000 > actualdelay) {
-      actualdelay = millis() - delaybeginning;
-      Serial.println("Actual Delay Counter = " + String(actualdelay));
-      vTaskDelay(1);
-    }
-  }
-  sendString("$PLAY,VA81,4,6,,,,,*"); // plays the .. nevermind
-  sendString("$PLAYX,0,*");
-  sendString("$SPAWN,,*");
-  weaponsettingsA();
-  weaponsettingsB();
-  weaponsettingsC();
-  sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
-  Serial.println("Delayed Start Complete, should be in game play mode now");
-  GameStartTime=millis();
-  GAMEOVER=false;
-  INGAME=true;
-  sendString("$PLAY,VA1A,4,6,,,,,*"); // plays the .. let the battle begin
-}
-
-//******************************************************************************************
-
-// process used to send string properly to gun... splits up longer strings in bytes of 20
-// to make sure gun understands them all... not sure about all of what does what below...
-void sendString(String value) {
-  const char * c_string = value.c_str();
-  Serial.print("sending: ");
-  if (GunGeneration == 1) {
-    for (int i = 0; i < value.length() / 1; i++) { // creates a for loop
-      Serial1.println(c_string[i]); // sends one value at a time to gen1 brx
-      delay(5); // this is an added delay needed for the way the brx gen1 receives data (brute force method because i could not match the comm settings exactly)
-      Serial.print(c_string[i]);
-    }
-    Serial.println();
-  }
-  if (GunGeneration > 1) {
-    int matchingdelay = value.length() * 5; // this just creates a temp value for how long the string is multiplied by 5 milliseconds
-    delay(matchingdelay); // now we delay the same amount of time.. this is so if we have gen1 and gen2 brx in the mix, they receive the commands about the same time
-    Serial1.println(c_string); // sending the string to brx gen 2
-    Serial.println(c_string);
-  }
-}
-//******************************************************************************************
-// sets and sends player settings to gun based upon configuration settings
-void playersettings() {
-  // token 2 is player id or gun id other tokens were interested in modification
-  // are 2 for team ID, 3 for max HP, 4 for max Armor, 5 for Max Shields, 
-  // 6 is critical damage bonus
-  // We really are only messing with Gender and Team though
-  // Gender is determined by the audio call outs listed, tokens 9 and on
-  // male is default as 0, female is 1
-  // health = 45; armor = 70; shield =70;
-  if (GameMode == 7 && Team == 3) { // infected team
-    sendString("$PSET,"+String(GunID)+",3,67,105,105,50,,H44,JAD,V33,V3I,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
-  } else {
-    if(SetGNDR == 0) {
-      sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,H44,JAD,V33,V3I,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
-    }
-    else {
-      sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,H44,JAD,VB3,VBI,VBC,VBG,VBE,VB7,H06,H55,H13,H21,H02,U15,W71,A10,*");
-    }
-  }
-}
-//******************************************************************************************
-//******************************************************************************************
-// ends game... thats all
-void gameover() {
-  Serial.println("disabling bool triggers");
-  GAMEOVER = false;
-  INGAME=false;
-  COUNTDOWN1=false;
-  COUNTDOWN2=false;
-  COUNTDOWN3=false;
-  SwapBRXCounter = 0;
-  SWAPBRX = false;
-  SELECTCONFIRM = false;
-  SPECIALWEAPONLOADOUT = false;
-  PreviousSpecialWeapon = 0;
-  Serial.println("sending game exit commands");
-  sendString("$STOP,*"); // stops everything going on
-  sendString("$CLEAR,*"); // clears out anything stored for game settings
-  sendString("$PLAY,VS6,4,6,,,,,*"); // says game over
-  Serial.println("Game Over Object Complete");
-}
-//******************************************************************************************
-// as the name says... respawn a player!
-void respawnplayer() {
-  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
-  sendString("$HLOOP,2,1200,*"); // flashes the headset lights in a loop
-  // this portion creates a hang up in the program to delay until the time is up
-  if (SetRSPNMode == 9) {
-    gameconfigurator();
-  }
-  if (RespawnTimer < RespawnTimerMax) {
-    RespawnTimer = 5000 * Deaths;
-  }
-  long actualdelay = 0; // used to count the actual delay versus desired delay
-  long delaybeginning = millis(); // sets variable as the current time to track when the actual delay started
-  long delaycounter = millis(); // this will be used to track current time in milliseconds and compared to the start of the delay
-  int audibletrigger = 0; // used as a trigger once we get to 10 seconds left
-  if (RespawnTimer > 10) {
-  while (RespawnTimer > actualdelay) { // this creates a sub loop in the object to keep doing the following steps until this condition is met... actual delay is the same as planned delay
-    delaycounter = millis(); // sets the delay clock to the current progam timer
-    actualdelay = delaycounter - delaybeginning; // calculates how long weve been delaying the program/start
-    if ((RespawnTimer-actualdelay) < 3000) {
-      audibletrigger++;
-      } // a check to start adding value to the audible trigger
-    if (audibletrigger == 1) {
-      sendString("$PLAY,VA80,4,6,,,,,*"); 
-      Serial.println("playing 3 second countdown");
-    } // this can only happen once so it doesnt keep looping in the program we only play it when trigger is equal to 1
-    vTaskDelay(1);
-  }
-  }
-  Serial.println("Respawning Player");
-  //sendString("$WEAP,0,*"); // cleared out weapon 0
-  //sendString("$WEAP,1,*"); // cleared out weapon 1
-  //sendString("$WEAP,4,*"); // cleared out melee weapon
-  //sendString("$WEAP,3,*"); // cleared out melee weapon
-  int hloopreset = 0;
-  while (hloopreset < 10) {
-    sendString("$HLOOP,0,0,*"); // stops headset flashing
-    delay(200);
-    hloopreset++;
-  }
-  weaponsettingsA();
-  weaponsettingsB();
-  weaponsettingsC();
-  sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
-  sendString("$GLED,,,,5,,,*"); // changes headset to tagged out color
-  sendString("$SPAWN,,*"); // respawns player back in game
-  sendString("$HLOOP,0,0,*"); // stops headset flashing
-  Serial.println("Player Respawned");
-  RESPAWN = false;
-  sendString("$HLOOP,0,0,*"); // stops headset flashing
-  if (STEALTH){
-      sendString("$GLED,,,,5,,,"); // TURNS OFF SIDE LIGHTS
-  }
-}
-//****************************************************************************************
-// this function will be used when a player is eliminated and needs to respawn off of a base
-// or player signal to respawn them... a lot to think about still on this and im using auto respawn 
-// for now untill this is further thought out and developed
-void ManualRespawnMode() {
-  delay(4000);
-  sendString("$VOL,0,0,*"); // adjust volume to default
-  sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,,,,,,,,,,,,,,,,,*");
-  sendString("$STOP,*"); // this is essentially ending the game for player... need to rerun configurator or use a different command
-  sendString("$SPAWN,,*"); // this is playing "get some as part of a respawn
-  sendString("$HLOOP,2,1200,*"); // this puts the headset in a loop for flashing
-  delay(1500);
-  sendString("$GLED,,,,,,,*"); // changes headset to tagged out color
-  //AudioSelection1 = "VA54"; // audio that says respawn time
-  //AUDIO1 = true;
-  PENDINGRESPAWNIR = true;
-  MANUALRESPAWN = false;
-}
-//****************************************************************************
-void Audio() {
-  if (AudioSelection1=="VA20") {
-    sendString("$CLEAR,*");
-    sendString("$START,*");
-  }
-  if (AUDIO) {
-    if (AudioDelay > 1) {
-      if (millis() - AudioPreviousMillis > AudioDelay) {
-        sendString("$PLAY,"+AudioSelection+",4,6,,,,,*");
-        AUDIO = false;
-        AudioSelection  = "NULL";
-        AudioDelay = 0; // reset the delay for another application
-      }
-    } else {
-      sendString("$PLAY,"+AudioSelection+",4,6,,,,,*");
-      AUDIO = false;
-      AudioSelection  = "NULL";
-    }
-  }
-  if (AUDIO1) {
-    sendString("$PLAY,"+AudioSelection1+",4,6,,,,,*");
-    AUDIO1=false; 
-    AudioSelection1 = "NULL";
-    }
-}
-
-//********************************************************************************************
-// This main game object
-void MainGame() {
-  if (ChangeMyColor != 99) { // need to change colors
-    ChangeColors();
-  }
-  if (TERMINALINPUT) {
-    TERMINALINPUT = false;
-    sendString(TerminalInput); // sets max volume on gun 0-100 feet distance
-  }
-  if (AUDIO) {
-    Audio();
-  }
-  if (AUDIO1) {
-    Audio();
-  }
-  if (GAMEOVER) { // checks if something triggered game over (out of lives, objective met)
-    gameover(); // runs object to kick player out of game
-    sendString("$HLOOP,0,0,*"); // stops headset flashing
-  }
-  if (GAMESTART) {
-    // need to turn off the trigger audible selections if a player didnt press alt fire to confirm
-    sendString("$PLAY,VAQ,4,6,,,,,*"); // says "lets move out"
-    GETSLOT0=false; 
-    GETSLOT1=false; 
-    GETTEAM=false;
-    gameconfigurator(); // send all game settings, weapons etc. 
-    delaystart(); // enable the start based upon delay selected
-    GAMESTART = false; // disables the trigger so this doesnt loop/
-    PlayerLives=SetLives; // sets configured lives from settings received
-    GameTimer=SetTime; // sets timer from input of esp8266
-    MyKills = 0;
-    if (GameTimer > 60000) {
-      COUNTDOWN1 = true;
-      COUNTDOWN2 = false;
-      COUNTDOWN3 = false;
-    } else {
-      COUNTDOWN3 = true;
-      COUNTDOWN1 = false;
-      COUNTDOWN2 = false;
-    }
-    Deaths = 0;
-    if (STEALTH){
-      sendString("$GLED,,,,5,,,"); // TURNS OFF SIDE LIGHTS
-    }
-  }
-  if (!INGAME) {
-    if (settingsallowed1==3) {
-      Serial.println("Team Settings requested"); 
-      delay(250);
-      GETTEAM=true;
-      GETSLOT0=false;
-      GETSLOT1=false; 
-      settingsallowed1=0;
-    }
-    if (settingsallowed1==1) {
-        Serial.println("Weapon Slot 0 Requested"); 
-        delay(250);
-        GETSLOT0=true; 
-        GETSLOT1=false;
-        GETTEAM=false; 
-        settingsallowed1=0;
-        }
-    if (settingsallowed1==2) {
-      Serial.println("Weapon Slot 1 Requested"); 
-      delay(250); 
-      GETSLOT1=true;
-      GETSLOT0=false;
-      GETTEAM=false; 
-      settingsallowed1=0;
-    }
-    if (settingsallowed>0) {
-      Serial.println("manual settings requested"); 
-      settingsallowed1=settingsallowed;
-      settingsallowed = 0;
-    } // this is triggered if a manual option is required for game settings    
-    if (VOLUMEADJUST) {
-      VOLUMEADJUST=false;
-      sendString("$VOL,"+String(SetVol)+",0,*"); // sets max volume on gun 0-100 feet distance
-    }    
-  }
-  // In game checks and balances to execute actions for in game functions
-  if (INGAME) {
-    long ActualGameTime = millis() - GameStartTime;
-    long GameTimeRemaining = GameTimer - ActualGameTime;
-    if (SELECTCONFIRM) {
-      Serial.println("SELECTCONFIRM = TRUE");
-      if(millis() - SelectButtonTimer > 1500) {
-        Serial.println("select button timer is less than actual game time minus 1500 and audio selection is VA9B");
-        if (AudioSelection1 == "VA9B") {
-          Serial.print("enabling audio1 trigger");
-          AUDIO1=true; 
-        }
-      }
-      if(millis() - SelectButtonTimer >= 11500) {
-        SELECTCONFIRM = false; // out of time, deactivate ability to confirm
-        Serial.println("SELECTCONFIRM is now false because actual ActualGameTime minus 10000 is greater than SelectButtonTimer");
-        SPECIALWEAPONLOADOUT = false; // disabling ability to load the special weapon
+      WebSocketData = Menu[6];
+      notifyClients();
+      Serial.println("preset game mode menu = " + String(Menu[6]));
+      datapacket2 = Menu[6];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
       }
     }
-    if (PERK) {
-      if (millis() - SelectButtonTimer >= AudioPerkTimer) {
-        PERK = false;
-        sendString("$PLAY,"+AudioPerk+",4,6,,,,,*");
+    if (strcmp((char*)data, "toggle7") == 0) {
+      if (Menu[7] > 708) {
+        Menu[7] = 701;
+      } else {
+        Menu[7]++;
+      }
+      WebSocketData = Menu[7];
+      notifyClients();
+      Serial.println("respawn mode menu = " + String(Menu[7]));
+      datapacket2 = Menu[7];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
       }
     }
-    if (COUNTDOWN1) {
-      if (GameTimeRemaining < 120001) {
-        AudioSelection1="VSD";
-        AUDIO1=true; 
-        COUNTDOWN1=false; 
-        COUNTDOWN2=true;
-        Serial.println("2 minutes remaining");
-      } // two minute warning
-    }
-    if (COUNTDOWN2) {
-      if (GameTimeRemaining < 60001) {
-        AudioSelection1="VSA"; 
-        AUDIO1=true;
-        COUNTDOWN2=false; 
-        COUNTDOWN3=true; 
-        Serial.println("1 minute remaining");
-      } // one minute warning
-    }
-    if (COUNTDOWN3) {
-      if (GameTimeRemaining < 10001) {
-        AudioSelection1="VA83"; 
-        AUDIO1=true; 
-        COUNTDOWN3=false;
-        Serial.println("ten seconds remaining");
-      } // ten second count down
-    }
-    if (ActualGameTime > GameTimer) {
-      GAMEOVER=true; 
-      Serial.println("game time expired");
-    }
-    if (RESPAWN) { // checks if auto respawn was triggered to respawn a player
-      respawnplayer(); // respawns player
-    }
-    if (MANUALRESPAWN) { // checks if manual respawn was triggered to respawn a player
-      ManualRespawnMode();
-    }
-    if (LOOT) {
-      LOOT = false;
-      swapbrx();
-    }
-  }
-}
-//**************************************************************************
-// run SWAPTX style weapon swap as from my youtube funny video:
-void swapbrx() {
-  // need to check if going to restock ammor or not:
-  int getammo = random(1,GetAmmoOdds);
-  if (getammo == GetAmmoOdds) { // current special weapon restock of ammo enabled
-    SpecialWeapon = PreviousSpecialWeapon; // makes special weapon equal to whatever the last special weapon was set to
-    LoadSpecialWeapon(); // reloads the last special weapon again to refresh ammo to original maximums
-    sendString("$PLAY,VA14,4,6,,,,,*");
-  }
-  // need to randomize the weapon pick up
-  SpecialWeapon = random(2, totalweapons); // randomizing between all weapons with total weapons count
-  Serial.println("Special Weapon Load Out = " + String(SpecialWeapon));
-  // need to add to counter to increase power for pistol
-  if (SwapBRXCounter < 100) {
-    SwapBRXCounter = SwapBRXCounter + 10; // this is used to increase the critical chance strike and improve your weapon power.
-    Serial.println("Set SwapBRXCounter to : " + String(SwapBRXCounter));
-    sendString("$WEAP,0,,35,0,0,8," + String(SwapBRXCounter) + ",,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,20,,*");
-  }
-  Serial.println("Weapon Slot 0 set"); 
-  if(SpecialWeapon < 10) {
-    AudioSelection = ("GN0" + String(SpecialWeapon));
-  }
-  if (SpecialWeapon > 9) {
-    AudioSelection = ("GN" + String(SpecialWeapon));
-  }
-  sendString("$PLAY,"+AudioSelection+",4,6,,,,,*"); // plays the gun id callout
-  AudioSelection = "NULL";
-  // Enable special weapon load by select button
-  SELECTCONFIRM = true; // enables trigger for select button
-  SPECIALWEAPONLOADOUT = true;
-  SelectButtonTimer = millis();
-  AudioSelection1="VA9B"; // set audio playback to "press select button"
-  // randomize perk pick up
-  int statboost = random(1,10);
-  Serial.println("Random Perk Statboost = " + String(statboost));
-  if (statboost == 10) { // full health restore plus shields 10% chance
-    sendString("$LIFE,70,70,45,1,*");
-    AudioPerk = "VA1Q";
-    PERK = true;
-  }
-  if (statboost == 8 || statboost == 9) { // get shields only 20% chance
-    sendString("$LIFE,70,,,1,*");
-    AudioPerk = "VA5K";
-    PERK = true;
-  }
-  if (statboost == 6 || statboost == 7) { // Armor replenish 20% chance
-    sendString("$LIFE,,70,,,*");
-    AudioPerk = "VA16";
-    PERK = true;
-  }
-}
-//**************************************************************
-// this bad boy captures any ble data from gun and analyzes it based upon the
-// protocol predecessor, a lot going on and very important as we are able to 
-// use the ble data from gun to decode brx protocol with the gun, get data from 
-// guns health status and ammo reserve etc.
-void ProcessBRXData() {
-  // lets process the data just received from the BRX:
-  char *ptr = strtok((char*)readStr.c_str(), ",");
-  int index = 0;
-  while (ptr != NULL) {
-    tokenStrings[index] = ptr;
-    index++;
-    ptr = strtok(NULL, ",");  // takes a list of delimiters
-  }
-  Serial.println("We received: " + readStr);   
-  Serial.println("We have found " + String(index ) + " tokens from the received data");
-  // trouble shooting Gen3 Taggers
-  WRITETOTERMINAL = true;
-  TerminalInput = readStr;
-  int stringnumber = 0;
-  while (stringnumber < index) {
-    Serial.print("Token " + String(stringnumber) + ": ");
-    Serial.println(tokenStrings[stringnumber]);
-    stringnumber++;
-  }
-  // If gen3, we get some differing starting variable. to fix, lets see if it exists
-  // then correct gen 3 nonsense to look like gen1/2 comms
-  if (tokenStrings[0] == "$!DFP") { // if this is the case (gen three data received)
-    Serial.println("found gen3 data");
-    int fixgen3data0 = 1;
-    int fixgen3data1 = 2;
-    tokenStrings[0] = ("$" + tokenStrings[1]);
-    while(stringnumber > fixgen3data1) {
-      tokenStrings[fixgen3data0] = tokenStrings[fixgen3data1];
-      fixgen3data0++;
-      fixgen3data1++;
-    }
-    Serial.println("changed serial data from brx to match gen1/2 data packets");
-    TerminalInput = "Modified Gen3 Data to Match Gen 1/2";
-    WRITETOTERMINAL = true;
-  }
-    /* 
-     *  Mapping of the BLE buttons pressed
-     *  Trigger pulled: $BUT,0,1,*
-     *  Tirgger Released: $BUT,0,0,*
-     *  Alt fire pressed:  $BUT,1,1,*
-     *  Alt fire released:  $BUT,1,0,*
-     *  Reload pulled:  $BUT,2,1,*
-     *  Reload released:  $BUT,2,0,*
-     *  select button pressed:  $BUT,3,1,*
-     *  select button released:  $BUT,3,0,*
-     *  left button pressed:  $BUT,4,1,*
-     *  left button released:  $BUT,4,0,*
-     *  right button pressed:  $BUT,5,1,*
-     *  right button released:  $BUT,5,0,*
-     */
-    if (tokenStrings[0] == "$BUT") {
-      if (tokenStrings[1] == "0") {
-        if (tokenStrings[2] == "1") {
-          Serial.println("Trigger pulled"); // as indicated this is the trigger
-        }
-        if (tokenStrings[2] == "0") {
-          Serial.println("Trigger Released"); // goes without sayin... you let go of the trigger
-          // upon release of a trigger, team settings can be changed if the proper allowance is in place
-          if (GETTEAM){ // used for configuring manual team selection
-            if (GameMode == 7) { // survival teams
-              if (Team==0 && STATUSCHANGE == false) {
-                Team=3; 
-                STATUSCHANGE=true; 
-                AudioSelection1="VA3Y"; 
-                AUDIO1=true;
-                Serial.println("team changed to Infected");
-                }          
-              if (Team==3 && STATUSCHANGE == false) {
-                Team=0; 
-                AudioSelection1="VA3T"; 
-                AUDIO1=true;
-                Serial.println("team changed to Human");
-                }
-               STATUSCHANGE = false;
-              } else {
-                if (Team==5) {
-                  Team=0; 
-                  STATUSCHANGE=true; 
-                  AudioSelection1="VA13"; 
-                  AUDIO1=true;
-                  Serial.println("team changed from 5 to 0");
-                }          
-                if (Team==4) {
-                  Team=5; 
-                  AudioSelection1="VA2Y"; 
-                  AUDIO1=true; 
-                  Serial.println("team changed from 4 to 5");
-                } // foxtrot team
-                if (Team==3) {
-                  Team=0; 
-                  STATUSCHANGE=true; 
-                  AudioSelection1="VA13"; 
-                  AUDIO1=true; 
-                  Serial.println("team changed from 3 to 0");
-                } // echo team
-                if (Team==2) {
-                  Team=3; 
-                  AudioSelection1="VA27"; 
-                  AUDIO1=true; 
-                  Serial.println("team changed from 2 to 3");
-                  } // delta team
-                if (Team==1) {
-                  Team=2; 
-                  AudioSelection1="VA1R"; 
-                  AUDIO1=true; 
-                  Serial.println("team changed from 1 to 2");
-                  } // charlie team
-                if (Team==0 && STATUSCHANGE==false) {
-                  Team=1; 
-                  AudioSelection1="VA1L"; 
-                  AUDIO1=true; Serial.println("team changed from 0 to 1");
-                } // bravo team        
-                STATUSCHANGE=false;
-                ChangeMyColor = Team; // triggers a gun/tagger color change
-              }
-          }
-          if (GETSLOT0){ // used for configuring manual team selection
-            if (SLOTA==19) {
-              SLOTA=1; 
-              STATUSCHANGE=true; 
-              AudioSelection1="GN01"; 
-              AUDIO1=true; 
-              Serial.println("Weapon changed from 19 to 1");
-              }          
-            if (SLOTA==18) {
-              SLOTA=19; 
-              AudioSelection1="GN19"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 18 to 19");
-              } // 
-            if (SLOTA==17) {
-              SLOTA=18; 
-              AudioSelection1="GN18"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 17 to 18");
-              } // 
-            if (SLOTA==16) {
-              SLOTA=17; 
-              AudioSelection1="GN17"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 16 to 17");
-              } // 
-            if (SLOTA==15) {
-              SLOTA=16; 
-              AudioSelection1="GN16"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 15 to 16");
-              } //        
-            if (SLOTA==14) {
-              SLOTA=15; 
-              AudioSelection1="GN15"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 14 to 15");
-              } // 
-            if (SLOTA==13) {
-              SLOTA=14; 
-              AudioSelection1="GN14"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 13 to 14");
-              } // 
-            if (SLOTA==12) {
-              SLOTA=13; 
-              AudioSelection1="GN13"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 12 to 13");
-              } // 
-            if (SLOTA==11) {
-              SLOTA=12; 
-              AudioSelection1="GN12"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 11 to 12");
-              } //         
-            if (SLOTA==10) {
-              SLOTA=11; 
-              AudioSelection1="GN11"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 10 to 11");
-              } // 
-            if (SLOTA==9) {
-              SLOTA=10; 
-              AudioSelection1="GN10"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 9 to 10");
-              } // 
-            if (SLOTA==8) {
-              SLOTA=9; 
-              AudioSelection1="GN09"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 8 to 9");
-              } // 
-            if (SLOTA==7) {
-              SLOTA=8; 
-              AudioSelection1="GN08"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 7 to 8");
-              } // 
-            if (SLOTA==6) {
-              SLOTA=7; 
-              AudioSelection1="GN07"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 6 to 7");
-              } // 
-            if (SLOTA==5) {
-              SLOTA=6; 
-              AudioSelection1="GN06"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 5 to 6");
-              } // 
-            if (SLOTA==4) {
-              SLOTA=5; 
-              AudioSelection1="GN05"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 4 to 5");
-              } //         
-            if (SLOTA==3) {
-              SLOTA=4; 
-              AudioSelection1="GN04"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 3 to 4");
-              } // 
-            if (SLOTA==2) {
-              SLOTA=3; 
-              AudioSelection1="GN03"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 2 to 3");
-              } // 
-            if (SLOTA==1 && STATUSCHANGE==false) {
-              SLOTA=2; 
-              AudioSelection1="GN02"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 1 to 2");
-              } // 
-            if (SLOTA==100) {
-              SLOTA=1; 
-              AudioSelection1="GN01"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 0 changed from 0 to 1");
-              } //        
-            STATUSCHANGE=false;
-            TAGGERUPDATE=true;
-          }
-          if (GETSLOT1){ // used for configuring manual team selection
-            if (SLOTB==19) {
-              SLOTB=1; 
-              STATUSCHANGE=true; 
-              AudioSelection1="GN01"; 
-              AUDIO1=true; 
-              Serial.println("Weapon changed from 19 to 1");
-              }          
-            if (SLOTB==18) {
-              SLOTB=19; 
-              AudioSelection1="GN19";
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 18 to 19");
-              } // 
-            if (SLOTB==17) {
-              SLOTB=18; 
-              AudioSelection1="GN18"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 17 to 18");
-              } // 
-            if (SLOTB==16) {
-              SLOTB=17; 
-              AudioSelection1="GN17";
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 16 to 17");
-              } // 
-            if (SLOTB==15) {
-              SLOTB=16; 
-              AudioSelection1="GN16"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 15 to 16");
-              } //        
-            if (SLOTB==14) {
-              SLOTB=15; 
-              AudioSelection1="GN15"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 14 to 15");
-              } // 
-            if (SLOTB==13) {
-              SLOTB=14; 
-              AudioSelection1="GN14"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 13 to 14");
-              } // 
-            if (SLOTB==12) {
-              SLOTB=13; 
-              AudioSelection1="GN13"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 12 to 13");
-              } // 
-            if (SLOTB==11) {
-              SLOTB=12; 
-              AudioSelection1="GN12"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 11 to 12");
-              } //         
-            if (SLOTB==10) {
-              SLOTB=11; 
-              AudioSelection1="GN11"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 10 to 11");
-              } // 
-            if (SLOTB==9) {
-              SLOTB=10; 
-              AudioSelection1="GN10"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 9 to 10");
-              } // 
-            if (SLOTB==8) {
-              SLOTB=9; 
-              AudioSelection1="GN09";
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 8 to 9");
-              } // 
-            if (SLOTB==7) {
-              SLOTB=8; 
-              AudioSelection1="GN08"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 7 to 8");
-              } // 
-            if (SLOTB==6) {
-              SLOTB=7; 
-              AudioSelection1="GN07"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 6 to 7");
-              } // 
-            if (SLOTB==5) {
-              SLOTB=6; 
-              AudioSelection1="GN06"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 5 to 6");
-              } // 
-            if (SLOTB==4) {
-              SLOTB=5; 
-              AudioSelection1="GN05"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 4 to 5");
-              } //         
-            if (SLOTB==3) {
-              SLOTB=4; 
-              AudioSelection1="GN04"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 3 to 4");
-              } // 
-            if (SLOTB==2) {
-              SLOTB=3; 
-              AudioSelection1="GN03"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 2 to 3");
-              } // 
-            if (SLOTB==1 && STATUSCHANGE==false) {
-              SLOTB=2; 
-              AudioSelection1="GN02"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 1 to 2");
-              } // 
-            if (SLOTB==100) {
-              SLOTB=1; 
-              AudioSelection1="GN01"; 
-              AUDIO1=true; 
-              Serial.println("Weapon 1 changed from 0 to 1");
-              } //        
-            STATUSCHANGE=false;
-            TAGGERUPDATE=true;
-          }
-        }
+    if (strcmp((char*)data, "toggle8") == 0) {
+      if (Menu[8] > 808) {
+        Menu[8] = 801;
+      } else {
+        Menu[8]++;
       }
-      // alt fire button pressed and released section
-      if (tokenStrings[1] == "1") {
-        if (tokenStrings[2] == "1") {
-          Serial.println("Alt fire pulled"); // yeah.. you pushed the red/yellow button
-        }
-        if (tokenStrings[2] == "0") {
-          Serial.println("Alt fire Released"); // now you released the button
-          if (GETTEAM) {
-            GETTEAM=false; 
-            AudioSelection1="VAO"; 
-            AUDIO1=true;
-            }
-          if (GETSLOT0) {
-            GETSLOT0=false; 
-            AudioSelection1="VAO"; 
-            AUDIO1=true;
-            }
-          if (GETSLOT1) {
-            GETSLOT1=false;
-            AudioSelection1="VAO"; 
-            AUDIO1=true;
-            }
-        }
+      WebSocketData = Menu[8];
+      notifyClients();
+      Serial.println("delay start timer menu = " + String(Menu[8]));
+      datapacket2 = Menu[8];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
       }
-      // charge or reload handle pulled and released section
-      if (tokenStrings[1] == "2") {
-        if (tokenStrings[2] == "1") {
-          Serial.println("charge handle pulled"); // as indicated this is the handle
-        }
-        if (tokenStrings[2] == "0") {
-          Serial.println("Charge handle Released"); // goes without sayin... you let go of the handle
-          // upon release of a handle, following steps occur
-          //if(UNLIMITEDAMMO==2) { // checking if unlimited ammo is on or not
-            //if (CurrentWeapSlot == 0) {
-              //OutofAmmoA=true; // here is the variable for weapon slot 0
-              //Serial.println("Weapon Slot 0 is out of ammo, enabling weapon reload for weapon slot 0");
-            //}
-            //if (CurrentWeapSlot == 1) {
-               //OutofAmmoB=true; // trigger variable for weapon slot 1
-               //Serial.println("Weapon Slot 1 is out of ammo, enabling weapon reload for weapon slot 1");
-            //}
-          //}
-          }
-      }
-      // select button pressed
-      if (tokenStrings[1] == "3") {
-        if (tokenStrings[2] == "0") {
-          Serial.println("select button depressed"); // goes without sayin... you let go of the handle
-          // upon release of the button, following steps occur
-          if(SELECTCONFIRM) { // checking if a process is awaiting the select button
-            SELECTCONFIRM = false; // disables this trigger
-            if(SPECIALWEAPONLOADOUT) {
-              SPECIALWEAPONLOADOUT = false;
-              LoadSpecialWeapon();
-            }
-          }
-          }
-      }
-      // we can do more for left right select but yeah... maybe another time 
     }
-    
-    // here is where we use the incoming ir to the guns sensors to our benefit in many ways
-    // we can use it to id the player landing a tag and every aspect of that tag
-    // but why stop there? we can use fabricated tags to set variables on the esp32 for programming game modes!
-    if (tokenStrings[0] == "$HIR") {
-      /*space 1 is the direction the tag came from or what sensor was hit, in above example sensor 4
-        space 2 is for he type of tag recieved/shot. this is 0-15 for bullet type
-        space 3 is the player id of the person sending the tag
-        space 4 is the team id, 
-        space 5 is the damage of the tag
-        space 6 is "is critical" if critical a damage multiplier would apply, rare.
-        space 7 is "power", not sure what that does.
-      */
-      //been tagged
-      // run analysis on tag to determine if it carry's special instructions:
-      if (tokenStrings[2] == "15" || tokenStrings[2] == "1") {
-        TagPerks();
+    if (strcmp((char*)data, "toggle9") == 0) {
+      Menu[9] = 901;
+      WebSocketData = Menu[9];
+      notifyClients();
+      Serial.println("delay start timer menu = " + String(Menu[9]));
+      datapacket2 = Menu[9];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
       }
-      lastTaggedPlayer = tokenStrings[3].toInt();
-      lastTaggedTeam = tokenStrings[4].toInt();
-      Serial.println("Just tagged by: " + String(lastTaggedPlayer) + " on team: " + String(lastTaggedTeam));
     }
-    
-    // this is a cool pop up... lots of info provided and broken out below.
-    // this pops up everytime you pull the trigger and deplete your ammo.hmmm you
-    // can guess what im using that for... see more below
-// ****** note i still need to assign the ammo to the lcd outputs********
-    if (tokenStrings[0] == "$ALCD") {
-      /* ammunition status update occured 
-       *  space 0 is ALCD indicator
-       *  space 1 is rounds remaining in clip
-       *  space 2 is accuracy of weapon
-       *  space 3 is slot of weapon
-       *  space 4 is remaining ammo outside clip
-       *  space 5 is the overheating feature if aplicable
-       *  
-       *  more can be done with this, like using the ammo info to post to lcd
-       */
-       ammo1 = tokenStrings[1].toInt(); // sets the variable to be sent to esp8266 for ammo in clip
-       ammo2 = tokenStrings[4].toInt(); // sets the total magazine capacity to be sent to 8266
-       if (tokenStrings[3].toInt() == 0) {
-        weap=SetSlotA; 
-        CurrentWeapSlot=0;
-        } // if the weapon slot 0 is loaded up, sets the variable to notify weapon type loaded to the right weapon
-       if (tokenStrings[3].toInt() == 1) {
-        weap=SetSlotB; 
-        CurrentWeapSlot=1;
-        } // same thing but for weapon slot 1
-       if (tokenStrings[3].toInt() == 2) {
-        CurrentWeapSlot=4;
-        }   
+    if (strcmp((char*)data, "toggle10") == 0) {
+      if (Menu[10] > 1000) {
+        Menu[10] = 1000;
+      } else {
+        Menu[10] = 1001;
+      }
+      WebSocketData = Menu[10];
+      notifyClients();
+      Serial.println("delay start timer menu = " + String(Menu[10]));
+      datapacket2 = Menu[10];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
     }
-    
-    // this guy is recieved from brx every time your health changes... usually after
-    // getting shot.. from the HIR indicator above. but this can tell us our health status
-    // and we can send it to an LCD or use it to know when were dead and award points to the 
-    // player who loast tagged the gun... hence the nomenclature "lasttaggedPlayer" etc
-    // add in some kill counts and we can deplete lives and use it to enable or disable respawn functions
-    if (tokenStrings[0] == "$HP") {
-      /*health status update occured
-       * can be used for updates on health as well as death occurance
-       */
-      health = tokenStrings[1].toInt(); // setting variable to be sent to esp8266
-      armor = tokenStrings[2].toInt(); // setting variable to be sent to esp8266
-      shield = tokenStrings[3].toInt(); // setting variable to be sent to esp8266
-      if ((tokenStrings[1] == "0") && (tokenStrings[2] == "0") && (tokenStrings[3] == "0")) { // player is dead
-        if (HASFLAG) { HASFLAG = false; AudioSelection1 = "VA2I"; AUDIO1 = true;}
-        PlayerKillCount[lastTaggedPlayer]++; // adding a point to the last player who killed us
-        datapacket1 = lastTaggedPlayer; // setting an identifier for who recieves the tag
-        datapacket2 = 32000; // identifier to tell player they got a kill
-        if (GameMode == 4) {
-          datapacket3 = PreviousSpecialWeapon; // current special weapon equiped
-        } else {
-          datapacket3 = GunID; // null action to send
-        }
-        getReadings();
-        BROADCASTESPNOW = true;
-        TeamKillCount[lastTaggedTeam]++; // adding a point to the team who caused the last kill
-        PlayerLives--; // taking our preset lives and subtracting one life then talking about it on the monitor
-        Deaths++;
-        //AudioSelection1="KBP"+String(lastTaggedPlayer);
-        //AUDIO1=true;
-        Serial.println("Lives Remaining = " + String(PlayerLives));
-        Serial.println("Killed by: " + String(lastTaggedPlayer) + " on team: " + String(lastTaggedTeam));
-        Serial.println("Team: " + String(lastTaggedTeam) + "Score: " + String(TeamKillCount[lastTaggedTeam]));
-        Serial.println("Player: " + String(lastTaggedPlayer) + " Score: " + String(PlayerKillCount[lastTaggedPlayer]));
-        Serial.println("Death Count: " + String(Deaths));
-        if (GameMode != 8) {
-          if (PlayerLives > 0 && SetRSPNMode < 9) { // doing a check if we still have lives left after dying
-            RESPAWN = true;
-            Serial.println("Auto respawn enabled");
-          }
-          if (PlayerLives > 0 && SetRSPNMode == 9) { // doing a check if we still have lives left after dying
-            MANUALRESPAWN = true;
-            Serial.println("Manual respawn enabled");
-          }
-          if (PlayerLives == 0) {
-            //GAMEOVER=true;
-            TerminalInput = "Lives Depleted"; // storing the string for sending to Tagger, elswhere
-            WRITETOTERMINAL = true;
-            delay(3000);
-            sendString("$HLOOP,2,1200,*"); // this puts the headset in a loop for flashing
-            sendString("$PLAY,VA46,4,6,,,,,*"); // says lives depleted
-            Serial.println("lives depleted");
-          }
-        }
-        if (GameMode == 8) {
-          RESPAWN = true;
-          SetTeam = lastTaggedTeam;
-          if (SetTeam == 0) {sendString("$PLAY,VA5G,4,6,,,,,*");}
-          if (SetTeam == 1) {sendString("$PLAY,VA1L,4,6,,,,,*");}
-          if (SetTeam == 2) {sendString("$PLAY,VA1R,4,6,,,,,*");}
-          if (SetTeam == 3) {sendString("$PLAY,VA27,4,6,,,,,*");}
-        }
+    if (strcmp((char*)data, "toggle11") == 0) {
+      if (Menu[11] > 1102) {
+        Menu[11] = 1101;
+      } else {
+        Menu[11]++;
+      }
+      WebSocketData = Menu[11];
+      notifyClients();
+      Serial.println("delay start timer menu = " + String(Menu[11]));
+      datapacket2 = Menu[11];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
+    }
+    if (strcmp((char*)data, "toggle12") == 0) {
+      if (Menu[12] == 1200) {
+        Menu[12] = 1201;
+      } else {
+        Menu[12] = 1200;
+      }
+      WebSocketData = Menu[12];
+      notifyClients();
+      Serial.println("delay start timer menu = " + String(Menu[12]));
+      datapacket2 = Menu[12];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
+    }
+    if (strcmp((char*)data, "toggle13") == 0) {
+      if (Menu[13] > 1304) {
+        Menu[13] = 1301;
+      } else {
+        Menu[13]++;
+      }
+      WebSocketData = Menu[13];
+      notifyClients();
+      Serial.println("delay start timer menu = " + String(Menu[11]));
+      datapacket2 = Menu[13];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
+    }
+    if (strcmp((char*)data, "toggle14s") == 0) {
+      Menu[14] = 1401;
+      WebSocketData = Menu[14];
+      notifyClients();
+      Serial.println("delay start timer menu = " + String(Menu[14]));
+      datapacket2 = Menu[14];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
+    }
+    if (strcmp((char*)data, "toggle14e") == 0) {
+      Menu[14] = 1400;
+      WebSocketData = Menu[14];
+      notifyClients();
+      Serial.println("delay start timer menu = " + String(Menu[14]));
+      datapacket2 = Menu[14];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
+    }
+    if (strcmp((char*)data, "toggle15") == 0) {
+      Menu[15] = 1501;
+      WebSocketData = Menu[15];
+      notifyClients();
+      Serial.println("delay start timer menu = " + String(Menu[15]));
+      datapacket2 = Menu[15];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
     }
   }
-}
-//******************************************************************************************
-//******************************************************************************************
-void SoftWareReset() {
-  ESP.restart();
-}
-//******************************************************************************************
-void ChangeColors() {
-  String colorstring = ("$GLED," + String(ChangeMyColor) + "," + String(ChangeMyColor) + "," + String(ChangeMyColor) + ",0,10,,*");
-  sendString(colorstring);
-  colorstring = ("$HLED," + String(ChangeMyColor) + ",0,,,10,,*");
-  sendString(colorstring);
-  ChangeMyColor = 99;
 }
 //**************************************************************
 void ProcessIncomingCommands() {
@@ -3902,6 +2483,1945 @@ void ProcessIncomingCommands() {
     digitalWrite(2, LOW);
   }  
 }
+//******************************************************************************************
+void InitializeJEDGE() {
+  Serial.println();
+  Serial.println();
+  Serial.println("*****************************************************");
+  Serial.println("************* Initializing JEDGE 2.0 ****************");
+  Serial.println("*****************************************************");
+  Serial.println();
+  Serial.println("Waiting for BRX to Boot...");
+  /*
+  int forfun = 5;
+  while (forfun > 0) { 
+    delay(1000);
+    Serial.print(String(forfun) + ", ");
+    forfun--;
+  }
+  */
+  sendString("$_BAT,4162,*"); // test for gen3
+  sendString("$PLAYX,0,*"); // test for gen3
+  sendString("$VERSION,*"); // test for gen3
+  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
+  Serial.println();
+  Serial.println("JEDGE is taking over the BRX");
+  //sendString("$CLEAR,*"); // clears any brx settings
+  sendString("$STOP,*"); // starts the callsign mode up
+  delay(300);
+  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
+  sendString("$PLAY,VA20,4,6,,,,,*"); // says "connection established"
+  sendString("$HLED,0,0,,,10,,*"); // test for gen3
+  sendString("$GLED,0,0,0,0,10,,*"); // test for gen3
+}
+//******************************************************************************************
+
+// process used to send string properly to gun... splits up longer strings in bytes of 20
+// to make sure gun understands them all... not sure about all of what does what below...
+void sendString(String value) {
+  const char * c_string = value.c_str();
+  Serial.print("sending: ");
+  if (GunGeneration == 1) {
+    for (int i = 0; i < value.length() / 1; i++) { // creates a for loop
+      Serial1.println(c_string[i]); // sends one value at a time to gen1 brx
+      delay(5); // this is an added delay needed for the way the brx gen1 receives data (brute force method because i could not match the comm settings exactly)
+      Serial.print(c_string[i]);
+    }
+    Serial.println();
+  }
+  if (GunGeneration > 1) {
+    int matchingdelay = value.length() * 5; // this just creates a temp value for how long the string is multiplied by 5 milliseconds
+    delay(matchingdelay); // now we delay the same amount of time.. this is so if we have gen1 and gen2 brx in the mix, they receive the commands about the same time
+    Serial1.println(c_string); // sending the string to brx gen 2
+    Serial.println(c_string);
+  }
+}
+void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
+             void *arg, uint8_t *data, size_t len) {
+  switch (type) {
+    case WS_EVT_CONNECT:
+      Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+      break;
+    case WS_EVT_DISCONNECT:
+      Serial.printf("WebSocket client #%u disconnected\n", client->id());
+      break;
+    case WS_EVT_DATA:
+      handleWebSocketMessage(arg, data, len);
+      break;
+    case WS_EVT_PONG:
+    case WS_EVT_ERROR:
+      break;
+  }
+}
+
+void initWebSocket() {
+  ws.onEvent(onEvent);
+  server.addHandler(&ws);
+}
+
+String processor(const String& var){
+  Serial.println(var);
+  if(var == "WEAP0"){
+    if (SetSlotA == 0){
+      return "Manual Selection";
+    }
+    if (SetSlotA == 1) {
+      return "Unarmed";
+    }
+    if (SetSlotA > 1) {
+      return "AMR";
+    }
+  }
+  if(var == "WEAP1"){
+    if (SetSlotB == 0){
+      return "Manual Selection";
+    }
+    if (SetSlotB == 1) {
+      return "Unarmed";
+    }
+    if (SetSlotB > 1) {
+      return "AMR";
+    }
+  }
+  if(var == "LVS0"){
+    if (SetLives == 32000){
+      return "Unlimited";
+    }
+    if (SetLives == 1) {
+      return "1";
+    }
+    if (SetLives == 5) {
+      return "5";
+    }
+  }
+  if(var == "GTM"){
+    if (SetTime == 2000000000){
+      return "Unlimited";
+    }
+  }
+  if(var == "OUTDR"){
+    if (SetODMode == 0){
+      return "Outdoor Mode";
+    }
+  }
+  if(var == "TEAM"){
+    if (Menu[5] == 501){
+      return "Free For All";
+    }
+  }
+  if(var == "GMODE"){
+    if (Menu[6] == 601){
+      return "Defaults";
+    }
+  }
+  if(var == "RSPWNMODE"){
+    if (Menu[7] == 701){
+      return "Auto - No Delay";
+    }
+  }
+  if(var == "DLYSTM"){
+    if (Menu[8] == 801){
+      return "Immediate";
+    }
+  }
+  if(var == "SYNC"){
+    if (Menu[9] == 901){
+      return "to Sync";
+    }
+  }
+  if(var == "GENDER"){
+    if (Menu[10] == 1000){
+      return "Male";
+    } else { return "Female";}
+  }
+  if(var == "AMMUNITION"){
+    if (Menu[11] == 1002){
+      return "Infinite Mags";
+    }
+  }
+  if(var == "GENDER"){
+    if (Menu[12] == 1201){
+      return "On";
+    }
+  }
+  if(var == "VOLUME"){
+    if (Menu[13] == 1303){
+      return "Three";
+    }
+  }
+  if(var == "INGAME"){
+    if (Menu[14] == 1400){
+      return "Standby";
+    } else { return "In Game";}
+  }
+  if(var == "JEDGE"){
+    if (Menu[15] == 1500){
+      return "Standby";
+    } else { return "Initialized";}
+  }
+}
+
+void InitAP() {
+  // Connect to Wi-Fi network with SSID and password
+  Serial.print("Setting AP (Access Point)…");
+  // Remove the password parameter, if you want the AP (Access Point) to be open
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(ssid, password);
+
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(IP);
+}
+
+//**********************************************************************************************
+void SyncScores() {
+  // create a string that looks like this: 
+  // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
+  String ScoreData = String(GunID)+","+String(SetTeam)+","+String(CompletedObjectives)+","+String(TeamKillCount[0])+","+String(TeamKillCount[1])+","+String(TeamKillCount[2])+","+String(TeamKillCount[3])+","+String(TeamKillCount[4])+","+String(TeamKillCount[5])+","+String(PlayerKillCount[0])+","+String(PlayerKillCount[1])+","+String(PlayerKillCount[2])+","+String(PlayerKillCount[3])+","+String(PlayerKillCount[4])+","+String(PlayerKillCount[5])+","+String(PlayerKillCount[6])+","+String(PlayerKillCount[7])+","+String(PlayerKillCount[8])+","+String(PlayerKillCount[9])+","+String(PlayerKillCount[10])+","+String(PlayerKillCount[11])+","+String(PlayerKillCount[12])+","+String(PlayerKillCount[13])+","+String(PlayerKillCount[14])+","+String(PlayerKillCount[15])+","+String(PlayerKillCount[16])+","+String(PlayerKillCount[17])+","+String(PlayerKillCount[18])+","+String(PlayerKillCount[19])+","+String(PlayerKillCount[20])+","+String(PlayerKillCount[21])+","+String(PlayerKillCount[22])+","+String(PlayerKillCount[23])+","+String(PlayerKillCount[24])+","+String(PlayerKillCount[25])+","+String(PlayerKillCount[26])+","+String(PlayerKillCount[27])+","+String(PlayerKillCount[28])+","+String(PlayerKillCount[29])+","+String(PlayerKillCount[30])+","+String(PlayerKillCount[31])+","+String(PlayerKillCount[32])+","+String(PlayerKillCount[33])+","+String(PlayerKillCount[34])+","+String(PlayerKillCount[35])+","+String(PlayerKillCount[36])+","+String(PlayerKillCount[37])+","+String(PlayerKillCount[38])+","+String(PlayerKillCount[39])+","+String(PlayerKillCount[40])+","+String(PlayerKillCount[41])+","+String(PlayerKillCount[42])+","+String(PlayerKillCount[43])+","+String(PlayerKillCount[44])+","+String(PlayerKillCount[45])+","+String(PlayerKillCount[46])+","+String(PlayerKillCount[47])+","+String(PlayerKillCount[48])+","+String(PlayerKillCount[49])+","+String(PlayerKillCount[50])+","+String(PlayerKillCount[51])+","+String(PlayerKillCount[52])+","+String(PlayerKillCount[53])+","+String(PlayerKillCount[54])+","+String(PlayerKillCount[55])+","+String(PlayerKillCount[56])+","+String(PlayerKillCount[57])+","+String(PlayerKillCount[58])+","+String(PlayerKillCount[59])+","+String(PlayerKillCount[60])+","+String(PlayerKillCount[61])+","+String(PlayerKillCount[62])+","+String(PlayerKillCount[63]);
+  Serial.println("Sending the following Score Data to Server");
+  Serial.println(ScoreData);
+  //bridge1.virtualWrite(V0, ScoreData); // sending the whole string from esp32
+  Serial.println("Sent Score data to Server");
+  //reset sent scores:
+  Serial.println("resetting all scores");
+  CompletedObjectives = 0;
+  int teamcounter = 0;
+  while (teamcounter < 6) {
+    TeamKillCount[teamcounter] = 0;
+    teamcounter++;
+    vTaskDelay(1);
+  }
+  int playercounter = 0;
+  while (playercounter < 64) {
+    PlayerKillCount[playercounter] = 0;
+    playercounter++;
+    vTaskDelay(1);
+  }
+  Serial.println("Scores Reset");  
+}
+// ****************************************************************************************
+/*Analyzing incoming tag to determine if a perk action is needed
+        space 2 is for he type of tag recieved/shot. almost all are 0 and im thinking other types are medic etc.
+        space 3 is the player id, in this case it was player 0 hitting player 1.
+        space 4 is the team id, this was team 0 or red team
+        space 5 is the damage dealt to the player, this took 13 hit points off the player 1
+        space 6 is "is critical" if critical a damage multiplier would apply, rare.
+        space 7 is "power", not sure what that does.*/
+void TagPerks() {
+  Serial.println("IR Direction: "+String(tokenStrings[1]));
+  Serial.println("Bullet Type: "+String(tokenStrings[2]));
+  Serial.println("Player ID: "+String(tokenStrings[3]));
+  Serial.println("Team: "+String(tokenStrings[4]));
+  Serial.println("Damage: "+String(tokenStrings[5]));
+  Serial.println("Is Critical: "+String(tokenStrings[6]));
+  Serial.println("Power: "+String(tokenStrings[7]));
+  //  Checking for special tags
+  if (tokenStrings[2] == "15" && tokenStrings[6] == "1" && tokenStrings[7] == "0") { // we just determined that it is a respawn tag
+      Serial.println("Received a respawn tag");
+      if (tokenStrings[4].toInt() == SetTeam) {
+        Serial.println("Respawn Tag Team is a Match");
+        if (PENDINGRESPAWNIR) { // checks if we are awaiting a respawn signal
+          RESPAWN = true; // triggers a respawn
+          PENDINGRESPAWNIR = false; // closing the process of checking for a respawining tag and enables all other normal in game functions
+        }
+      } else {
+        Serial.println("Respawn Tag Team does not match");        
+      }
+  }
+  if (tokenStrings[2] == "1" && tokenStrings[7] == "1") { // we determined that it is a custom tag for game interaction
+    Serial.println("received a game interaction tag");
+    // now that we know weve got a special tag, what to do with it...
+    // respawning tag
+    if (tokenStrings[5] == "1") { // We have a random weapon selection tag
+      Serial.println("SWAPBRX Tag Received, Randomizing Weapon/Perk");
+      //if (tokenStrings[3].toInt() == GunID) {
+        // player ID is a match, therefore this tagger deserves the loot...
+        swapbrx(); // Running SwapBRX (Battle Royale Loot Box object)
+      //}
+    }
+    /*
+    // Own The Zone Tag received
+    if (tokenStrings[7] == "1") { // just determined that this is an objective tag - is critical, bullet 0, power 1, damage 1
+      Serial.println("Received an Objective Tag");
+      if (GameMode == 2) { // we're playing capture the flag
+        if (tokenStrings[4].toInt() == SetTeam) {
+          Serial.println("Objective Tag Team is a Match");
+          AudioSelection1="VA2K"; // setting audio play to notify we captured the flag
+          AUDIO1 = true; // enabling play back of audio
+          HASFLAG = true; // set condition that we have flag to true
+          SpecialWeapon = 99; // loads a new weapon that will deposit flag into base
+          SPECIALWEAPON = true; // enables program to load the new weapon
+        } else {
+          Serial.println("Objective tag team does not match");
+        }
+        } else {
+          CompletedObjectives++; // added one point to player objectives
+          AudioSelection1="VAR"; // set an announcement "good job team"
+          AUDIO1=true; // enabling BLE Audio Announcement Send
+        }
+    }
+    */
+  }
+}
+//******************************************************************************************
+// sets and sends game settings based upon the stored settings
+void SetFFOutdoor() {
+  // token one of the following command is free for all, 0 is off and 1 is on
+  if(SetODMode == 0 && SetFF == 1) {
+    sendString("$GSET,1,0,1,0,1,0,50,1,*");
+    }
+  if(SetODMode == 1 && SetFF == 1) {
+    sendString("$GSET,1,1,1,0,1,0,50,1,*");
+    }
+  if(SetODMode == 1 && SetFF == 0) {
+    sendString("$GSET,0,1,1,0,1,0,50,1,*");
+    }
+  if(SetODMode == 0 && SetFF == 0) {
+    sendString("$GSET,0,0,1,0,1,0,50,1,*");
+    }
+}
+//******************************************************************************************
+// sets and sends gun type to slot 0 based upon stored settings
+void weaponsettingsA() {
+  if (SLOTA != 100) {
+    SetSlotA=SLOTA; 
+    SLOTA=100;
+  }
+  if (UNLIMITEDAMMO==3){ // unlimited rounds
+    if(SetSlotA == 1) {
+      Serial.println("Weapon 0 set to Unarmed"); 
+      sendString("$WEAP,0,*");
+    } // cleared out weapon 0
+    if(SetSlotA == 2) {
+      Serial.println("Weapon 0 set to AMR"); 
+      sendString("$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,0,1400,10,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
+    }
+    if(SetSlotA == 3) {
+      Serial.println("Weapon 0 set to Assault Rifle"); 
+      sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,100,850,32,0,1400,10,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,192,75,,*");
+    }
+    if(SetSlotA == 4) {
+      Serial.println("Weapon 0 set to Bolt Rifle"); 
+      sendString("$WEAP,0,,100,0,3,13,0,,,,,,,,225,850,18,0,2000,10,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,90,75,,*");
+    }
+    if(SetSlotA == 5) {
+      Serial.println("Weapon 0 set to BurstRifle"); 
+      sendString("$WEAP,0,,100,0,3,9,0,,,,,,,,75,850,36,0,1700,10,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,108,75,,*");
+    }
+    if(SetSlotA == 6) {
+      Serial.println("Weapon 0 set to ChargeRifle"); 
+      sendString("$WEAP,0,,100,8,0,100,0,,,,,,,,1250,850,100,0,2500,10,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,100,75,,*");
+    }
+    if(SetSlotA == 7) {
+      Serial.println("Weapon 0 set to Energy Launcher");
+      sendString("$WEAP,0,,100,9,3,115,0,,,,,,,,360,850,1,0,1400,10,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,3,75,,*");
+    }
+    if(SetSlotA == 8) {
+      Serial.println("Weapon 0 set to Energy Rifle"); 
+      sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,90,850,300,0,2400,10,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,300,75,,*");
+    }
+    if(SetSlotA == 9) {
+      Serial.println("Weapon 0 set to Force Rifle");
+      sendString("$WEAP,0,,100,0,1,9,0,,,,,,,,100,850,36,0,1700,10,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,72,75,,*");
+    }
+    if(SetSlotA == 10) {
+      Serial.println("Weapon 0 set to Ion Sniper"); 
+      sendString("$WEAP,0,,100,0,0,115,0,,,,,,,,1000,850,2,0,2000,10,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,6,75,,*");
+    }
+    if(SetSlotA == 11) {
+      Serial.println("Weapon 0 set to Laser Cannon"); 
+      sendString("$WEAP,0,,100,0,0,115,0,,,,,,,,1500,850,4,0,2000,10,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,4,75,,*");
+    }
+    if(SetSlotA == 12) {
+      Serial.println("Weapon 0 set to Plasma Sniper");
+      sendString("$WEAP,0,2,100,0,0,80,0,,,,,,80,80,225,850,10,0,2000,10,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,40,75,40,*");
+    }
+    if(SetSlotA == 13) {
+      Serial.println("Weapon 0 set to Rail Gun");
+      sendString("$WEAP,0,0,100,6,0,115,0,,,,,,,,1200,850,1,0,2400,10,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,3,75,,*");
+    }
+    if(SetSlotA == 14) {
+      Serial.println("Weapon 0 set to Rocket Launcher");
+      sendString("$WEAP,0,2,100,10,0,115,0,,,,,,115,80,1000,850,2,0,1200,10,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,4,75,30,*");
+    }
+    if(SetSlotA == 15) {
+      Serial.println("Weapon 0 set to Shotgun");
+      sendString("$WEAP,0,2,100,0,0,45,0,,,,,,70,80,900,850,6,0,400,10,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,12,75,30,*");
+    }
+    if(SetSlotA == 16) {
+      Serial.println("Weapon 0 set to SMG");
+      sendString("$WEAP,0,,100,0,0,8,0,,,,,,,,90,850,72,0,2500,10,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,144,75,,*");
+    }
+    if(SetSlotA == 17) {
+      Serial.println("Weapon 0 set to Sniper Rifle");
+      sendString("$WEAP,0,,100,0,1,80,0,,,,,,,,300,850,4,0,1700,10,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,12,75,,*");
+    }
+    if(SetSlotA == 18) {
+      Serial.println("Weapon 0 set to Stinger");
+      sendString("$WEAP,0,,100,0,0,15,0,,,,,,,,120,850,18,0,1700,10,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,36,75,,*");
+    }
+    if(SetSlotA == 19) {
+      Serial.println("Weapon 0 set to Suppressor"); 
+      sendString("$WEAP,0,,100,0,0,8,0,,,,,,,,75,850,48,0,2000,10,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,144,75,,*");
+    }
+    if(SetSlotA == 20) {
+      Serial.println("Weapon 0 set to Pistol"); 
+      sendString("$WEAP,0,,35,0,0,8,0,,,,,,,,225,850,9,27,400,10,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,27,20,,*");
+    }
+  }
+  if (UNLIMITEDAMMO==2) { // unlimited mags
+    if(SetSlotA == 1) {
+      Serial.println("Weapon 0 set to Unarmed");
+      sendString("$WEAP,0,*");
+    } // cleared out weapon 0
+    if(SetSlotA == 2) {
+      Serial.println("Weapon 0 set to AMR"); 
+      sendString("$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,32768,1400,0,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,9999999,75,,*");
+    }
+    if(SetSlotA == 3) {
+      Serial.println("Weapon 0 set to Assault Rifle");
+      sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,100,850,32,32768,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,9999999,75,,*");
+    }
+    if(SetSlotA == 4) {
+      Serial.println("Weapon 0 set to Bolt Rifle");
+      sendString("$WEAP,0,,100,0,3,13,0,,,,,,,,225,850,18,32768,2000,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,9999999,75,,*");
+    }
+    if(SetSlotA == 5) {
+      Serial.println("Weapon 0 set to BurstRifle"); 
+      sendString("$WEAP,0,,100,0,3,9,0,,,,,,,,75,850,36,32768,1700,0,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,9999999,75,,*");
+    }
+    if(SetSlotA == 6) {
+      Serial.println("Weapon 0 set to ChargeRifle"); 
+      sendString("$WEAP,0,,100,8,0,100,0,,,,,,,,1250,850,100,32768,2500,0,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,9999999,75,,*");
+    }
+    if(SetSlotA == 7) {
+      Serial.println("Weapon 0 set to Energy Launcher");
+      sendString("$WEAP,0,,100,9,3,115,0,,,,,,,,360,850,1,32768,1400,0,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,9999999,75,,*");
+    }
+    if(SetSlotA == 8) {
+      Serial.println("Weapon 0 set to Energy Rifle"); 
+      sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,90,850,300,32768,2400,0,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,9999999,75,,*");
+    }
+    if(SetSlotA == 9) {
+      Serial.println("Weapon 0 set to Force Rifle"); 
+      sendString("$WEAP,0,,100,0,1,9,0,,,,,,,,100,850,36,32768,1700,0,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,9999999,75,,*");
+    }
+    if(SetSlotA == 10) {
+      Serial.println("Weapon 0 set to Ion Sniper"); 
+      sendString("$WEAP,0,,100,0,0,115,0,,,,,,,,1000,850,2,32768,2000,0,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,9999999,75,,*");
+    }
+    if(SetSlotA == 11) {
+      Serial.println("Weapon 0 set to Laser Cannon"); 
+      sendString("$WEAP,0,,100,0,0,115,0,,,,,,,,1500,850,4,32768,2000,0,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,9999999,75,,*");
+    }
+    if(SetSlotA == 12) {
+      Serial.println("Weapon 0 set to Plasma Sniper"); 
+      sendString("$WEAP,0,2,100,0,0,80,0,,,,,,80,80,225,850,10,32768,2000,0,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,9999999,75,40,*");
+    }
+    if(SetSlotA == 13) {
+      Serial.println("Weapon 0 set to Rail Gun"); 
+      sendString("$WEAP,0,0,100,6,0,115,0,,,,,,,,1200,850,1,32768,2400,0,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,9999999,75,,*");
+    }
+    if(SetSlotA == 14) {
+      Serial.println("Weapon 0 set to Rocket Launcher"); 
+      sendString("$WEAP,0,2,100,10,0,115,0,,,,,,115,80,1000,850,2,32768,1200,0,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,9999999,75,30,*");
+    }
+    if(SetSlotA == 15) {
+      Serial.println("Weapon 0 set to Shotgun"); 
+      sendString("$WEAP,0,2,100,0,0,45,0,,,,,,70,80,900,850,6,32768,400,2,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,9999999,75,30,*");
+    }
+    if(SetSlotA == 16) {
+      Serial.println("Weapon 0 set to SMG"); 
+      sendString("$WEAP,0,,100,0,0,8,0,,,,,,,,90,850,72,32768,2500,0,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,9999999,75,,*");
+    }
+    if(SetSlotA == 17) {
+      Serial.println("Weapon 0 set to Sniper Rifle");
+      sendString("$WEAP,0,,100,0,1,80,0,,,,,,,,300,850,4,32768,1700,0,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,9999999,75,,*");
+    }
+    if(SetSlotA == 18) {
+      Serial.println("Weapon 0 set to Stinger");
+      sendString("$WEAP,0,,100,0,0,15,0,,,,,,,,120,850,18,32768,1700,0,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,9999999,75,,*");
+    }
+    if(SetSlotA == 19) {
+      Serial.println("Weapon 0 set to Suppressor"); 
+      sendString("$WEAP,0,,100,0,0,8,0,,,,,,,,75,850,48,32768,2000,0,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,9999999,75,,*");
+    }
+    if(SetSlotA == 20) {
+      Serial.println("Weapon 0 set to Pistol"); 
+      sendString("$WEAP,0,,35,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,20,,*");
+    }
+  }
+  if (UNLIMITEDAMMO==1) { // limited mags
+      if(SetSlotA == 1) {
+        Serial.println("Weapon 0 set to Unarmed");
+        sendString("$WEAP,0,*");
+        } // cleared out weapon 0
+      if(SetSlotA == 2) {
+        Serial.println("Weapon 0 set to AMR");
+        sendString("$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,56,1400,0,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
+        }
+      if(SetSlotA == 3) {
+        Serial.println("Weapon 0 set to Assault Rifle"); 
+        sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,100,850,32,384,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,192,75,,*");
+        }
+      if(SetSlotA == 4) {
+        Serial.println("Weapon 0 set to Bolt Rifle"); 
+        sendString("$WEAP,0,,100,0,3,13,0,,,,,,,,225,850,18,180,2000,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,90,75,,*");
+        }
+      if(SetSlotA == 5) {
+        Serial.println("Weapon 0 set to BurstRifle"); 
+        sendString("$WEAP,0,,100,0,3,9,0,,,,,,,,75,850,36,216,1700,0,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,108,75,,*");
+        }
+      if(SetSlotA == 6) {
+        Serial.println("Weapon 0 set to ChargeRifle");
+        sendString("$WEAP,0,,100,8,0,100,0,,,,,,,,1250,850,100,200,2500,0,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,100,75,,*");
+        }
+      if(SetSlotA == 7) {
+        Serial.println("Weapon 0 set to Energy Launcher"); 
+        sendString("$WEAP,0,,100,9,3,115,0,,,,,,,,360,850,1,6,1400,0,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,3,75,,*");
+        }
+      if(SetSlotA == 8) {
+        Serial.println("Weapon 0 set to Energy Rifle"); 
+        sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,90,850,300,600,2400,0,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,300,75,,*");
+        }
+      if(SetSlotA == 9) {
+        Serial.println("Weapon 0 set to Force Rifle"); 
+        sendString("$WEAP,0,,100,0,1,9,0,,,,,,,,100,850,36,144,1700,0,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,72,75,,*");
+        }
+      if(SetSlotA == 10) {
+        Serial.println("Weapon 0 set to Ion Sniper");
+        sendString("$WEAP,0,,100,0,0,115,0,,,,,,,,1000,850,2,12,2000,0,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,6,75,,*");
+        }
+      if(SetSlotA == 11) {
+        Serial.println("Weapon 0 set to Laser Cannon"); 
+        sendString("$WEAP,0,,100,0,0,115,0,,,,,,,,1500,850,4,8,2000,0,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,4,75,,*");
+        }
+      if(SetSlotA == 12) {
+        Serial.println("Weapon 0 set to Plasma Sniper");
+        sendString("$WEAP,0,2,100,0,0,80,0,,,,,,80,80,225,850,10,80,2000,0,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,40,75,40,*");
+        }
+      if(SetSlotA == 13) {
+        Serial.println("Weapon 0 set to Rail Gun");
+        sendString("$WEAP,0,0,100,6,0,115,0,,,,,,,,1200,850,1,6,2400,0,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,3,75,,*");
+        }
+      if(SetSlotA == 14) {
+        Serial.println("Weapon 0 set to Rocket Launcher"); 
+        sendString("$WEAP,0,2,100,10,0,115,0,,,,,,115,80,1000,850,2,8,1200,0,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,4,75,30,*");
+        }
+      if(SetSlotA == 15) {
+        Serial.println("Weapon 0 set to Shotgun"); 
+        sendString("$WEAP,0,2,100,0,0,45,0,,,,,,70,80,900,850,6,24,400,2,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,12,75,30,*");
+        }
+      if(SetSlotA == 16) {
+        Serial.println("Weapon 0 set to SMG"); 
+        sendString("$WEAP,0,,100,0,0,8,0,,,,,,,,90,850,72,288,2500,0,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,144,75,,*");
+        }
+      if(SetSlotA == 17) {
+        Serial.println("Weapon 0 set to Sniper Rifle"); 
+        sendString("$WEAP,0,,100,0,1,80,0,,,,,,,,300,850,4,24,1700,0,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,12,75,,*");
+        }
+      if(SetSlotA == 18) {
+        Serial.println("Weapon 0 set to Stinger");
+        sendString("$WEAP,0,,100,0,0,15,0,,,,,,,,120,850,18,72,1700,0,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,36,75,,*");
+        }
+      if(SetSlotA == 19) {
+        Serial.println("Weapon 0 set to Suppressor"); 
+        sendString("$WEAP,0,,100,0,0,8,0,,,,,,,,75,850,48,288,2000,0,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,144,75,,*");
+      }
+      if(SetSlotA == 20) {
+        Serial.println("Weapon 0 set to Pistol"); 
+        sendString("$WEAP,0,,35,0,0,8,0,,,,,,,,225,850,9,27,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,27,20,,*");
+      }
+  }
+}
+//*****************************************************************************************
+// In Game Weapon Upgrade
+void LoadSpecialWeapon() {
+  
+  if(SpecialWeapon == 1) {
+    Serial.println("Weapon 1 set to Unarmed"); 
+    sendString("$WEAP,1,*");
+    } // cleared out weapon 0
+  if(SpecialWeapon == 2) {
+    Serial.println("Weapon 1 set to AMR"); 
+    sendString("$WEAP,1,,100,0,3,18,0,,,,,,,,360,850,14,56,1400,0,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
+    }
+  if(SpecialWeapon == 3) {
+    Serial.println("Weapon 1 set to Assault Rifle");
+    sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,100,850,32,384,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,192,75,,*");
+    }
+  if(SpecialWeapon == 4) {
+    Serial.println("Weapon 1 set to Bolt Rifle"); 
+    sendString("$WEAP,1,,100,0,3,13,0,,,,,,,,225,850,18,180,2000,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,90,75,,*");
+    }
+  if(SpecialWeapon == 5) {
+    Serial.println("Weapon 1 set to BurstRifle");
+    sendString("$WEAP,1,,100,0,3,9,0,,,,,,,,75,850,36,216,1700,0,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,108,75,,*");
+    }
+  if(SpecialWeapon == 6) {
+    Serial.println("Weapon 1 set to ChargeRifle");
+    sendString("$WEAP,1,,100,8,0,100,0,,,,,,,,1250,850,100,200,2500,0,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,100,75,,*");
+    }
+  if(SpecialWeapon == 7) {
+    Serial.println("Weapon 1 set to Energy Launcher"); 
+    sendString("$WEAP,1,,100,9,3,115,0,,,,,,,,360,850,1,6,1400,0,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,3,75,,*");
+    }
+  if(SpecialWeapon == 8) {
+    Serial.println("Weapon 1 set to Energy Rifle");
+    sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,90,850,300,600,2400,0,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,300,75,,*");
+    }
+  if(SpecialWeapon == 9) {
+    Serial.println("Weapon 1 set to Force Rifle");
+    sendString("$WEAP,1,,100,0,1,9,0,,,,,,,,100,850,36,144,1700,0,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,72,75,,*");
+    }
+  if(SpecialWeapon == 10) {
+    Serial.println("Weapon 1 set to Ion Sniper"); 
+    sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1000,850,2,12,2000,0,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,6,75,,*");
+    }
+  if(SpecialWeapon == 11) {
+    Serial.println("Weapon 1 set to Laser Cannon"); 
+    sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1500,850,4,8,2000,0,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,4,75,,*");
+    }
+  if(SpecialWeapon == 12) {
+    Serial.println("Weapon 1 set to Plasma Sniper"); 
+    sendString("$WEAP,1,2,100,0,0,80,0,,,,,,80,80,225,850,10,80,2000,0,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,40,75,40,*");
+    }
+  if(SpecialWeapon == 13) {
+    Serial.println("Weapon 1 set to Rail Gun"); 
+    sendString("$WEAP,1,0,100,6,0,115,0,,,,,,,,1200,850,1,6,2400,0,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,3,75,,*");
+    }
+  if(SpecialWeapon == 14) {
+    Serial.println("Weapon 1 set to Rocket Launcher"); 
+    sendString("$WEAP,1,2,100,10,0,115,0,,,,,,115,80,1000,850,2,8,1200,0,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,4,75,30,*");
+    }
+  if(SpecialWeapon == 15) {
+    Serial.println("Weapon 1 set to Shotgun"); 
+    sendString("$WEAP,1,2,100,0,0,45,0,,,,,,70,80,900,850,6,24,400,2,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,12,75,30,*");
+    }
+  if(SpecialWeapon == 16) {
+    Serial.println("Weapon 1 set to SMG"); 
+    sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,90,850,72,288,2500,0,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,144,75,,*");
+    }
+  if(SpecialWeapon == 17) {
+    Serial.println("Weapon 1 set to Sniper Rifle"); 
+    sendString("$WEAP,1,,100,0,1,80,0,,,,,,,,300,850,4,24,1700,0,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,12,75,,*");
+    }
+  if(SpecialWeapon == 18) {
+    Serial.println("Weapon 1 set to Stinger"); 
+    sendString("$WEAP,1,,100,0,0,15,0,,,,,,,,120,850,18,72,1700,0,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,36,75,,*");
+    }
+  if(SpecialWeapon == 19) {
+    Serial.println("Weapon 1 set to Suppressor"); 
+    sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,75,850,48,288,2000,0,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,144,75,,*");
+    }
+  if(SpecialWeapon == 99) {
+    Serial.println("Flag Capture, Gun becomes the flag"); 
+    sendString("$WEAP,1,*"); 
+    sendString("$WEAP,1,*");
+    sendString("$WEAP,1,*"); 
+    sendString("$BMAP,3,2,,,,,*");
+    sendString("$WEAP,3,,100,2,0,0,0,,,,,,,,100,850,32,32768,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,32768,75,,*");
+  }
+  PreviousSpecialWeapon = SpecialWeapon;
+  SpecialWeapon == 0; // reset the special weapon to zero after use     
+}
+
+//******************************************************************************************
+
+// sets and sends gun for slot 0 based upon stored settings
+void weaponsettingsB() {
+  if (SLOTB != 100) {
+    SetSlotB=SLOTB; 
+    SLOTB=100;
+  }
+  if (UNLIMITEDAMMO==3){
+    if(SetSlotB == 1) {
+      Serial.println("Weapon 1 set to Unarmed"); 
+      sendString("$WEAP,1,*");
+    } // cleared out weapon 0
+    if(SetSlotB == 2) {
+      Serial.println("Weapon 1 set to AMR"); 
+      sendString("$WEAP,1,,100,0,3,18,0,,,,,,,,360,850,14,0,1400,10,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
+    }
+    if(SetSlotB == 3) {
+      Serial.println("Weapon 1 set to Assault Rifle"); 
+      sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,100,850,32,0,1400,10,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,192,75,,*");
+    }
+    if(SetSlotB == 4) {
+      Serial.println("Weapon 1 set to Bolt Rifle"); 
+      sendString("$WEAP,1,,100,0,3,13,0,,,,,,,,225,850,18,0,2000,10,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,90,75,,*");
+    }
+    if(SetSlotB == 5) {
+      Serial.println("Weapon 1 set to BurstRifle");
+      sendString("$WEAP,1,,100,0,3,9,0,,,,,,,,75,850,36,0,1700,10,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,108,75,,*");
+    }
+    if(SetSlotB == 6) {
+      Serial.println("Weapon 1 set to ChargeRifle"); 
+      sendString("$WEAP,1,,100,8,0,100,0,,,,,,,,1250,850,100,0,2500,10,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,100,75,,*");
+    }
+    if(SetSlotB == 7) {
+      Serial.println("Weapon 1 set to Energy Launcher"); 
+      sendString("$WEAP,1,,100,9,3,115,0,,,,,,,,360,850,1,0,1400,10,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,3,75,,*");
+    }
+    if(SetSlotB == 8) {
+      Serial.println("Weapon 1 set to Energy Rifle"); 
+      sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,90,850,300,0,2400,10,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,300,75,,*");
+    }
+    if(SetSlotB == 9) {
+      Serial.println("Weapon 1 set to Force Rifle"); 
+      sendString("$WEAP,1,,100,0,1,9,0,,,,,,,,100,850,36,0,1700,10,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,72,75,,*");
+    }
+    if(SetSlotB == 10) {
+      Serial.println("Weapon 1 set to Ion Sniper"); 
+      sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1000,850,2,0,2000,10,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,6,75,,*");
+    }
+    if(SetSlotB == 11) {
+      Serial.println("Weapon 1 set to Laser Cannon"); 
+      sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1500,850,4,0,2000,10,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,4,75,,*");
+    }
+    if(SetSlotB == 12) {
+      Serial.println("Weapon 1 set to Plasma Sniper");
+      sendString("$WEAP,1,2,100,0,0,80,0,,,,,,80,80,225,850,10,0,2000,10,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,40,75,40,*");
+    }
+    if(SetSlotB == 13) {
+      Serial.println("Weapon 1 set to Rail Gun"); 
+      sendString("$WEAP,1,0,100,6,0,115,0,,,,,,,,1200,850,1,0,2400,10,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,3,75,,*");
+    }
+    if(SetSlotB == 14) {
+      Serial.println("Weapon 1 set to Rocket Launcher");
+      sendString("$WEAP,1,2,100,10,0,115,0,,,,,,115,80,1000,850,2,0,1200,10,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,4,75,30,*");
+    }
+    if(SetSlotB == 15) {
+      Serial.println("Weapon 1 set to Shotgun");
+      sendString("$WEAP,1,2,100,0,0,45,0,,,,,,70,80,900,850,6,0,400,10,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,12,75,30,*");
+    }
+    if(SetSlotB == 16) {
+      Serial.println("Weapon 1 set to SMG"); 
+      sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,90,850,72,0,2500,10,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,144,75,,*");
+    }
+    if(SetSlotB == 17) {
+      Serial.println("Weapon 1 set to Sniper Rifle"); 
+      sendString("$WEAP,1,,100,0,1,80,0,,,,,,,,300,850,4,0,1700,10,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,12,75,,*");
+    }
+    if(SetSlotB == 18) {
+      Serial.println("Weapon 1 set to Stinger"); 
+      sendString("$WEAP,1,,100,0,0,15,0,,,,,,,,120,850,18,0,1700,10,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,36,75,,*");
+    }
+    if(SetSlotB == 19) {
+      Serial.println("Weapon 1 set to Suppressor"); 
+      sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,75,850,48,0,2000,10,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,144,75,,*");
+    }
+  }  
+  if (UNLIMITEDAMMO==2) {
+      if(SetSlotB == 1) {
+        Serial.println("Weapon 1 set to Unarmed"); 
+        sendString("$WEAP,1,*");
+        } // cleared out weapon 0
+      if(SetSlotB == 2) {
+        Serial.println("Weapon 1 set to AMR"); 
+        sendString("$WEAP,1,,100,0,3,18,0,,,,,,,,360,850,14,32768,1400,0,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,9999999,75,,*");
+        }
+      if(SetSlotB == 3) {
+        Serial.println("Weapon 1 set to Assault Rifle");
+        sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,100,850,32,32768,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,9999999,75,,*");
+        }
+      if(SetSlotB == 4) {
+        Serial.println("Weapon 1 set to Bolt Rifle"); 
+        sendString("$WEAP,1,,100,0,3,13,0,,,,,,,,225,850,18,32768,2000,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,9999999,75,,*");
+        }
+      if(SetSlotB == 5) {
+        Serial.println("Weapon 1 set to BurstRifle"); 
+        sendString("$WEAP,1,,100,0,3,9,0,,,,,,,,75,850,36,32768,1700,0,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,9999999,75,,*");
+        }
+      if(SetSlotB == 6) {
+        Serial.println("Weapon 1 set to ChargeRifle"); 
+        sendString("$WEAP,1,,100,8,0,100,0,,,,,,,,1250,850,100,32768,2500,0,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,9999999,75,,*");
+        }
+      if(SetSlotB == 7) {
+        Serial.println("Weapon 1 set to Energy Launcher"); 
+        sendString("$WEAP,1,,100,9,3,115,0,,,,,,,,360,850,1,32768,1400,0,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,9999999,75,,*");
+        }
+      if(SetSlotB == 8) {
+        Serial.println("Weapon 1 set to Energy Rifle");
+        sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,90,850,300,32768,2400,0,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,9999999,75,,*");
+        }
+      if(SetSlotB == 9) {
+        Serial.println("Weapon 1 set to Force Rifle");
+        sendString("$WEAP,1,,100,0,1,9,0,,,,,,,,100,850,36,32768,1700,0,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,9999999,75,,*");
+        }
+      if(SetSlotB == 10) {
+        Serial.println("Weapon 1 set to Ion Sniper"); 
+        sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1000,850,2,32768,2000,0,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,9999999,75,,*");
+        }
+      if(SetSlotB == 11) {
+        Serial.println("Weapon 1 set to Laser Cannon");
+        sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1500,850,4,32768,2000,0,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,9999999,75,,*");
+        }
+      if(SetSlotB == 12) {
+        Serial.println("Weapon 1 set to Plasma Sniper");
+        sendString("$WEAP,1,2,100,0,0,80,0,,,,,,80,80,225,850,10,32768,2000,0,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,9999999,75,40,*");
+        }
+      if(SetSlotB == 13) {
+        Serial.println("Weapon 1 set to Rail Gun");
+        sendString("$WEAP,1,0,100,6,0,115,0,,,,,,,,1200,850,1,32768,2400,0,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,9999999,75,,*");
+        }
+      if(SetSlotB == 14) {
+        Serial.println("Weapon 1 set to Rocket Launcher"); 
+        sendString("$WEAP,1,2,100,10,0,115,0,,,,,,115,80,1000,850,2,32768,1200,0,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,9999999,75,30,*");
+        }
+      if(SetSlotB == 15) {
+        Serial.println("Weapon 1 set to Shotgun"); 
+        sendString("$WEAP,1,2,100,0,0,45,0,,,,,,70,80,900,850,6,32768,400,2,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,9999999,75,30,*");
+        }
+      if(SetSlotB == 16) {
+        Serial.println("Weapon 1 set to SMG"); 
+        sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,90,850,72,32768,2500,0,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,9999999,75,,*");
+        }
+      if(SetSlotB == 17) {
+        Serial.println("Weapon 1 set to Sniper Rifle"); 
+        sendString("$WEAP,1,,100,0,1,80,0,,,,,,,,300,850,4,32768,1700,0,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,9999999,75,,*");
+        }
+      if(SetSlotB == 18) {
+        Serial.println("Weapon 1 set to Stinger");
+        sendString("$WEAP,1,,100,0,0,15,0,,,,,,,,120,850,18,32768,1700,0,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,9999999,75,,*");
+        }
+      if(SetSlotB == 19) {
+        Serial.println("Weapon 1 set to Suppressor"); 
+        sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,75,850,48,32768,2000,0,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,9999999,75,,*");
+        }
+    }
+    if (UNLIMITEDAMMO==1) {
+      if(SetSlotB == 1) {
+        Serial.println("Weapon 1 set to Unarmed");
+        sendString("$WEAP,1,*");
+        } // cleared out weapon 0
+      if(SetSlotB == 2) {
+        Serial.println("Weapon 1 set to AMR"); 
+        sendString("$WEAP,1,,100,0,3,18,0,,,,,,,,360,850,14,56,1400,0,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
+        }
+      if(SetSlotB == 3) {
+        Serial.println("Weapon 1 set to Assault Rifle"); 
+        sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,100,850,32,384,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,192,75,,*");
+        }
+      if(SetSlotB == 4) {
+        Serial.println("Weapon 1 set to Bolt Rifle");
+        sendString("$WEAP,1,,100,0,3,13,0,,,,,,,,225,850,18,180,2000,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,90,75,,*");
+        }
+      if(SetSlotB == 5) {
+        Serial.println("Weapon 1 set to BurstRifle"); 
+        sendString("$WEAP,1,,100,0,3,9,0,,,,,,,,75,850,36,216,1700,0,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,108,75,,*");
+        }
+      if(SetSlotB == 6) {
+        Serial.println("Weapon 1 set to ChargeRifle");
+        sendString("$WEAP,1,,100,8,0,100,0,,,,,,,,1250,850,100,200,2500,0,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,100,75,,*");
+        }
+      if(SetSlotB == 7) {
+        Serial.println("Weapon 1 set to Energy Launcher");
+        sendString("$WEAP,1,,100,9,3,115,0,,,,,,,,360,850,1,6,1400,0,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,3,75,,*");
+        }
+      if(SetSlotB == 8) {
+        Serial.println("Weapon 1 set to Energy Rifle"); 
+        sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,90,850,300,600,2400,0,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,300,75,,*");
+        }
+      if(SetSlotB == 9) {
+        Serial.println("Weapon 1 set to Force Rifle"); 
+        sendString("$WEAP,1,,100,0,1,9,0,,,,,,,,100,850,36,144,1700,0,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,72,75,,*");
+        }
+      if(SetSlotB == 10) {
+        Serial.println("Weapon 1 set to Ion Sniper"); 
+        sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1000,850,2,12,2000,0,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,6,75,,*");
+        }
+      if(SetSlotB == 11) {
+        Serial.println("Weapon 1 set to Laser Cannon"); 
+        sendString("$WEAP,1,,100,0,0,115,0,,,,,,,,1500,850,4,8,2000,0,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,4,75,,*");
+        }
+      if(SetSlotB == 12) {
+        Serial.println("Weapon 1 set to Plasma Sniper"); 
+        sendString("$WEAP,1,2,100,0,0,80,0,,,,,,80,80,225,850,10,80,2000,0,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,40,75,40,*");
+        }
+      if(SetSlotB == 13) {
+        Serial.println("Weapon 1 set to Rail Gun"); 
+        sendString("$WEAP,1,0,100,6,0,115,0,,,,,,,,1200,850,1,6,2400,0,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,3,75,,*");
+        }
+      if(SetSlotB == 14) {
+        Serial.println("Weapon 1 set to Rocket Launcher"); 
+        sendString("$WEAP,1,2,100,10,0,115,0,,,,,,115,80,1000,850,2,8,1200,0,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,4,75,30,*");
+        }
+      if(SetSlotB == 15) {
+        Serial.println("Weapon 1 set to Shotgun"); 
+        sendString("$WEAP,1,2,100,0,0,45,0,,,,,,70,80,900,850,6,24,400,2,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,12,75,30,*");
+        }
+      if(SetSlotB == 16) {
+        Serial.println("Weapon 1 set to SMG"); 
+        sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,90,850,72,288,2500,0,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,144,75,,*");
+        }
+      if(SetSlotB == 17) {
+        Serial.println("Weapon 1 set to Sniper Rifle"); 
+        sendString("$WEAP,1,,100,0,1,80,0,,,,,,,,300,850,4,24,1700,0,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,12,75,,*");
+        }
+      if(SetSlotB == 18) {
+        Serial.println("Weapon 1 set to Stinger"); 
+        sendString("$WEAP,1,,100,0,0,15,0,,,,,,,,120,850,18,72,1700,0,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,36,75,,*");
+        }
+      if(SetSlotB == 19) {
+        Serial.println("Weapon 1 set to Suppressor"); 
+        sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,75,850,48,288,2000,0,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,144,75,,*");
+        }
+    }
+}
+
+void weaponsettingsC() {
+  if(SetSlotC == 0){
+    Serial.println("Weapon 3 set to Unarmed"); 
+    sendString("$WEAP,3,*"); // Set weapon 3 as unarmed
+  }
+  if(SetSlotC == 1){
+    Serial.println("Weapon 3 set to Respawn"); 
+    sendString("$WEAP,3,1,90,15,0,6,100,,,,,,,,1000,100,1,0,0,10,15,100,100,,0,0,,,,,,,,,,,,,,1,0,20,,*"); // Set weapon 3 as respawn
+  }
+  if(SetSlotD == 0){
+    Serial.println("Weapon 5 set to Unarmed"); 
+    sendString("$WEAP,5,*"); // Set weapon 5 as unarmed
+  }
+  if(SetSlotD == 1) {
+    Serial.println("Weapon 5 set to Medic");
+    sendString("$WEAP,5,1,90,1,0,40,0,,,,,,,,1400,50,10,0,0,10,1,100,100,,0,,,H29,,,,,,,,,,,,10,9999999,20,,*");
+  }
+  if(SetSlotD == 2) {
+    Serial.println("Weapon 5 set to Sheilds");
+    sendString("$WEAP,5,1,90,2,1,70,0,,,,,,,,1400,50,10,0,0,10,2,100,100,,0,,,H29,,,,,,,,,,,,10,9999999,20,,*");
+  }
+  if(SetSlotD == 3) {
+    Serial.println("Weapon 5 set to Armor");
+    sendString("$WEAP,5,1,90,3,0,70,0,,,,,,,,1400,50,10,0,0,10,3,100,100,,0,,,H29,,,,,,,,,,,,10,9999999,20,,*");
+  }
+  if(SetSlotD == 4) {
+    Serial.println("Weapon 5 set to Tear Gas");
+    sendString("$WEAP,5,2,100,11,1,1,0,,,,,,1,80,1400,50,10,0,0,10,11,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,10,9999999,75,30,*");
+  }
+  if(SetSlotD == 5) {
+    Serial.println("Weapon 5 set to Medic at Range");
+    sendString("$WEAP,5,2,100,1,0,20,0,,,,,,20,80,1400,50,10,0,0,10,1,100,100,,0,,,H29,,,,,,,,,,,,18,9999999,75,30,*");
+  }
+  if(SetSlotD == 6) {
+    Serial.println("Weapon 5 set to Armor at Range");
+    sendString("$WEAP,5,2,100,2,1,30,0,,,,,,40,80,1400,50,10,0,0,10,2,100,100,,0,,,H29,,,,,,,,,,,,18,9999999,75,30,*");
+  }
+  if(SetSlotD == 7) {
+    Serial.println("Weapon 5 set to Sheilds at range");
+    sendString("$WEAP,5,2,100,3,0,30,0,,,,,,40,80,1400,50,10,0,0,10,3,100,100,,0,,,H29,,,,,,,,,,,,18,9999999,75,30,*");
+  }
+}
+//****************************************************************************************
+//************** This sends Settings to Tagger *******************************************
+//****************************************************************************************
+// loads all the game configuration settings into the gun
+void gameconfigurator() {
+  Serial.println("Running Game Configurator based upon recieved inputs");
+  sendString("$CLEAR,*");
+  sendString("$START,*");
+  SetFFOutdoor();
+  playersettings();
+  /* SIR commands to configure the incoming hits recognition
+   *  $SIR,0,0,,1,0,0,1,,*  Assault Rifle Energy Rifle  Ion Sniper  Laser Cannon  Plasma Sniper Shotgun SMG Stinger Suppressor
+   *  $SIR,0,1,,36,0,0,1,,* Force Rifle Sniper Rifle         
+   *  $SIR,0,3,,37,0,0,1,,* AMR Bolt Rifle  BurstRifle              
+   *  $SIR,1,0,H29,10,0,0,1,,*  Respawn and Add HP                  
+   *  $SIR,2,1,VA8C,11,0,0,1,,* Add Shields                      
+   *  $SIR,3,0,VA16,13,0,0,1,,* Add Armor                
+   *  $SIR,6,0,H02,1,0,90,1,40,*  Rail Gun                    
+   *  $SIR,8,0,,38,0,0,1,,* ChargeRifle               
+   *  $SIR,9,3,,24,10,0,,,* Energy Launcher               
+   *  $SIR,10,0,X13,1,0,100,2,60,*  Rocket Launcher               
+   *  $SIR,11,0,VA2,28,0,0,1,,* Tear Gas - not working yet                        
+   *  $SIR,13,0,H50,1,0,0,1,,*  Energy Blade 
+   *  $SIR,13,1,H57,1,0,0,1,,*  Rifle Bash                  
+   *  $SIR,13,3,H49,1,0,100,0,60,*  WarHammer               
+   *  $SIR,15,0,H29,10,0,0,1,,* Add HP Or Respawns Player
+   */
+  sendString("$SIR,0,0,,1,0,0,1,,*"); // standard weapon, damages shields then armor then HP
+  sendString("$SIR,0,1,,36,0,0,1,,*"); // force rifle, sniper rifle ?pass through damage?
+  sendString("$SIR,0,3,,37,0,0,1,,*"); // bolt rifle, burst rifle, AMR
+  sendString("$SIR,1,0,,10,0,0,1,,*"); // adds HP with this function
+  sendString("$SIR,2,1,VA8C,11,0,0,1,,*"); // adds shields
+  sendString("$SIR,3,0,VA16,13,0,0,1,,*"); // adds armor
+  sendString("$SIR,6,0,H02,1,0,90,1,40,*"); // rail gun
+  sendString("$SIR,8,0,,38,0,0,1,,*"); // charge rifle
+  sendString("$SIR,9,3,,24,10,0,,,*"); // energy launcher
+  sendString("$SIR,10,0,X13,1,0,100,2,60,*"); // rocket launcher
+  sendString("$SIR,11,0,VA2,28,0,0,1,,*"); // tear gas, out of possible ir recognitions, max = 14
+  sendString("$SIR,13,1,H57,1,0,0,1,,*"); // energy blade
+  sendString("$SIR,13,0,H50,1,0,0,1,,*"); // rifle bash
+  sendString("$SIR,13,3,H49,1,0,100,0,60,*"); // war hammer
+  sendString("$SIR,1,1,,8,0,100,0,60,*"); // no damage just vibe on impact - use for SWAPBRX, and other game features based upon player ID 0-63
+  // protocol for SWAPBRX: bullet type: 1, power: 1, damage: 1, player: 0, team: 2, critical: 0; just look for bullet, power, player for trigger weapon swap
+  //sendString("$SIR,15,1,,50,0,0,1,,*");
+  //sendString("$SIR,14,0,,14,0,0,1,,*");
+  // The $SIR functions above can be changed to incorporate more in game IR based functions (health boosts, armor, shields) or customized over BLE to support game functions/modes
+  //delay(500);
+  sendString("$BMAP,0,0,,,,,*"); // sets the trigger on tagger to weapon 0
+  sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+  sendString("$BMAP,2,97,,,,,*"); // sets the reload handle as the reload button
+  sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5
+  sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4
+  sendString("$BMAP,5,3,,,,,*"); // Sets the right button as weapon 3, using for perks/respawns etc. 
+  sendString("$BMAP,8,4,,,,,*"); // sets the gyro as weapon 4
+  Serial.println("Finished Game Configuration set up");
+}
+
+//****************************************************************************************
+//************************ This starts a game *******************************************
+//****************************************************************************************
+// this starts a game
+void delaystart() {
+  Serial.println("Starting Delayed Game Start");
+  sendString("$HLED,,6,,,,,*"); // changes headset to end of game
+  // this portion creates a hang up in the program to delay until the time is up
+  bool RunInitialDelay = true;
+  long actualdelay = 0; // used to count the actual delay versus desired delay
+  long delaybeginning = millis(); // sets variable as the current time to track when the actual delay started
+  long initialdelay = DelayStart - 3000; // this will be used to track current time in milliseconds and compared to the start of the delay
+  int audibletrigger = 0; // used as a trigger once we get to 10 seconds left
+  if (DelayStart > 10) {
+    Serial.println("Delayed Start timer = " + String(DelayStart));
+    while(initialdelay > actualdelay) {
+      actualdelay = millis() - delaybeginning;
+      Serial.println("Actual Delay Counter = " + String(actualdelay));
+      vTaskDelay(1);
+    }
+    sendString("$PLAY,VA80,4,6,,,,,*");
+    Serial.println("Running 3 second countdown");
+    actualdelay = 0;
+    delaybeginning = millis(); // sets variable as the current time to track when the actual delay started
+    while(3000 > actualdelay) {
+      actualdelay = millis() - delaybeginning;
+      Serial.println("Actual Delay Counter = " + String(actualdelay));
+      vTaskDelay(1);
+    }
+  }
+  sendString("$PLAY,VA81,4,6,,,,,*"); // plays the .. nevermind
+  sendString("$PLAYX,0,*");
+  sendString("$SPAWN,,*");
+  weaponsettingsA();
+  weaponsettingsB();
+  weaponsettingsC();
+  sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
+  Serial.println("Delayed Start Complete, should be in game play mode now");
+  GameStartTime=millis();
+  GAMEOVER=false;
+  INGAME=true;
+  sendString("$PLAY,VA1A,4,6,,,,,*"); // plays the .. let the battle begin
+}
+
+
+//******************************************************************************************
+// sets and sends player settings to gun based upon configuration settings
+void playersettings() {
+  // token 2 is player id or gun id other tokens were interested in modification
+  // are 2 for team ID, 3 for max HP, 4 for max Armor, 5 for Max Shields, 
+  // 6 is critical damage bonus
+  // We really are only messing with Gender and Team though
+  // Gender is determined by the audio call outs listed, tokens 9 and on
+  // male is default as 0, female is 1
+  // health = 45; armor = 70; shield =70;
+  if (GameMode == 7 && Team == 3) { // infected team
+    sendString("$PSET,"+String(GunID)+",3,67,105,105,50,,H44,JAD,V33,V3I,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
+  } else {
+    if(SetGNDR == 0) {
+      sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,H44,JAD,V33,V3I,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
+    }
+    else {
+      sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,H44,JAD,VB3,VBI,VBC,VBG,VBE,VB7,H06,H55,H13,H21,H02,U15,W71,A10,*");
+    }
+  }
+}
+//******************************************************************************************
+//******************************************************************************************
+// ends game... thats all
+void gameover() {
+  Serial.println("disabling bool triggers");
+  GAMEOVER = false;
+  INGAME=false;
+  COUNTDOWN1=false;
+  COUNTDOWN2=false;
+  COUNTDOWN3=false;
+  SwapBRXCounter = 0;
+  SWAPBRX = false;
+  SELECTCONFIRM = false;
+  SPECIALWEAPONLOADOUT = false;
+  PreviousSpecialWeapon = 0;
+  Serial.println("sending game exit commands");
+  sendString("$STOP,*"); // stops everything going on
+  sendString("$CLEAR,*"); // clears out anything stored for game settings
+  sendString("$PLAY,VS6,4,6,,,,,*"); // says game over
+  Serial.println("Game Over Object Complete");
+}
+//******************************************************************************************
+// as the name says... respawn a player!
+void respawnplayer() {
+  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
+  sendString("$HLOOP,2,1200,*"); // flashes the headset lights in a loop
+  // this portion creates a hang up in the program to delay until the time is up
+  if (SetRSPNMode == 9) {
+    gameconfigurator();
+  }
+  if (RespawnTimer < RespawnTimerMax) {
+    RespawnTimer = 5000 * Deaths;
+  }
+  long actualdelay = 0; // used to count the actual delay versus desired delay
+  long delaybeginning = millis(); // sets variable as the current time to track when the actual delay started
+  long delaycounter = millis(); // this will be used to track current time in milliseconds and compared to the start of the delay
+  int audibletrigger = 0; // used as a trigger once we get to 10 seconds left
+  if (RespawnTimer > 10) {
+  while (RespawnTimer > actualdelay) { // this creates a sub loop in the object to keep doing the following steps until this condition is met... actual delay is the same as planned delay
+    delaycounter = millis(); // sets the delay clock to the current progam timer
+    actualdelay = delaycounter - delaybeginning; // calculates how long weve been delaying the program/start
+    if ((RespawnTimer-actualdelay) < 3000) {
+      audibletrigger++;
+      } // a check to start adding value to the audible trigger
+    if (audibletrigger == 1) {
+      sendString("$PLAY,VA80,4,6,,,,,*"); 
+      Serial.println("playing 3 second countdown");
+    } // this can only happen once so it doesnt keep looping in the program we only play it when trigger is equal to 1
+    vTaskDelay(1);
+  }
+  }
+  Serial.println("Respawning Player");
+  //sendString("$WEAP,0,*"); // cleared out weapon 0
+  //sendString("$WEAP,1,*"); // cleared out weapon 1
+  //sendString("$WEAP,4,*"); // cleared out melee weapon
+  //sendString("$WEAP,3,*"); // cleared out melee weapon
+  int hloopreset = 0;
+  while (hloopreset < 10) {
+    sendString("$HLOOP,0,0,*"); // stops headset flashing
+    delay(200);
+    hloopreset++;
+  }
+  weaponsettingsA();
+  weaponsettingsB();
+  weaponsettingsC();
+  sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
+  sendString("$GLED,,,,5,,,*"); // changes headset to tagged out color
+  sendString("$SPAWN,,*"); // respawns player back in game
+  sendString("$HLOOP,0,0,*"); // stops headset flashing
+  Serial.println("Player Respawned");
+  RESPAWN = false;
+  sendString("$HLOOP,0,0,*"); // stops headset flashing
+  if (STEALTH){
+      sendString("$GLED,,,,5,,,"); // TURNS OFF SIDE LIGHTS
+  }
+}
+//****************************************************************************************
+// this function will be used when a player is eliminated and needs to respawn off of a base
+// or player signal to respawn them... a lot to think about still on this and im using auto respawn 
+// for now untill this is further thought out and developed
+void ManualRespawnMode() {
+  delay(4000);
+  sendString("$VOL,0,0,*"); // adjust volume to default
+  sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,,,,,,,,,,,,,,,,,*");
+  sendString("$STOP,*"); // this is essentially ending the game for player... need to rerun configurator or use a different command
+  sendString("$SPAWN,,*"); // this is playing "get some as part of a respawn
+  sendString("$HLOOP,2,1200,*"); // this puts the headset in a loop for flashing
+  delay(1500);
+  sendString("$GLED,,,,,,,*"); // changes headset to tagged out color
+  //AudioSelection1 = "VA54"; // audio that says respawn time
+  //AUDIO1 = true;
+  PENDINGRESPAWNIR = true;
+  MANUALRESPAWN = false;
+}
+//****************************************************************************
+void Audio() {
+  if (AudioSelection1=="VA20") {
+    sendString("$CLEAR,*");
+    sendString("$START,*");
+  }
+  if (AUDIO) {
+    if (AudioDelay > 1) {
+      if (millis() - AudioPreviousMillis > AudioDelay) {
+        sendString("$PLAY,"+AudioSelection+",4,6,,,,,*");
+        AUDIO = false;
+        AudioSelection  = "NULL";
+        AudioDelay = 0; // reset the delay for another application
+      }
+    } else {
+      sendString("$PLAY,"+AudioSelection+",4,6,,,,,*");
+      AUDIO = false;
+      AudioSelection  = "NULL";
+    }
+  }
+  if (AUDIO1) {
+    sendString("$PLAY,"+AudioSelection1+",4,6,,,,,*");
+    AUDIO1=false; 
+    AudioSelection1 = "NULL";
+    }
+}
+
+//********************************************************************************************
+// This main game object
+void MainGame() {
+  if (ChangeMyColor != CurrentColor) { // need to change colors
+    ChangeColors();
+  }
+  if (TERMINALINPUT) {
+    TERMINALINPUT = false;
+    sendString(TerminalInput); // sets max volume on gun 0-100 feet distance
+  }
+  if (AUDIO) {
+    Audio();
+  }
+  if (AUDIO1) {
+    Audio();
+  }
+  if (GAMEOVER) { // checks if something triggered game over (out of lives, objective met)
+    gameover(); // runs object to kick player out of game
+    sendString("$HLOOP,0,0,*"); // stops headset flashing
+  }
+  if (GAMESTART) {
+    // need to turn off the trigger audible selections if a player didnt press alt fire to confirm
+    sendString("$PLAY,VAQ,4,6,,,,,*"); // says "lets move out"
+    GETSLOT0=false; 
+    GETSLOT1=false; 
+    GETTEAM=false;
+    gameconfigurator(); // send all game settings, weapons etc. 
+    delaystart(); // enable the start based upon delay selected
+    GAMESTART = false; // disables the trigger so this doesnt loop/
+    PlayerLives=SetLives; // sets configured lives from settings received
+    GameTimer=SetTime; // sets timer from input of esp8266
+    MyKills = 0;
+    if (GameTimer > 60000) {
+      COUNTDOWN1 = true;
+      COUNTDOWN2 = false;
+      COUNTDOWN3 = false;
+    } else {
+      COUNTDOWN3 = true;
+      COUNTDOWN1 = false;
+      COUNTDOWN2 = false;
+    }
+    Deaths = 0;
+    if (STEALTH){
+      sendString("$GLED,,,,5,,,"); // TURNS OFF SIDE LIGHTS
+    }
+  }
+  if (!INGAME) {
+    if (settingsallowed1==3) {
+      Serial.println("Team Settings requested"); 
+      delay(250);
+      GETTEAM=true;
+      GETSLOT0=false;
+      GETSLOT1=false; 
+      settingsallowed1=0;
+    }
+    if (settingsallowed1==1) {
+        Serial.println("Weapon Slot 0 Requested"); 
+        delay(250);
+        GETSLOT0=true; 
+        GETSLOT1=false;
+        GETTEAM=false; 
+        settingsallowed1=0;
+        }
+    if (settingsallowed1==2) {
+      Serial.println("Weapon Slot 1 Requested"); 
+      delay(250); 
+      GETSLOT1=true;
+      GETSLOT0=false;
+      GETTEAM=false; 
+      settingsallowed1=0;
+    }
+    if (settingsallowed>0) {
+      Serial.println("manual settings requested"); 
+      settingsallowed1=settingsallowed;
+      settingsallowed = 0;
+    } // this is triggered if a manual option is required for game settings    
+    if (VOLUMEADJUST) {
+      VOLUMEADJUST=false;
+      sendString("$VOL,"+String(SetVol)+",0,*"); // sets max volume on gun 0-100 feet distance
+    }    
+  }
+  // In game checks and balances to execute actions for in game functions
+  if (INGAME) {
+    long ActualGameTime = millis() - GameStartTime;
+    long GameTimeRemaining = GameTimer - ActualGameTime;
+    if (SELECTCONFIRM) {
+      Serial.println("SELECTCONFIRM = TRUE");
+      if(millis() - SelectButtonTimer > 1500) {
+        Serial.println("select button timer is less than actual game time minus 1500 and audio selection is VA9B");
+        if (AudioSelection1 == "VA9B") {
+          Serial.print("enabling audio1 trigger");
+          AUDIO1=true; 
+        }
+      }
+      if(millis() - SelectButtonTimer >= 11500) {
+        SELECTCONFIRM = false; // out of time, deactivate ability to confirm
+        Serial.println("SELECTCONFIRM is now false because actual ActualGameTime minus 10000 is greater than SelectButtonTimer");
+        SPECIALWEAPONLOADOUT = false; // disabling ability to load the special weapon
+      }
+    }
+    if (PERK) {
+      if (millis() - SelectButtonTimer >= AudioPerkTimer) {
+        PERK = false;
+        sendString("$PLAY,"+AudioPerk+",4,6,,,,,*");
+      }
+    }
+    if (COUNTDOWN1) {
+      if (GameTimeRemaining < 120001) {
+        AudioSelection1="VSD";
+        AUDIO1=true; 
+        COUNTDOWN1=false; 
+        COUNTDOWN2=true;
+        Serial.println("2 minutes remaining");
+      } // two minute warning
+    }
+    if (COUNTDOWN2) {
+      if (GameTimeRemaining < 60001) {
+        AudioSelection1="VSA"; 
+        AUDIO1=true;
+        COUNTDOWN2=false; 
+        COUNTDOWN3=true; 
+        Serial.println("1 minute remaining");
+      } // one minute warning
+    }
+    if (COUNTDOWN3) {
+      if (GameTimeRemaining < 10001) {
+        AudioSelection1="VA83"; 
+        AUDIO1=true; 
+        COUNTDOWN3=false;
+        Serial.println("ten seconds remaining");
+      } // ten second count down
+    }
+    if (ActualGameTime > GameTimer) {
+      GAMEOVER=true; 
+      Serial.println("game time expired");
+    }
+    if (RESPAWN) { // checks if auto respawn was triggered to respawn a player
+      respawnplayer(); // respawns player
+    }
+    if (MANUALRESPAWN) { // checks if manual respawn was triggered to respawn a player
+      ManualRespawnMode();
+    }
+    if (LOOT) {
+      LOOT = false;
+      swapbrx();
+    }
+  }
+}
+//**************************************************************************
+// run SWAPTX style weapon swap as from my youtube funny video:
+void swapbrx() {
+  // need to check if going to restock ammor or not:
+  int getammo = random(1,GetAmmoOdds);
+  if (getammo == GetAmmoOdds) { // current special weapon restock of ammo enabled
+    SpecialWeapon = PreviousSpecialWeapon; // makes special weapon equal to whatever the last special weapon was set to
+    LoadSpecialWeapon(); // reloads the last special weapon again to refresh ammo to original maximums
+    sendString("$PLAY,VA14,4,6,,,,,*");
+  }
+  // need to randomize the weapon pick up
+  SpecialWeapon = random(2, totalweapons); // randomizing between all weapons with total weapons count
+  Serial.println("Special Weapon Load Out = " + String(SpecialWeapon));
+  // need to add to counter to increase power for pistol
+  if (SwapBRXCounter < 100) {
+    SwapBRXCounter = SwapBRXCounter + 10; // this is used to increase the critical chance strike and improve your weapon power.
+    Serial.println("Set SwapBRXCounter to : " + String(SwapBRXCounter));
+    sendString("$WEAP,0,,35,0,0,8," + String(SwapBRXCounter) + ",,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,20,,*");
+  }
+  Serial.println("Weapon Slot 0 set"); 
+  if(SpecialWeapon < 10) {
+    AudioSelection = ("GN0" + String(SpecialWeapon));
+  }
+  if (SpecialWeapon > 9) {
+    AudioSelection = ("GN" + String(SpecialWeapon));
+  }
+  sendString("$PLAY,"+AudioSelection+",4,6,,,,,*"); // plays the gun id callout
+  AudioSelection = "NULL";
+  // Enable special weapon load by select button
+  SELECTCONFIRM = true; // enables trigger for select button
+  SPECIALWEAPONLOADOUT = true;
+  SelectButtonTimer = millis();
+  AudioSelection1="VA9B"; // set audio playback to "press select button"
+  // randomize perk pick up
+  int statboost = random(1,10);
+  Serial.println("Random Perk Statboost = " + String(statboost));
+  if (statboost == 10) { // full health restore plus shields 10% chance
+    sendString("$LIFE,70,70,45,1,*");
+    AudioPerk = "VA1Q";
+    PERK = true;
+  }
+  if (statboost == 8 || statboost == 9) { // get shields only 20% chance
+    sendString("$LIFE,70,,,1,*");
+    AudioPerk = "VA5K";
+    PERK = true;
+  }
+  if (statboost == 6 || statboost == 7) { // Armor replenish 20% chance
+    sendString("$LIFE,,70,,,*");
+    AudioPerk = "VA16";
+    PERK = true;
+  }
+}
+//**************************************************************
+// this bad boy captures any ble data from gun and analyzes it based upon the
+// protocol predecessor, a lot going on and very important as we are able to 
+// use the ble data from gun to decode brx protocol with the gun, get data from 
+// guns health status and ammo reserve etc.
+void ProcessBRXData() {
+  // lets process the data just received from the BRX:
+  char *ptr = strtok((char*)readStr.c_str(), ",");
+  int index = 0;
+  while (ptr != NULL) {
+    tokenStrings[index] = ptr;
+    index++;
+    ptr = strtok(NULL, ",");  // takes a list of delimiters
+  }
+  Serial.println("We received: " + readStr);   
+  Serial.println("We have found " + String(index ) + " tokens from the received data");
+  // trouble shooting Gen3 Taggers
+  WRITETOTERMINAL = true;
+  TerminalInput = readStr;
+  int stringnumber = 0;
+  while (stringnumber < index) {
+    Serial.print("Token " + String(stringnumber) + ": ");
+    Serial.println(tokenStrings[stringnumber]);
+    stringnumber++;
+  }
+  // If gen3, we get some differing starting variable. to fix, lets see if it exists
+  // then correct gen 3 nonsense to look like gen1/2 comms
+  if (tokenStrings[0] == "$!DFP") { // if this is the case (gen three data received)
+    Serial.println("found gen3 data");
+    int fixgen3data0 = 1;
+    int fixgen3data1 = 2;
+    tokenStrings[0] = ("$" + tokenStrings[1]);
+    while(stringnumber > fixgen3data1) {
+      tokenStrings[fixgen3data0] = tokenStrings[fixgen3data1];
+      fixgen3data0++;
+      fixgen3data1++;
+    }
+    Serial.println("changed serial data from brx to match gen1/2 data packets");
+    TerminalInput = "Modified Gen3 Data to Match Gen 1/2";
+    WRITETOTERMINAL = true;
+  }
+    /* 
+     *  Mapping of the BLE buttons pressed
+     *  Trigger pulled: $BUT,0,1,*
+     *  Tirgger Released: $BUT,0,0,*
+     *  Alt fire pressed:  $BUT,1,1,*
+     *  Alt fire released:  $BUT,1,0,*
+     *  Reload pulled:  $BUT,2,1,*
+     *  Reload released:  $BUT,2,0,*
+     *  select button pressed:  $BUT,3,1,*
+     *  select button released:  $BUT,3,0,*
+     *  left button pressed:  $BUT,4,1,*
+     *  left button released:  $BUT,4,0,*
+     *  right button pressed:  $BUT,5,1,*
+     *  right button released:  $BUT,5,0,*
+     */
+    if (tokenStrings[0] == "$BUT") {
+      if (tokenStrings[1] == "0") {
+        if (tokenStrings[2] == "1") {
+          Serial.println("Trigger pulled"); // as indicated this is the trigger
+        }
+        if (tokenStrings[2] == "0") {
+          Serial.println("Trigger Released"); // goes without sayin... you let go of the trigger
+          // upon release of a trigger, team settings can be changed if the proper allowance is in place
+          if (GETTEAM){ // used for configuring manual team selection
+            if (GameMode == 7) { // survival teams
+              if (Team==0 && STATUSCHANGE == false) {
+                Team=3; 
+                STATUSCHANGE=true; 
+                AudioSelection1="VA3Y"; 
+                AUDIO1=true;
+                Serial.println("team changed to Infected");
+                }          
+              if (Team==3 && STATUSCHANGE == false) {
+                Team=0; 
+                AudioSelection1="VA3T"; 
+                AUDIO1=true;
+                Serial.println("team changed to Human");
+                }
+               STATUSCHANGE = false;
+              } else {
+                if (Team==5) {
+                  Team=0; 
+                  STATUSCHANGE=true; 
+                  AudioSelection1="VA13"; 
+                  AUDIO1=true;
+                  Serial.println("team changed from 5 to 0");
+                }          
+                if (Team==4) {
+                  Team=5; 
+                  AudioSelection1="VA2Y"; 
+                  AUDIO1=true; 
+                  Serial.println("team changed from 4 to 5");
+                } // foxtrot team
+                if (Team==3) {
+                  Team=0; 
+                  STATUSCHANGE=true; 
+                  AudioSelection1="VA13"; 
+                  AUDIO1=true; 
+                  Serial.println("team changed from 3 to 0");
+                } // echo team
+                if (Team==2) {
+                  Team=3; 
+                  AudioSelection1="VA27"; 
+                  AUDIO1=true; 
+                  Serial.println("team changed from 2 to 3");
+                  } // delta team
+                if (Team==1) {
+                  Team=2; 
+                  AudioSelection1="VA1R"; 
+                  AUDIO1=true; 
+                  Serial.println("team changed from 1 to 2");
+                  } // charlie team
+                if (Team==0 && STATUSCHANGE==false) {
+                  Team=1; 
+                  AudioSelection1="VA1L"; 
+                  AUDIO1=true; Serial.println("team changed from 0 to 1");
+                } // bravo team        
+                STATUSCHANGE=false;
+                ChangeMyColor = Team; // triggers a gun/tagger color change
+              }
+          }
+          if (GETSLOT0){ // used for configuring manual team selection
+            if (SLOTA==19) {
+              SLOTA=1; 
+              STATUSCHANGE=true; 
+              AudioSelection1="GN01"; 
+              AUDIO1=true; 
+              Serial.println("Weapon changed from 19 to 1");
+              }          
+            if (SLOTA==18) {
+              SLOTA=19; 
+              AudioSelection1="GN19"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 18 to 19");
+              } // 
+            if (SLOTA==17) {
+              SLOTA=18; 
+              AudioSelection1="GN18"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 17 to 18");
+              } // 
+            if (SLOTA==16) {
+              SLOTA=17; 
+              AudioSelection1="GN17"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 16 to 17");
+              } // 
+            if (SLOTA==15) {
+              SLOTA=16; 
+              AudioSelection1="GN16"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 15 to 16");
+              } //        
+            if (SLOTA==14) {
+              SLOTA=15; 
+              AudioSelection1="GN15"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 14 to 15");
+              } // 
+            if (SLOTA==13) {
+              SLOTA=14; 
+              AudioSelection1="GN14"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 13 to 14");
+              } // 
+            if (SLOTA==12) {
+              SLOTA=13; 
+              AudioSelection1="GN13"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 12 to 13");
+              } // 
+            if (SLOTA==11) {
+              SLOTA=12; 
+              AudioSelection1="GN12"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 11 to 12");
+              } //         
+            if (SLOTA==10) {
+              SLOTA=11; 
+              AudioSelection1="GN11"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 10 to 11");
+              } // 
+            if (SLOTA==9) {
+              SLOTA=10; 
+              AudioSelection1="GN10"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 9 to 10");
+              } // 
+            if (SLOTA==8) {
+              SLOTA=9; 
+              AudioSelection1="GN09"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 8 to 9");
+              } // 
+            if (SLOTA==7) {
+              SLOTA=8; 
+              AudioSelection1="GN08"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 7 to 8");
+              } // 
+            if (SLOTA==6) {
+              SLOTA=7; 
+              AudioSelection1="GN07"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 6 to 7");
+              } // 
+            if (SLOTA==5) {
+              SLOTA=6; 
+              AudioSelection1="GN06"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 5 to 6");
+              } // 
+            if (SLOTA==4) {
+              SLOTA=5; 
+              AudioSelection1="GN05"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 4 to 5");
+              } //         
+            if (SLOTA==3) {
+              SLOTA=4; 
+              AudioSelection1="GN04"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 3 to 4");
+              } // 
+            if (SLOTA==2) {
+              SLOTA=3; 
+              AudioSelection1="GN03"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 2 to 3");
+              } // 
+            if (SLOTA==1 && STATUSCHANGE==false) {
+              SLOTA=2; 
+              AudioSelection1="GN02"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 1 to 2");
+              } // 
+            if (SLOTA==100) {
+              SLOTA=1; 
+              AudioSelection1="GN01"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 0 changed from 0 to 1");
+              } //        
+            STATUSCHANGE=false;
+            TAGGERUPDATE=true;
+          }
+          if (GETSLOT1){ // used for configuring manual team selection
+            if (SLOTB==19) {
+              SLOTB=1; 
+              STATUSCHANGE=true; 
+              AudioSelection1="GN01"; 
+              AUDIO1=true; 
+              Serial.println("Weapon changed from 19 to 1");
+              }          
+            if (SLOTB==18) {
+              SLOTB=19; 
+              AudioSelection1="GN19";
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 18 to 19");
+              } // 
+            if (SLOTB==17) {
+              SLOTB=18; 
+              AudioSelection1="GN18"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 17 to 18");
+              } // 
+            if (SLOTB==16) {
+              SLOTB=17; 
+              AudioSelection1="GN17";
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 16 to 17");
+              } // 
+            if (SLOTB==15) {
+              SLOTB=16; 
+              AudioSelection1="GN16"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 15 to 16");
+              } //        
+            if (SLOTB==14) {
+              SLOTB=15; 
+              AudioSelection1="GN15"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 14 to 15");
+              } // 
+            if (SLOTB==13) {
+              SLOTB=14; 
+              AudioSelection1="GN14"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 13 to 14");
+              } // 
+            if (SLOTB==12) {
+              SLOTB=13; 
+              AudioSelection1="GN13"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 12 to 13");
+              } // 
+            if (SLOTB==11) {
+              SLOTB=12; 
+              AudioSelection1="GN12"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 11 to 12");
+              } //         
+            if (SLOTB==10) {
+              SLOTB=11; 
+              AudioSelection1="GN11"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 10 to 11");
+              } // 
+            if (SLOTB==9) {
+              SLOTB=10; 
+              AudioSelection1="GN10"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 9 to 10");
+              } // 
+            if (SLOTB==8) {
+              SLOTB=9; 
+              AudioSelection1="GN09";
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 8 to 9");
+              } // 
+            if (SLOTB==7) {
+              SLOTB=8; 
+              AudioSelection1="GN08"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 7 to 8");
+              } // 
+            if (SLOTB==6) {
+              SLOTB=7; 
+              AudioSelection1="GN07"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 6 to 7");
+              } // 
+            if (SLOTB==5) {
+              SLOTB=6; 
+              AudioSelection1="GN06"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 5 to 6");
+              } // 
+            if (SLOTB==4) {
+              SLOTB=5; 
+              AudioSelection1="GN05"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 4 to 5");
+              } //         
+            if (SLOTB==3) {
+              SLOTB=4; 
+              AudioSelection1="GN04"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 3 to 4");
+              } // 
+            if (SLOTB==2) {
+              SLOTB=3; 
+              AudioSelection1="GN03"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 2 to 3");
+              } // 
+            if (SLOTB==1 && STATUSCHANGE==false) {
+              SLOTB=2; 
+              AudioSelection1="GN02"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 1 to 2");
+              } // 
+            if (SLOTB==100) {
+              SLOTB=1; 
+              AudioSelection1="GN01"; 
+              AUDIO1=true; 
+              Serial.println("Weapon 1 changed from 0 to 1");
+              } //        
+            STATUSCHANGE=false;
+            TAGGERUPDATE=true;
+          }
+        }
+      }
+      // alt fire button pressed and released section
+      if (tokenStrings[1] == "1") {
+        if (tokenStrings[2] == "1") {
+          Serial.println("Alt fire pulled"); // yeah.. you pushed the red/yellow button
+        }
+        if (tokenStrings[2] == "0") {
+          Serial.println("Alt fire Released"); // now you released the button
+          if (GETTEAM) {
+            GETTEAM=false; 
+            AudioSelection1="VAO"; 
+            AUDIO1=true;
+            }
+          if (GETSLOT0) {
+            GETSLOT0=false; 
+            AudioSelection1="VAO"; 
+            AUDIO1=true;
+            }
+          if (GETSLOT1) {
+            GETSLOT1=false;
+            AudioSelection1="VAO"; 
+            AUDIO1=true;
+            }
+        }
+      }
+      // charge or reload handle pulled and released section
+      if (tokenStrings[1] == "2") {
+        if (tokenStrings[2] == "1") {
+          Serial.println("charge handle pulled"); // as indicated this is the handle
+        }
+        if (tokenStrings[2] == "0") {
+          Serial.println("Charge handle Released"); // goes without sayin... you let go of the handle
+          // upon release of a handle, following steps occur
+          //if(UNLIMITEDAMMO==2) { // checking if unlimited ammo is on or not
+            //if (CurrentWeapSlot == 0) {
+              //OutofAmmoA=true; // here is the variable for weapon slot 0
+              //Serial.println("Weapon Slot 0 is out of ammo, enabling weapon reload for weapon slot 0");
+            //}
+            //if (CurrentWeapSlot == 1) {
+               //OutofAmmoB=true; // trigger variable for weapon slot 1
+               //Serial.println("Weapon Slot 1 is out of ammo, enabling weapon reload for weapon slot 1");
+            //}
+          //}
+          }
+      }
+      // select button pressed
+      if (tokenStrings[1] == "3") {
+        if (tokenStrings[2] == "0") {
+          Serial.println("select button depressed"); // goes without sayin... you let go of the handle
+          // upon release of the button, following steps occur
+          if(SELECTCONFIRM) { // checking if a process is awaiting the select button
+            SELECTCONFIRM = false; // disables this trigger
+            if(SPECIALWEAPONLOADOUT) {
+              SPECIALWEAPONLOADOUT = false;
+              LoadSpecialWeapon();
+            }
+          }
+          }
+      }
+      // we can do more for left right select but yeah... maybe another time 
+    }
+    
+    // here is where we use the incoming ir to the guns sensors to our benefit in many ways
+    // we can use it to id the player landing a tag and every aspect of that tag
+    // but why stop there? we can use fabricated tags to set variables on the esp32 for programming game modes!
+    if (tokenStrings[0] == "$HIR") {
+      /*space 1 is the direction the tag came from or what sensor was hit, in above example sensor 4
+        space 2 is for he type of tag recieved/shot. this is 0-15 for bullet type
+        space 3 is the player id of the person sending the tag
+        space 4 is the team id, 
+        space 5 is the damage of the tag
+        space 6 is "is critical" if critical a damage multiplier would apply, rare.
+        space 7 is "power", not sure what that does.
+      */
+      //been tagged
+      // run analysis on tag to determine if it carry's special instructions:
+      if (tokenStrings[2] == "15" || tokenStrings[2] == "1") {
+        TagPerks();
+      }
+      lastTaggedPlayer = tokenStrings[3].toInt();
+      lastTaggedTeam = tokenStrings[4].toInt();
+      Serial.println("Just tagged by: " + String(lastTaggedPlayer) + " on team: " + String(lastTaggedTeam));
+    }
+    
+    // this is a cool pop up... lots of info provided and broken out below.
+    // this pops up everytime you pull the trigger and deplete your ammo.hmmm you
+    // can guess what im using that for... see more below
+// ****** note i still need to assign the ammo to the lcd outputs********
+    if (tokenStrings[0] == "$ALCD") {
+      /* ammunition status update occured 
+       *  space 0 is ALCD indicator
+       *  space 1 is rounds remaining in clip
+       *  space 2 is accuracy of weapon
+       *  space 3 is slot of weapon
+       *  space 4 is remaining ammo outside clip
+       *  space 5 is the overheating feature if aplicable
+       *  
+       *  more can be done with this, like using the ammo info to post to lcd
+       */
+       ammo1 = tokenStrings[1].toInt(); // sets the variable to be sent to esp8266 for ammo in clip
+       ammo2 = tokenStrings[4].toInt(); // sets the total magazine capacity to be sent to 8266
+       if (tokenStrings[3].toInt() == 0) {
+        weap=SetSlotA; 
+        CurrentWeapSlot=0;
+        } // if the weapon slot 0 is loaded up, sets the variable to notify weapon type loaded to the right weapon
+       if (tokenStrings[3].toInt() == 1) {
+        weap=SetSlotB; 
+        CurrentWeapSlot=1;
+        } // same thing but for weapon slot 1
+       if (tokenStrings[3].toInt() == 2) {
+        CurrentWeapSlot=4;
+        }   
+    }
+    
+    // this guy is recieved from brx every time your health changes... usually after
+    // getting shot.. from the HIR indicator above. but this can tell us our health status
+    // and we can send it to an LCD or use it to know when were dead and award points to the 
+    // player who loast tagged the gun... hence the nomenclature "lasttaggedPlayer" etc
+    // add in some kill counts and we can deplete lives and use it to enable or disable respawn functions
+    if (tokenStrings[0] == "$HP") {
+      /*health status update occured
+       * can be used for updates on health as well as death occurance
+       */
+      health = tokenStrings[1].toInt(); // setting variable to be sent to esp8266
+      armor = tokenStrings[2].toInt(); // setting variable to be sent to esp8266
+      shield = tokenStrings[3].toInt(); // setting variable to be sent to esp8266
+      if ((tokenStrings[1] == "0") && (tokenStrings[2] == "0") && (tokenStrings[3] == "0")) { // player is dead
+        if (HASFLAG) { HASFLAG = false; AudioSelection1 = "VA2I"; AUDIO1 = true;}
+        PlayerKillCount[lastTaggedPlayer]++; // adding a point to the last player who killed us
+        datapacket1 = lastTaggedPlayer; // setting an identifier for who recieves the tag
+        datapacket2 = 32000; // identifier to tell player they got a kill
+        if (GameMode == 4) {
+          datapacket3 = PreviousSpecialWeapon; // current special weapon equiped
+        } else {
+          datapacket3 = GunID; // null action to send
+        }
+        getReadings();
+        BROADCASTESPNOW = true;
+        TeamKillCount[lastTaggedTeam]++; // adding a point to the team who caused the last kill
+        PlayerLives--; // taking our preset lives and subtracting one life then talking about it on the monitor
+        Deaths++;
+        //AudioSelection1="KBP"+String(lastTaggedPlayer);
+        //AUDIO1=true;
+        Serial.println("Lives Remaining = " + String(PlayerLives));
+        Serial.println("Killed by: " + String(lastTaggedPlayer) + " on team: " + String(lastTaggedTeam));
+        Serial.println("Team: " + String(lastTaggedTeam) + "Score: " + String(TeamKillCount[lastTaggedTeam]));
+        Serial.println("Player: " + String(lastTaggedPlayer) + " Score: " + String(PlayerKillCount[lastTaggedPlayer]));
+        Serial.println("Death Count: " + String(Deaths));
+        if (GameMode != 8) {
+          if (PlayerLives > 0 && SetRSPNMode < 9) { // doing a check if we still have lives left after dying
+            RESPAWN = true;
+            Serial.println("Auto respawn enabled");
+          }
+          if (PlayerLives > 0 && SetRSPNMode == 9) { // doing a check if we still have lives left after dying
+            MANUALRESPAWN = true;
+            Serial.println("Manual respawn enabled");
+          }
+          if (PlayerLives == 0) {
+            //GAMEOVER=true;
+            TerminalInput = "Lives Depleted"; // storing the string for sending to Tagger, elswhere
+            WRITETOTERMINAL = true;
+            delay(3000);
+            sendString("$HLOOP,2,1200,*"); // this puts the headset in a loop for flashing
+            sendString("$PLAY,VA46,4,6,,,,,*"); // says lives depleted
+            Serial.println("lives depleted");
+          }
+        }
+        if (GameMode == 8) {
+          RESPAWN = true;
+          SetTeam = lastTaggedTeam;
+          if (SetTeam == 0) {sendString("$PLAY,VA5G,4,6,,,,,*");}
+          if (SetTeam == 1) {sendString("$PLAY,VA1L,4,6,,,,,*");}
+          if (SetTeam == 2) {sendString("$PLAY,VA1R,4,6,,,,,*");}
+          if (SetTeam == 3) {sendString("$PLAY,VA27,4,6,,,,,*");}
+        }
+    }
+  }
+}
+//******************************************************************************************
+//******************************************************************************************
+void SoftWareReset() {
+  ESP.restart();
+}
+//******************************************************************************************
+void ChangeColors() {
+  String colorstring = ("$GLED," + String(ChangeMyColor) + "," + String(ChangeMyColor) + "," + String(ChangeMyColor) + ",0,10,,*");
+  sendString(colorstring);
+  colorstring = ("$HLED," + String(ChangeMyColor) + ",0,,,10,,*");
+  sendString(colorstring);
+  //ChangeMyColor = 99;
+  CurrentColor = ChangeMyColor;
+}
+
 
 
 //******************************************************************************************
@@ -3934,6 +4454,17 @@ void loop2(void *pvParameters) {
   Menu[3] = 308;
   Menu[4] = 401;
   Menu[5] = 501;
+  Menu[6] = 601;
+  Menu[7] = 701;
+  Menu[8] = 801;
+  Menu[9] = 901;
+  Menu[10] = 1000;
+  Menu[11] = 1102;
+  Menu[12] = 1201;
+  Menu[13] = 1303;
+  Menu[14] = 1400;
+  Menu[15] = 1500;
+  
   while (1) { // starts the forever loop
     ws.cleanupClients();
     digitalWrite(ledPin, LEDState);
