@@ -1,0 +1,109 @@
+JEDGE 3.0 Read Me:
+-------------------
+
+Ok, it's finally here, my final version
+that I'll be doing for JEDGE, I promise
+No more major changes moving forward. It
+has been a long learning process and I've
+gotten better and better and learned more
+and more and I don't know any other way
+to simplify JEDGE any more than this version.
+
+
+The Skimmy:
+-----------
+
+JEDGE 3.0 is a connectionless application
+less version of JEDGE. Previous versions 
+requiring a designated raspberry Pi server
+and WiFi network to support devices has been
+very clunky and a lot of work to set up as
+well as difficult for updates because of the
+complexities of using BLYNK. This version uses
+ESPNOW that is an espress if communications
+protocol (same manufacturer of the ESP chips.
+The way that I am using ESPNow is by modifying
+MAC addresses of the ESP's with software and 
+broadcasting data between devices similar to
+short range radio broadcasts but on the 2.4 ghz
+Spectrum so that all devices listening in on the
+same frequency can pick them up and the data sent
+is targeted to the modified/shared MAC address. 
+Just like WIFI this is dependent upon your proximity
+to the device broadcasting the data so take that 
+into consideration. Also, ditching the Blynk app
+I'm now using a web server in each device so that
+Any tagger can serve as a host for games, or you
+can have a separate device (ESP) that is just
+dedicated as a controller for the games. Using
+a web server allows me to use html/Java in a way
+to create a website that can be accessed from any
+Web browser enabled device, and run the games
+and change game settings as well as get game 
+scoring results. I.E a tv can be used to display 
+scores while your mobile phone (android/iOS) can
+run the games.
+
+There is no limit to how many modified taggers
+that can be controlled, since this is a general
+broadcasted hosting system. This will also allow
+for tagger to tagger communication in game that 
+can be used anywhere and is not confined to the
+limits of a local WiFi/area network. It does not
+require any internet connection and all work is
+handled by the ESP32 that needs to be wired to
+the BRX and installed inside or externally as 
+desired for your own purposes. I.E. if you are
+a mile away from the start point in an all out
+battle field simulation, as long as you are in 
+range of another players broadcast (this should
+usually be the case except for really far sniper
+shots) the player making a kill will receive a
+kill confirmations from the tagged player and be
+able to keep their own kill count on their tagger
+during play. Downed players will also keep a log
+of who killed them so that at the end of the game
+there can be a true up synchronization for accurate
+scoring.
+
+Because of unreliability of consumer available
+hardware, IR emittin bases for game play can be a bit
+limiting on potential game play options. ESP powered
+bases (JBOX) will be able to send data, commands, 
+field upgrades/perks wirelessly to player activating 
+bases or loot boxes during the game. This results
+in a much more accurate and capable in game accessory
+capability than IR emitting bases ever would be able to
+provide. An example is a respawn station that when
+activated sends a respawn dedicated to that player alone
+and other players in the proximity would not be able to
+benefit from a general respawn station. Or domination
+zones that when captured, the player controlling a zone
+is free to roam in the controlled area and points can 
+accumulate while protecting that zone. This can also allow
+for wide spread damage to players within a zone that is 
+being bombed or controlled to reduce a playing field over
+time.
+
+Parts Needed to Mod:
+--------------------
+
+An ESP32. A D1 Mini wemos ESP32 is recommended for its
+size and ease of installation in the battery box of a BRX.
+However, any ESP32 should work.
+
+Good Soldering Iron, one with adjustable temperature settings
+is best and set it to 700-750 degrees.
+
+A little bit of small wire. 24-26 gauge is fine.
+
+Diodes are recommended, especially for Gen 3 taggers or it will
+not work.
+
+DC to DC buck converter for Gen1 taggers and ideally a switch
+Gen 2/3 can power the esp32 from the main board but not Gen1
+
+
+
+
+
