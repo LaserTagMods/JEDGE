@@ -103,6 +103,21 @@ not work.
 DC to DC buck converter for Gen1 taggers and ideally a switch
 Gen 2/3 can power the esp32 from the main board but not Gen1
 
+For more details on modding, please see the JEDGE 2.0 Readme
+
+You will need some libraries for this version, follow this
+tutorial:
+https://randomnerdtutorials.com/esp32-websocket-server-arduino/
+
+How to Use it:
+---------------
+
+Simply power up a modded tagger and log into the devices AP
+with the password 123456789 unless you change the password.
+
+Adjust the settings for the game as desired. I'll have a
+a video walkthrough on functions for reference.
+
 
 
 
