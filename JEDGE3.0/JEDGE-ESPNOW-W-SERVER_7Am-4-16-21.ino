@@ -96,22 +96,23 @@
  * updated 04/18/2021 Fixed misc. bugs discovered by the guys testing out things on the set up and application. changed default esp command to 32700 so it doesnt make unusual kill confirmatinos                   
  *                    fixed some headset color issues, fixed some call out issues, nothing major in terms of changes, just debugging.
  * updated 04/19/2021 added back in automatic sleep function for when no controls are executed within 4 minutes of boot up.                  
- *                    
+ *                    Added OTA back in
  *                    
  */
 
 //*************************************************************************
 //********************* LIBRARY INCLUSIONS - ALL **************************
 //*************************************************************************
-#include <HardwareSerial.h>
-#include <WiFi.h>
-#include <esp_now.h>
+#include <HardwareSerial.h> // for assigining misc pins for tx/rx
+#include <WiFi.h> // used for all kinds of wifi stuff
+#include <esp_now.h> // espnow library
 #include <esp_wifi.h> // needed for resetting the mac address
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
+#include <AsyncTCP.h> // used for web server
+#include <ESPAsyncWebServer.h> // used for web server
+#include <ESPmDNS.h> // needed for OTA updates
+#include <WiFiUdp.h> // needed for OTA updates
+#include <ArduinoOTA.h> // needed for OTA updates
 //****************************************************************
-
-
 
 #define SERIAL1_RXPIN 16 // TO BRX TX and BLUETOOTH RX
 #define SERIAL1_TXPIN 17 // TO BRX RX and BLUETOOTH TX
@@ -126,15 +127,14 @@ int BaudRate = 57600; // 115200 is for GEN2/3, 57600 is for GEN1, this is set au
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
 int GunID = 2; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
 int GunGeneration = 2; // change to gen 1, 2, 3
-// Replace with your network credentials
-const char* ssid = "Gun_2";
-const char* password = "123456789";
+const char GunName[] = "GUN#2"; // used for OTA id recognition on network and for AP for web server
+const char* password = "123456789"; // Password for web server
+const char* OTAssid = "maxipad"; // network name to update OTA
+const char* OTApassword = "9165047812"; // Network password for OTA
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //****************************************************************
-
-
 
 // definitions for analyzing incoming brx serial data
 String readStr; // the incoming data is stored as this string
@@ -414,6 +414,7 @@ void IntializeESPNOW() {
 // WebServer 
 //****************************************************
 int WebSocketData;
+bool RUNWEBSERVER = true;
 bool LEDState = 0;
 const int ledPin = 2;
 int Menu[25]; // used for menu settings storage
@@ -577,8 +578,10 @@ const char index_html[] PROGMEM = R"rawliteral(
     </div>
     <div class="card">
       <h2>Initialize JEDGE</h2>
-      <p class="state">Selected: <span id="IJ">%JEDGE%</span></p>
+      <p class="state">Initialize JEDGE<span id="IJ">%JEDGE%</span></p>
       <p><button id="initializejedge" class="button">Toggle</button></p>
+      <p class="state">Init OTA<span id="OTA">%UPDATE%</span></p>
+      <p><button id="initializeotaupdate" class="button">Togggle</button></p>
     </div>
   </div>
 <script>
@@ -600,6 +603,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     setTimeout(initWebSocket, 2000);
   }
   function onMessage(event) {
+    var OTA;
     var IG;
     var FF;
     var SS;
@@ -616,6 +620,10 @@ const char index_html[] PROGMEM = R"rawliteral(
     var AMO;
     var VOL;
     var IJ;
+    if (event.data == "1505"){
+      OTA = "OTA Enabled";
+      document.getElementById('OTA').innerHTML = OTA;
+    }
     if (event.data == "1"){
       W0 = "Manual Selection";
       document.getElementById('W0').innerHTML = W0;
@@ -1079,6 +1087,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     document.getElementById('gamestart').addEventListener('click', toggle14s);
     document.getElementById('gameend').addEventListener('click', toggle14e);
     document.getElementById('initializejedge').addEventListener('click', toggle15);
+    document.getElementById('initializeotaupdate').addEventListener('click', toggle15D);
   }
   function toggle0(){
     websocket.send('toggle0');
@@ -1130,6 +1139,9 @@ const char index_html[] PROGMEM = R"rawliteral(
   }
   function toggle15(){
     websocket.send('toggle15');
+  }
+  function toggle15D(){
+    websocket.send('toggle15D');
   }
 </script>
 </body>
@@ -1422,6 +1434,20 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     }
     if (strcmp((char*)data, "toggle15") == 0) {
       Menu[15] = 1501;
+      WebSocketData = Menu[15];
+      notifyClients();
+      Serial.println("menu = " + String(Menu[15]));
+      datapacket2 = Menu[15];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
+    }
+    if (strcmp((char*)data, "toggle15D") == 0) {
+      Menu[15] = 1505;
       WebSocketData = Menu[15];
       notifyClients();
       Serial.println("menu = " + String(Menu[15]));
@@ -2420,9 +2446,9 @@ void ProcessIncomingCommands() {
           ChangeMyColor++;
         }
      }
-     if (b==5) {
+     if (b==5) { //1505
        Serial.println("OTA Update Mode");
-       ENABLEOTAUPDATE = true;
+       INITIALIZEOTA = true;
        if (ChangeMyColor > 8) {
           ChangeMyColor = 4; // triggers a gun/tagger color change
         } else { 
@@ -2661,12 +2687,59 @@ void InitAP() {
   Serial.print("Setting AP (Access Point)…");
   // Remove the password parameter, if you want the AP (Access Point) to be open
   WiFi.mode(WIFI_AP_STA);
-  WiFi.softAP(ssid, password);
+  WiFi.softAP(GunName, password);
 
   IPAddress IP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
   Serial.println(IP);
 }
+
+void InitOTA() {
+  Serial.println("Starting OTA Update");
+  WiFi.softAPdisconnect (true);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(OTAssid, OTApassword);
+  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    Serial.println("Connection Failed! Rebooting...");
+    delay(2000);
+  }
+  Serial.println("connected to OTA Wifi");
+  ArduinoOTA.setHostname(GunName);
+  ArduinoOTA
+    .onStart([]() {
+      String type;
+      if (ArduinoOTA.getCommand() == U_FLASH)
+        type = "sketch";
+      else // U_SPIFFS
+        type = "filesystem";
+
+      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+      Serial.println("Start updating " + type);
+    })
+    .onEnd([]() {
+      Serial.println("\nEnd");
+    })
+    .onProgress([](unsigned int progress, unsigned int total) {
+      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    })
+    .onError([](ota_error_t error) {
+      Serial.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+      else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    });
+
+  ArduinoOTA.begin();
+
+  Serial.println("Ready");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  ENABLEOTAUPDATE = true;
+  Serial.println("OTA setup complete");
+}
+
 
 //**********************************************************************************************
 void SyncScores() {
@@ -4461,8 +4534,9 @@ void loop2(void *pvParameters) {
   Menu[15] = 1500;
   
   while (1) { // starts the forever loop
-    ws.cleanupClients();
-    digitalWrite(ledPin, LEDState);
+    if (RUNWEBSERVER) {
+      ws.cleanupClients();
+    }
     if (BROADCASTESPNOW) {
       BROADCASTESPNOW = false;
       getReadings();
@@ -4476,6 +4550,26 @@ void loop2(void *pvParameters) {
         Serial.println("Enabling Deep Sleep");
         delay(500);
         esp_deep_sleep_start();
+      }
+    }
+    if (INITIALIZEOTA) {
+      INITIALIZEOTA = false;
+      InitOTA();
+      
+    }
+    if (ENABLEOTAUPDATE) {
+      ArduinoOTA.handle();
+      if (WiFi.status() == WL_CONNECTED) {
+        // blink the onboard led
+        if (millis() > previousMillis + interval) {
+          previousMillis = millis();
+          if (ledState == LOW) {
+            ledState = HIGH; 
+          } else {
+            ledState = LOW;
+          } 
+          digitalWrite(led, ledState);  
+        }
       }
     }
     delay(1); // this has to be here or the esp32 will just keep rebooting
