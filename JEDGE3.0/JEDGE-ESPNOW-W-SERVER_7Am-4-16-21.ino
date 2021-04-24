@@ -129,7 +129,7 @@ long TimeOutCurrentMillis = 0;
 long TimeOutInterval = 240000;
 int BaudRate = 57600; // 115200 is for GEN2/3, 57600 is for GEN1, this is set automatically based upon user input
 
-bool FAKESCORE = true;
+bool FAKESCORE = false;
 
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
