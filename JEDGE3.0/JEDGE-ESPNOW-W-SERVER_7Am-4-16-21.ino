@@ -97,6 +97,11 @@
  *                    fixed some headset color issues, fixed some call out issues, nothing major in terms of changes, just debugging.
  * updated 04/19/2021 added back in automatic sleep function for when no controls are executed within 4 minutes of boot up.                  
  *                    Added OTA back in
+ * UPDATED 04/20/2021 Fixed the bug for ending games, on host device/tagger
+ *                    Added a toggle to allow for disabling Access point and web server
+ *                    
+ *                    
+ *                    
  *                    
  */
 
@@ -112,7 +117,10 @@
 #include <ESPmDNS.h> // needed for OTA updates
 #include <WiFiUdp.h> // needed for OTA updates
 #include <ArduinoOTA.h> // needed for OTA updates
+#include <Arduino_JSON.h>
 //****************************************************************
+
+int sample[5];
 
 #define SERIAL1_RXPIN 16 // TO BRX TX and BLUETOOTH RX
 #define SERIAL1_TXPIN 17 // TO BRX RX and BLUETOOTH TX
@@ -120,6 +128,8 @@ bool ESPTimeout = true; // if true, this enables automatic deep sleep of esp32 d
 long TimeOutCurrentMillis = 0;
 long TimeOutInterval = 240000;
 int BaudRate = 57600; // 115200 is for GEN2/3, 57600 is for GEN1, this is set automatically based upon user input
+
+bool FAKESCORE = true;
 
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -131,6 +141,7 @@ const char GunName[] = "GUN#2"; // used for OTA id recognition on network and fo
 const char* password = "123456789"; // Password for web server
 const char* OTAssid = "maxipad"; // network name to update OTA
 const char* OTApassword = "9165047812"; // Network password for OTA
+bool RUNWEBSERVER = true; // this enables the esp to act as a web server with an access point to connect to
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -245,7 +256,6 @@ bool AMMOPOUCH = false; // used for enabling reload of a weapon
 bool LOOT = false; // used to indicate a loot occured
 bool STEALTH = false; // used to turn off gun led side lights
 
-
 long startScan = 0; // part of BLE enabling
 
 //variabls for blinking an LED with Millis
@@ -256,8 +266,23 @@ int ledState = LOW;  // ledState used to set the LED
 unsigned long ledpreviousMillis = 0;  // will store last time LED was updated
 const long ledinterval = 1500;  // interval at which to blink (milliseconds)
 
-
 bool WEAP = false; // not used anymore but was used to auto load gun settings on esp boot
+
+bool SCORESYNC = false;
+bool UPDATEWEBAPP = false;
+long WebAppUpdaterTimer = 0;
+int WebAppUpdaterProcessCounter = 0;
+
+int ScoreRequestCounter = 0;
+String ScoreTokenStrings[73];
+int PlayerDeaths[64];
+int PlayerKills[64];
+int PlayerObjectives[64];
+int TeamKills[4];
+int TeamObjectives[4];
+int TeamDeaths[4];
+String ScoreString = "0";
+long ScorePreviousMillis = 0;
 
 
 //*****************************************************************************************
@@ -277,11 +302,14 @@ esp_now_peer_info_t peerInfo;
 int datapacket1 = 99; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases - 200 - 203 for teams 0-3
 int datapacket2 = 32700; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
 int datapacket3 = GunID; // From - device ID
+String datapacket4 = "null"; // used for score reporting only
+
 
 // Define variables to store incoming readings
 int incomingData1; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases
 int incomingData2; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
 int incomingData3; // From - device ID
+String incomingData4; // used for score reporting only
 
 // Variable to store if sending data was successful
 String success;
@@ -292,6 +320,7 @@ typedef struct struct_message {
     int DP1; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases - 200 - 203 for teams 0-3
     int DP2; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
     int DP3; // From - device ID
+    char DP4[200]; // used for score reporting
 } struct_message;
 
 // Create a struct_message called DataToBroadcast to hold sensor readings
@@ -332,10 +361,19 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   incomingData1 = incomingReadings.DP1; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases - 200 - 203 for teams 0-3
   incomingData2 = incomingReadings.DP2; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
   incomingData3 = incomingReadings.DP3; // From
+  //incomingData4 = incomingReadings.DP4; // From
   Serial.println("DP1: " + String(incomingData1)); // INTENDED RECIPIENT
   Serial.println("DP2: " + String(incomingData2)); // FUNCTION/COMMAN
   Serial.println("DP3: " + String(incomingData3)); // From - device ID
+  Serial.print("DP4: "); // used for scoring
+  //Serial.println(incomingData4);
+  Serial.write(incomingReadings.DP4);
+  Serial.println();
+  incomingData4 = String(incomingReadings.DP4);
+  Serial.println(incomingData4);
   ProcessIncomingCommands();
+  //Serial.print("cOMMS loop running on core ");
+  //Serial.println(xPortGetCoreID());
 }
 
 // object to generate random numbers to send
@@ -344,12 +382,14 @@ void getReadings(){
   DataToBroadcast.DP1 = datapacket1;
   DataToBroadcast.DP2 = datapacket2;
   DataToBroadcast.DP3 = datapacket3;
+  datapacket4.toCharArray(DataToBroadcast.DP4, 200);
 }
 
 void ResetReadings() {
   datapacket1 = 99; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases - 200 - 203 for teams 0-3
   datapacket2 = 32700; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
   datapacket3 = GunID; // From - device ID
+  datapacket4 = "null";
 }
 
 // object for broadcasting the data packets
@@ -414,15 +454,99 @@ void IntializeESPNOW() {
 // WebServer 
 //****************************************************
 int WebSocketData;
-bool RUNWEBSERVER = true;
 bool LEDState = 0;
 const int ledPin = 2;
 int Menu[25]; // used for menu settings storage
 
+int id = 0;
+//int tempteamscore;
+//int tempplayerscore;
+int teamscore[4];
+int playerscore[64];
+int pid = 0;
+
+JSONVar board;
 
 // Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
+AsyncEventSource events("/events");
+
+// callback function that will be executed when data is received
+void UpdateWebApp0() { 
+  id = 0; // team id place holder
+  pid = 0; // player id place holder
+  while (id < 4) {
+    //TeamKills[id] = random(400);
+    //board["id"] = id;
+    board["temporaryteamscore"+String(id)] = TeamKills[id];
+    board["temporaryteamdeaths"+String(id)] = TeamDeaths[id];
+    board["temporaryteamobjectives"+String(id)] = TeamObjectives[id];
+    //String jsonString = JSON.stringify(board);
+    //Serial.println("team ID: " + String(id));
+    //Serial.println("t value: " + String(TeamKills[id]));
+    //events.send(jsonString.c_str(), "new_readings", millis());
+    id++;
+    //delay(1);
+  }
+  while (pid < 64) {
+    //PlayerKills[pid] = random(25);
+    //board["pid"] = pid;
+    board["temporaryplayerscore"+String(pid)] = PlayerKills[pid];
+    //board["temporaryplayerdeaths"+String(pid)] = PlayerDeaths[pid];
+    //board["temporaryplayerobjectives"+String(pid)] = PlayerObjectives[pid];
+    //Serial.println("p value: " + String(PlayerKills[pid]));
+    //Serial.println("player ID: " + String(pid));
+    //String jsonString = JSON.stringify(board);
+    //events.send(jsonString.c_str(), "new_readings", millis());
+    pid++;
+    //delay(1);
+  }
+  String jsonString = JSON.stringify(board);
+  events.send(jsonString.c_str(), "new_readings", millis());
+  //Serial.print("cOMMS loop running on core ");
+  //Serial.println(xPortGetCoreID());
+}
+void UpdateWebApp1() { 
+  pid = 0; // player id place holder
+  while (pid < 64) {
+    //PlayerKills[pid] = random(25);
+    //board["pid"] = pid;
+    //board["temporaryplayerscore"+String(pid)] = PlayerKills[pid];
+    board["temporaryplayerdeaths"+String(pid)] = PlayerDeaths[pid];
+    //board["temporaryplayerobjectives"+String(pid)] = PlayerObjectives[pid];
+    //Serial.println("p value: " + String(PlayerKills[pid]));
+    //Serial.println("player ID: " + String(pid));
+    //String jsonString = JSON.stringify(board);
+    //events.send(jsonString.c_str(), "new_readings", millis());
+    pid++;
+    //delay(1);
+  }
+  String jsonString = JSON.stringify(board);
+  events.send(jsonString.c_str(), "new_readings", millis());
+  //Serial.print("cOMMS loop running on core ");
+  //Serial.println(xPortGetCoreID());
+}
+void UpdateWebApp2() { 
+  pid = 0; // player id place holder
+  while (pid < 64) {
+    //PlayerKills[pid] = random(25);
+    //board["pid"] = pid;
+    //board["temporaryplayerscore"+String(pid)] = PlayerKills[pid];
+    //board["temporaryplayerdeaths"+String(pid)] = PlayerDeaths[pid];
+    board["temporaryplayerobjectives"+String(pid)] = PlayerObjectives[pid];
+    //Serial.println("p value: " + String(PlayerKills[pid]));
+    //Serial.println("player ID: " + String(pid));
+    //String jsonString = JSON.stringify(board);
+    //events.send(jsonString.c_str(), "new_readings", millis());
+    pid++; //
+    //delay(1);
+  }
+  String jsonString = JSON.stringify(board);
+  events.send(jsonString.c_str(), "new_readings", millis());
+  //Serial.print("cOMMS loop running on core ");
+  //Serial.println(xPortGetCoreID());
+}
 
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML><html>
@@ -432,9 +556,11 @@ const char index_html[] PROGMEM = R"rawliteral(
   <link rel="icon" href="data:,">
   <style>
   html {
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: Arial;
+    display: inline-block;
     text-align: center;
   }
+  p {  font-size: 1.2rem;}
   h1 {
     font-size: 1.8rem;
     color: white;
@@ -490,6 +616,17 @@ const char index_html[] PROGMEM = R"rawliteral(
      color:#8c8c8c;
      font-weight: bold;
    }
+   .stopnav { overflow: hidden; background-color: #2f4468; color: white; font-size: 1.7rem; }
+   .scontent { padding: 20px; }
+   .scard { background-color: white; box-shadow: 2px 2px 12px 1px rgba(140,140,140,.5); }
+   .scards { max-width: 700px; margin: 0 auto; display: grid; grid-gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+   .sreading { font-size: 2.8rem; }
+   .spacket { color: #bebebe; }
+   .scard.red { color: #FC0000; }
+   .scard.blue { color: #003DFC; }
+   .scard.yellow { color: #E5D200; }
+   .scard.green { color: #00D02C; }
+   .scard.black { color: #000000; }
   </style>
 <title>JEDGE 3.0</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -572,7 +709,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     </div>
     <div class="card">
       <h2>Start/End Game</h2>
-      <p class="state">Selected: <span id="IG">%INGAME%</span></p>
+      <p class="state">Selected: <span id="IG">%NGAME%</span></p>
       <p><button id="gamestart" class="button">Start</button></p>
       <p><button id="gameend" class="button">End</button></p>
     </div>
@@ -584,7 +721,454 @@ const char index_html[] PROGMEM = R"rawliteral(
       <p><button id="initializeotaupdate" class="button">Togggle</button></p>
     </div>
   </div>
+  <div class="stopnav">
+    <h3>Score Board</h3>
+  </div>
+  <div class="scontent">
+    <div class="scards">
+      <div class="scard red">
+        <h4>Alpha Team</h4>
+        <p><span class="reading">K:<span id="tk0"></span><span class="reading"> D:<span id="td0"></span><span class="reading"> O:<span id="to0"></span></p>
+      </div>
+      <div class="scard blue">
+        <h4>Bravo Team</h4><p>
+        <p><span class="reading">K:<span id="tk1"></span><span class="reading"> D:<span id="td1"></span><span class="reading"> O:<span id="to1"></span></p>
+      </div>
+      <div class="scard yellow">
+        <h4>Charlie Team</h4>
+        <p><span class="reading">K:<span id="tk2"></span><span class="reading"> D:<span id="td2"></span><span class="reading"> O:<span id="to2"></span></p>
+      </div>
+      <div class="scard green">
+        <h4>Delta Team</h4>
+        <p><span class="reading">K:<span id="tk3"></span><span class="reading"> D:<span id="td3"></span><span class="reading"> O:<span id="to3"></span></p>
+      </div>
+    </div>
+  </div>
+  <div class="stopnav">
+    <h3>Player Scores</h3>
+  </div>
+  <div class="scontent">
+    <div class="scards">
+            <div class="scard black">
+        <h4>Player 0</h4><p><span class="reading">K:<span id="pk0"></span><span class="reading"> D:<span id="pd0"></span><span class="reading"> O:<span id="po0"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 1</h4><p><span class="reading">K:<span id="pk1"></span><span class="reading"> D:<span id="pd1"></span><span class="reading"> O:<span id="po1"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 2</h4><p><span class="reading">K:<span id="pk2"></span><span class="reading"> D:<span id="pd2"></span><span class="reading"> O:<span id="po2"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 3</h4><p><span class="reading">K:<span id="pk3"></span><span class="reading"> D:<span id="pd3"></span><span class="reading"> O:<span id="po3"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 4</h4><p><span class="reading">K:<span id="pk4"></span><span class="reading"> D:<span id="pd4"></span><span class="reading"> O:<span id="po4"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 5</h4><p><span class="reading">K:<span id="pk5"></span><span class="reading"> D:<span id="pd5"></span><span class="reading"> O:<span id="po5"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 6</h4><p><span class="reading">K:<span id="pk6"></span><span class="reading"> D:<span id="pd6"></span><span class="reading"> O:<span id="po6"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 7</h4><p><span class="reading">K:<span id="pk7"></span><span class="reading"> D:<span id="pd7"></span><span class="reading"> O:<span id="po7"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 8</h4><p><span class="reading">K:<span id="pk8"></span><span class="reading"> D:<span id="pd8"></span><span class="reading"> O:<span id="po8"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 9</h4><p><span class="reading">K:<span id="pk9"></span><span class="reading"> D:<span id="pd9"></span><span class="reading"> O:<span id="po9"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 10</h4><p><span class="reading">K:<span id="pk10"></span><span class="reading"> D:<span id="pd10"></span><span class="reading"> O:<span id="po10"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 11</h4><p><span class="reading">K:<span id="pk11"></span><span class="reading"> D:<span id="pd11"></span><span class="reading"> O:<span id="po11"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 12</h4><p><span class="reading">K:<span id="pk12"></span><span class="reading"> D:<span id="pd12"></span><span class="reading"> O:<span id="po12"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 13</h4><p><span class="reading">K:<span id="pk13"></span><span class="reading"> D:<span id="pd13"></span><span class="reading"> O:<span id="po13"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 14</h4><p><span class="reading">K:<span id="pk14"></span><span class="reading"> D:<span id="pd14"></span><span class="reading"> O:<span id="po14"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 15</h4><p><span class="reading">K:<span id="pk15"></span><span class="reading"> D:<span id="pd15"></span><span class="reading"> O:<span id="po15"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 16</h4><p><span class="reading">K:<span id="pk16"></span><span class="reading"> D:<span id="pd16"></span><span class="reading"> O:<span id="po16"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 17</h4><p><span class="reading">K:<span id="pk17"></span><span class="reading"> D:<span id="pd17"></span><span class="reading"> O:<span id="po17"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 18</h4><p><span class="reading">K:<span id="pk18"></span><span class="reading"> D:<span id="pd18"></span><span class="reading"> O:<span id="po18"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 19</h4><p><span class="reading">K:<span id="pk19"></span><span class="reading"> D:<span id="pd19"></span><span class="reading"> O:<span id="po19"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 20</h4><p><span class="reading">K:<span id="pk20"></span><span class="reading"> D:<span id="pd20"></span><span class="reading"> O:<span id="po20"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 21</h4><p><span class="reading">K:<span id="pk21"></span><span class="reading"> D:<span id="pd21"></span><span class="reading"> O:<span id="po21"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 22</h4><p><span class="reading">K:<span id="pk22"></span><span class="reading"> D:<span id="pd22"></span><span class="reading"> O:<span id="po22"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 23</h4><p><span class="reading">K:<span id="pk23"></span><span class="reading"> D:<span id="pd23"></span><span class="reading"> O:<span id="po23"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 24</h4><p><span class="reading">K:<span id="pk24"></span><span class="reading"> D:<span id="pd24"></span><span class="reading"> O:<span id="po24"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 25</h4><p><span class="reading">K:<span id="pk25"></span><span class="reading"> D:<span id="pd25"></span><span class="reading"> O:<span id="po25"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 26</h4><p><span class="reading">K:<span id="pk26"></span><span class="reading"> D:<span id="pd26"></span><span class="reading"> O:<span id="po26"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 27</h4><p><span class="reading">K:<span id="pk27"></span><span class="reading"> D:<span id="pd27"></span><span class="reading"> O:<span id="po27"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 28</h4><p><span class="reading">K:<span id="pk28"></span><span class="reading"> D:<span id="pd28"></span><span class="reading"> O:<span id="po28"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 29</h4><p><span class="reading">K:<span id="pk29"></span><span class="reading"> D:<span id="pd29"></span><span class="reading"> O:<span id="po29"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 30</h4><p><span class="reading">K:<span id="pk30"></span><span class="reading"> D:<span id="pd30"></span><span class="reading"> O:<span id="po30"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 31</h4><p><span class="reading">K:<span id="pk31"></span><span class="reading"> D:<span id="pd31"></span><span class="reading"> O:<span id="po31"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 32</h4><p><span class="reading">K:<span id="pk32"></span><span class="reading"> D:<span id="pd32"></span><span class="reading"> O:<span id="po32"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 33</h4><p><span class="reading">K:<span id="pk33"></span><span class="reading"> D:<span id="pd33"></span><span class="reading"> O:<span id="po33"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 34</h4><p><span class="reading">K:<span id="pk34"></span><span class="reading"> D:<span id="pd34"></span><span class="reading"> O:<span id="po34"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 35</h4><p><span class="reading">K:<span id="pk35"></span><span class="reading"> D:<span id="pd35"></span><span class="reading"> O:<span id="po35"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 36</h4><p><span class="reading">K:<span id="pk36"></span><span class="reading"> D:<span id="pd36"></span><span class="reading"> O:<span id="po36"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 37</h4><p><span class="reading">K:<span id="pk37"></span><span class="reading"> D:<span id="pd37"></span><span class="reading"> O:<span id="po37"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 38</h4><p><span class="reading">K:<span id="pk38"></span><span class="reading"> D:<span id="pd38"></span><span class="reading"> O:<span id="po38"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 39</h4><p><span class="reading">K:<span id="pk39"></span><span class="reading"> D:<span id="pd39"></span><span class="reading"> O:<span id="po39"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 40</h4><p><span class="reading">K:<span id="pk40"></span><span class="reading"> D:<span id="pd40"></span><span class="reading"> O:<span id="po40"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 41</h4><p><span class="reading">K:<span id="pk41"></span><span class="reading"> D:<span id="pd41"></span><span class="reading"> O:<span id="po41"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 42</h4><p><span class="reading">K:<span id="pk42"></span><span class="reading"> D:<span id="pd42"></span><span class="reading"> O:<span id="po42"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 43</h4><p><span class="reading">K:<span id="pk43"></span><span class="reading"> D:<span id="pd43"></span><span class="reading"> O:<span id="po43"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 44</h4><p><span class="reading">K:<span id="pk44"></span><span class="reading"> D:<span id="pd44"></span><span class="reading"> O:<span id="po44"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 45</h4><p><span class="reading">K:<span id="pk45"></span><span class="reading"> D:<span id="pd45"></span><span class="reading"> O:<span id="po45"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 46</h4><p><span class="reading">K:<span id="pk46"></span><span class="reading"> D:<span id="pd46"></span><span class="reading"> O:<span id="po46"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 47</h4><p><span class="reading">K:<span id="pk47"></span><span class="reading"> D:<span id="pd47"></span><span class="reading"> O:<span id="po47"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 48</h4><p><span class="reading">K:<span id="pk48"></span><span class="reading"> D:<span id="pd48"></span><span class="reading"> O:<span id="po48"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 49</h4><p><span class="reading">K:<span id="pk49"></span><span class="reading"> D:<span id="pd49"></span><span class="reading"> O:<span id="po49"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 50</h4><p><span class="reading">K:<span id="pk50"></span><span class="reading"> D:<span id="pd50"></span><span class="reading"> O:<span id="po50"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 51</h4><p><span class="reading">K:<span id="pk51"></span><span class="reading"> D:<span id="pd51"></span><span class="reading"> O:<span id="po51"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 52</h4><p><span class="reading">K:<span id="pk52"></span><span class="reading"> D:<span id="pd52"></span><span class="reading"> O:<span id="po52"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 53</h4><p><span class="reading">K:<span id="pk53"></span><span class="reading"> D:<span id="pd53"></span><span class="reading"> O:<span id="po53"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 54</h4><p><span class="reading">K:<span id="pk54"></span><span class="reading"> D:<span id="pd54"></span><span class="reading"> O:<span id="po54"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 55</h4><p><span class="reading">K:<span id="pk55"></span><span class="reading"> D:<span id="pd55"></span><span class="reading"> O:<span id="po55"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 56</h4><p><span class="reading">K:<span id="pk56"></span><span class="reading"> D:<span id="pd56"></span><span class="reading"> O:<span id="po56"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 57</h4><p><span class="reading">K:<span id="pk57"></span><span class="reading"> D:<span id="pd57"></span><span class="reading"> O:<span id="po57"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 58</h4><p><span class="reading">K:<span id="pk58"></span><span class="reading"> D:<span id="pd58"></span><span class="reading"> O:<span id="po58"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 59</h4><p><span class="reading">K:<span id="pk59"></span><span class="reading"> D:<span id="pd59"></span><span class="reading"> O:<span id="po59"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 60</h4><p><span class="reading">K:<span id="pk60"></span><span class="reading"> D:<span id="pd60"></span><span class="reading"> O:<span id="po60"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 61</h4><p><span class="reading">K:<span id="pk61"></span><span class="reading"> D:<span id="pd61"></span><span class="reading"> O:<span id="po61"></span></p>
+      </div>      
+      <div class="scard black">
+        <h4>Player 62</h4><p><span class="reading">K:<span id="pk62"></span><span class="reading"> D:<span id="pd62"></span><span class="reading"> O:<span id="po62"></span></p>
+      </div>
+      <div class="scard black">
+        <h4>Player 63</h4><p><span class="reading">K:<span id="pk63"></span><span class="reading"> D:<span id="pd63"></span><span class="reading"> O:<span id="po63"></span></p>
+      </div>
+    </div>
 <script>
+if (!!window.EventSource) {
+ var source = new EventSource('/events');
+ 
+ source.addEventListener('open', function(e) {
+  console.log("Events Connected");
+ }, false);
+ source.addEventListener('error', function(e) {
+  if (e.target.readyState != EventSource.OPEN) {
+    console.log("Events Disconnected");
+  }
+ }, false);
+ 
+ source.addEventListener('message', function(e) {
+  console.log("message", e.data);
+ }, false);
+ 
+ source.addEventListener('new_readings', function(e) {
+  console.log("new_readings", e.data);
+  var obj = JSON.parse(e.data);
+  document.getElementById("tk0").innerHTML = obj.temporaryteamscore0;
+  document.getElementById("td0").innerHTML = obj.temporaryteamdeaths0;
+  document.getElementById("to0").innerHTML = obj.temporaryteamobjectives0;
+  document.getElementById("tk1").innerHTML = obj.temporaryteamscore1;
+  document.getElementById("td1").innerHTML = obj.temporaryteamdeaths1;
+  document.getElementById("to1").innerHTML = obj.temporaryteamobjectives1;
+  document.getElementById("tk2").innerHTML = obj.temporaryteamscore2;
+  document.getElementById("td2").innerHTML = obj.temporaryteamdeaths2;
+  document.getElementById("to2").innerHTML = obj.temporaryteamobjectives2;
+  document.getElementById("tk3").innerHTML = obj.temporaryteamscore3;  
+  document.getElementById("td3").innerHTML = obj.temporaryteamdeaths3;  
+  document.getElementById("to3").innerHTML = obj.temporaryteamobjectives3;
+  
+  document.getElementById("pk0").innerHTML = obj.temporaryplayerscore0;
+  document.getElementById("pd0").innerHTML = obj.temporaryplayerdeaths0;
+  document.getElementById("po0").innerHTML = obj.temporaryplayerobjectives0;
+  document.getElementById("pk1").innerHTML = obj.temporaryplayerscore1;
+  document.getElementById("pd1").innerHTML = obj.temporaryplayerdeaths1;
+  document.getElementById("po1").innerHTML = obj.temporaryplayerobjectives1;
+  document.getElementById("pk2").innerHTML = obj.temporaryplayerscore2;
+  document.getElementById("pd2").innerHTML = obj.temporaryplayerdeaths2;
+  document.getElementById("po2").innerHTML = obj.temporaryplayerobjectives2;
+  document.getElementById("pk3").innerHTML = obj.temporaryplayerscore3;
+  document.getElementById("pd3").innerHTML = obj.temporaryplayerdeaths3;
+  document.getElementById("po3").innerHTML = obj.temporaryplayerobjectives3;
+  document.getElementById("pk4").innerHTML = obj.temporaryplayerscore4;
+  document.getElementById("pd4").innerHTML = obj.temporaryplayerdeaths4;
+  document.getElementById("po4").innerHTML = obj.temporaryplayerobjectives4;
+  document.getElementById("pk5").innerHTML = obj.temporaryplayerscore5;
+  document.getElementById("pd5").innerHTML = obj.temporaryplayerdeaths5;
+  document.getElementById("po5").innerHTML = obj.temporaryplayerobjectives5;
+  document.getElementById("pk6").innerHTML = obj.temporaryplayerscore6;
+  document.getElementById("pd6").innerHTML = obj.temporaryplayerdeaths6;
+  document.getElementById("po6").innerHTML = obj.temporaryplayerobjectives6;
+  document.getElementById("pk7").innerHTML = obj.temporaryplayerscore7;
+  document.getElementById("pd7").innerHTML = obj.temporaryplayerdeaths7;
+  document.getElementById("po7").innerHTML = obj.temporaryplayerobjectives7;
+  document.getElementById("pk8").innerHTML = obj.temporaryplayerscore8;
+  document.getElementById("pd8").innerHTML = obj.temporaryplayerdeaths8;
+  document.getElementById("po8").innerHTML = obj.temporaryplayerobjectives8;
+  document.getElementById("pk9").innerHTML = obj.temporaryplayerscore9;
+  document.getElementById("pd9").innerHTML = obj.temporaryplayerdeaths9;
+  document.getElementById("po9").innerHTML = obj.temporaryplayerobjectives9;
+  document.getElementById("pk10").innerHTML = obj.temporaryplayerscore10;
+  document.getElementById("pd10").innerHTML = obj.temporaryplayerdeaths10;
+  document.getElementById("po10").innerHTML = obj.temporaryplayerobjectives10;
+  document.getElementById("pk11").innerHTML = obj.temporaryplayerscore11;
+  document.getElementById("pd11").innerHTML = obj.temporaryplayerdeaths11;
+  document.getElementById("po11").innerHTML = obj.temporaryplayerobjectives11;
+  document.getElementById("pk12").innerHTML = obj.temporaryplayerscore12;
+  document.getElementById("pd12").innerHTML = obj.temporaryplayerdeaths12;
+  document.getElementById("po12").innerHTML = obj.temporaryplayerobjectives12;
+  document.getElementById("pk13").innerHTML = obj.temporaryplayerscore13;
+  document.getElementById("pd13").innerHTML = obj.temporaryplayerdeaths13;
+  document.getElementById("po13").innerHTML = obj.temporaryplayerobjectives13;
+  document.getElementById("pk14").innerHTML = obj.temporaryplayerscore14;
+  document.getElementById("pd14").innerHTML = obj.temporaryplayerdeaths14;
+  document.getElementById("po14").innerHTML = obj.temporaryplayerobjectives14;
+  document.getElementById("pk15").innerHTML = obj.temporaryplayerscore15;
+  document.getElementById("pd15").innerHTML = obj.temporaryplayerdeaths15;
+  document.getElementById("po15").innerHTML = obj.temporaryplayerobjectives15;
+  document.getElementById("pk16").innerHTML = obj.temporaryplayerscore16;
+  document.getElementById("pd16").innerHTML = obj.temporaryplayerdeaths16;
+  document.getElementById("po16").innerHTML = obj.temporaryplayerobjectives16;
+  document.getElementById("pk17").innerHTML = obj.temporaryplayerscore17;
+  document.getElementById("pd17").innerHTML = obj.temporaryplayerdeaths17;
+  document.getElementById("po17").innerHTML = obj.temporaryplayerobjectives17;
+  document.getElementById("pk18").innerHTML = obj.temporaryplayerscore18;
+  document.getElementById("pd18").innerHTML = obj.temporaryplayerdeaths18;
+  document.getElementById("po18").innerHTML = obj.temporaryplayerobjectives18;
+  document.getElementById("pk19").innerHTML = obj.temporaryplayerscore19;
+  document.getElementById("pd19").innerHTML = obj.temporaryplayerdeaths19;
+  document.getElementById("po19").innerHTML = obj.temporaryplayerobjectives19;
+  document.getElementById("pk20").innerHTML = obj.temporaryplayerscore20;
+  document.getElementById("pd20").innerHTML = obj.temporaryplayerdeaths20;
+  document.getElementById("po20").innerHTML = obj.temporaryplayerobjectives20;
+  document.getElementById("pk21").innerHTML = obj.temporaryplayerscore21;
+  document.getElementById("pd21").innerHTML = obj.temporaryplayerdeaths21;
+  document.getElementById("po21").innerHTML = obj.temporaryplayerobjectives21;
+  document.getElementById("pk22").innerHTML = obj.temporaryplayerscore22;
+  document.getElementById("pd22").innerHTML = obj.temporaryplayerdeaths22;
+  document.getElementById("po22").innerHTML = obj.temporaryplayerobjectives22;
+  document.getElementById("pk23").innerHTML = obj.temporaryplayerscore23;
+  document.getElementById("pd23").innerHTML = obj.temporaryplayerdeaths23;
+  document.getElementById("po23").innerHTML = obj.temporaryplayerobjectives23;
+  document.getElementById("pk24").innerHTML = obj.temporaryplayerscore24;
+  document.getElementById("pd24").innerHTML = obj.temporaryplayerdeaths24;
+  document.getElementById("po24").innerHTML = obj.temporaryplayerobjectives24;
+  document.getElementById("pk25").innerHTML = obj.temporaryplayerscore25;
+  document.getElementById("pd25").innerHTML = obj.temporaryplayerdeaths25;
+  document.getElementById("po25").innerHTML = obj.temporaryplayerobjectives25;
+  document.getElementById("pk26").innerHTML = obj.temporaryplayerscore26;
+  document.getElementById("pd26").innerHTML = obj.temporaryplayerdeaths26;
+  document.getElementById("po26").innerHTML = obj.temporaryplayerobjectives26;
+  document.getElementById("pk27").innerHTML = obj.temporaryplayerscore27;
+  document.getElementById("pd27").innerHTML = obj.temporaryplayerdeaths27;
+  document.getElementById("po27").innerHTML = obj.temporaryplayerobjectives27;
+  document.getElementById("pk28").innerHTML = obj.temporaryplayerscore28;
+  document.getElementById("pd28").innerHTML = obj.temporaryplayerdeaths28;
+  document.getElementById("po28").innerHTML = obj.temporaryplayerobjectives28;
+  document.getElementById("pk29").innerHTML = obj.temporaryplayerscore29;
+  document.getElementById("pd29").innerHTML = obj.temporaryplayerdeaths29;
+  document.getElementById("po29").innerHTML = obj.temporaryplayerobjectives29;
+  document.getElementById("pk30").innerHTML = obj.temporaryplayerscore30;
+  document.getElementById("pd30").innerHTML = obj.temporaryplayerdeaths30;
+  document.getElementById("po30").innerHTML = obj.temporaryplayerobjectives30;
+  document.getElementById("pk31").innerHTML = obj.temporaryplayerscore31;
+  document.getElementById("pd31").innerHTML = obj.temporaryplayerdeaths31;
+  document.getElementById("po31").innerHTML = obj.temporaryplayerobjectives31;
+  document.getElementById("pk32").innerHTML = obj.temporaryplayerscore32;
+  document.getElementById("pd32").innerHTML = obj.temporaryplayerdeaths32;
+  document.getElementById("po32").innerHTML = obj.temporaryplayerobjectives32;
+  document.getElementById("pk33").innerHTML = obj.temporaryplayerscore33;
+  document.getElementById("pd33").innerHTML = obj.temporaryplayerdeaths33;
+  document.getElementById("po33").innerHTML = obj.temporaryplayerobjectives33;
+  document.getElementById("pk34").innerHTML = obj.temporaryplayerscore34;
+  document.getElementById("pd34").innerHTML = obj.temporaryplayerdeaths34;
+  document.getElementById("po34").innerHTML = obj.temporaryplayerobjectives34;
+  document.getElementById("pk35").innerHTML = obj.temporaryplayerscore35;
+  document.getElementById("pd35").innerHTML = obj.temporaryplayerdeaths35;
+  document.getElementById("po35").innerHTML = obj.temporaryplayerobjectives35;
+  document.getElementById("pk36").innerHTML = obj.temporaryplayerscore36;
+  document.getElementById("pk36").innerHTML = obj.temporaryplayerscore36;
+  document.getElementById("pd36").innerHTML = obj.temporaryplayerdeaths36;
+  document.getElementById("po37").innerHTML = obj.temporaryplayerobjectives37;
+  document.getElementById("pk37").innerHTML = obj.temporaryplayerscore37;
+  document.getElementById("pd37").innerHTML = obj.temporaryplayerdeaths37;
+  document.getElementById("po38").innerHTML = obj.temporaryplayerobjectives38;
+  document.getElementById("pk38").innerHTML = obj.temporaryplayerscore38;
+  document.getElementById("pd38").innerHTML = obj.temporaryplayerdeaths38;
+  document.getElementById("po39").innerHTML = obj.temporaryplayerobjectives39;
+  document.getElementById("pk39").innerHTML = obj.temporaryplayerscore39;
+  document.getElementById("pd39").innerHTML = obj.temporaryplayerdeaths39;
+  document.getElementById("po40").innerHTML = obj.temporaryplayerobjectives40;
+  document.getElementById("pk40").innerHTML = obj.temporaryplayerscore40;
+  document.getElementById("pd40").innerHTML = obj.temporaryplayerdeaths40;
+  document.getElementById("po41").innerHTML = obj.temporaryplayerobjectives41;
+  document.getElementById("pk41").innerHTML = obj.temporaryplayerscore41;
+  document.getElementById("pd41").innerHTML = obj.temporaryplayerdeaths41;
+  document.getElementById("po42").innerHTML = obj.temporaryplayerobjectives42;
+  document.getElementById("pk42").innerHTML = obj.temporaryplayerscore42;
+  document.getElementById("pd42").innerHTML = obj.temporaryplayerdeaths42;
+  document.getElementById("po43").innerHTML = obj.temporaryplayerobjectives43;
+  document.getElementById("pk43").innerHTML = obj.temporaryplayerscore43;
+  document.getElementById("pd43").innerHTML = obj.temporaryplayerdeaths43;
+  document.getElementById("po44").innerHTML = obj.temporaryplayerobjectives44;
+  document.getElementById("pk44").innerHTML = obj.temporaryplayerscore44;
+  document.getElementById("pd44").innerHTML = obj.temporaryplayerdeaths44;
+  document.getElementById("po45").innerHTML = obj.temporaryplayerobjectives45;
+  document.getElementById("pk45").innerHTML = obj.temporaryplayerscore45;
+  document.getElementById("pd45").innerHTML = obj.temporaryplayerdeaths45;
+  document.getElementById("po46").innerHTML = obj.temporaryplayerobjectives46;
+  document.getElementById("pk46").innerHTML = obj.temporaryplayerscore46;
+  document.getElementById("pd46").innerHTML = obj.temporaryplayerdeaths46;
+  document.getElementById("po47").innerHTML = obj.temporaryplayerobjectives47;
+  document.getElementById("pk47").innerHTML = obj.temporaryplayerscore47;
+  document.getElementById("pd47").innerHTML = obj.temporaryplayerdeaths47;
+  document.getElementById("po48").innerHTML = obj.temporaryplayerobjectives48;
+  document.getElementById("pk48").innerHTML = obj.temporaryplayerscore48;
+  document.getElementById("pd48").innerHTML = obj.temporaryplayerdeaths48;
+  document.getElementById("po49").innerHTML = obj.temporaryplayerobjectives49;
+  document.getElementById("pk49").innerHTML = obj.temporaryplayerscore49;
+  document.getElementById("pd49").innerHTML = obj.temporaryplayerdeaths49;
+  document.getElementById("po50").innerHTML = obj.temporaryplayerobjectives50;
+  document.getElementById("pk50").innerHTML = obj.temporaryplayerscore50;
+  document.getElementById("pd50").innerHTML = obj.temporaryplayerdeaths50;
+  document.getElementById("po51").innerHTML = obj.temporaryplayerobjectives51;
+  document.getElementById("pk51").innerHTML = obj.temporaryplayerscore51;
+  document.getElementById("pd51").innerHTML = obj.temporaryplayerdeaths51;
+  document.getElementById("po52").innerHTML = obj.temporaryplayerobjectives52;
+  document.getElementById("pk52").innerHTML = obj.temporaryplayerscore52;
+  document.getElementById("pd52").innerHTML = obj.temporaryplayerdeaths52;
+  document.getElementById("po53").innerHTML = obj.temporaryplayerobjectives53;
+  document.getElementById("pk53").innerHTML = obj.temporaryplayerscore53;
+  document.getElementById("pd53").innerHTML = obj.temporaryplayerdeaths53;
+  document.getElementById("po54").innerHTML = obj.temporaryplayerobjectives54;
+  document.getElementById("pk54").innerHTML = obj.temporaryplayerscore54;
+  document.getElementById("pd54").innerHTML = obj.temporaryplayerdeaths54;
+  document.getElementById("po55").innerHTML = obj.temporaryplayerobjectives55;
+  document.getElementById("pk55").innerHTML = obj.temporaryplayerscore55;
+  document.getElementById("pd55").innerHTML = obj.temporaryplayerdeaths55;
+  document.getElementById("po56").innerHTML = obj.temporaryplayerobjectives56;
+  document.getElementById("pk56").innerHTML = obj.temporaryplayerscore56;
+  document.getElementById("pd56").innerHTML = obj.temporaryplayerdeaths56;
+  document.getElementById("po57").innerHTML = obj.temporaryplayerobjectives57;
+  document.getElementById("pk57").innerHTML = obj.temporaryplayerscore57;
+  document.getElementById("pd57").innerHTML = obj.temporaryplayerdeaths57;
+  document.getElementById("po58").innerHTML = obj.temporaryplayerobjectives58;
+  document.getElementById("pk58").innerHTML = obj.temporaryplayerscore58;
+  document.getElementById("pd58").innerHTML = obj.temporaryplayerdeaths58;
+  document.getElementById("po59").innerHTML = obj.temporaryplayerobjectives59;
+  document.getElementById("pk59").innerHTML = obj.temporaryplayerscore59;
+  document.getElementById("pd59").innerHTML = obj.temporaryplayerdeaths59;
+  document.getElementById("po60").innerHTML = obj.temporaryplayerobjectives60;
+  document.getElementById("pk60").innerHTML = obj.temporaryplayerscore60;
+  document.getElementById("pd60").innerHTML = obj.temporaryplayerdeaths60;
+  document.getElementById("po61").innerHTML = obj.temporaryplayerobjectives61;
+  document.getElementById("pk61").innerHTML = obj.temporaryplayerscore61;
+  document.getElementById("pd61").innerHTML = obj.temporaryplayerdeaths61;
+  document.getElementById("po62").innerHTML = obj.temporaryplayerobjectives62;
+  document.getElementById("pk62").innerHTML = obj.temporaryplayerscore62;
+  document.getElementById("pd62").innerHTML = obj.temporaryplayerdeaths62;
+  document.getElementById("po63").innerHTML = obj.temporaryplayerobjectives63;
+  document.getElementById("pk63").innerHTML = obj.temporaryplayerscore63;
+  document.getElementById("pd63").innerHTML = obj.temporaryplayerdeaths63;
+ }, false);
+}
   var gateway = `ws://${window.location.hostname}/ws`;
   var websocket;
   window.addEventListener('load', onLoad);
@@ -620,6 +1204,12 @@ const char index_html[] PROGMEM = R"rawliteral(
     var AMO;
     var VOL;
     var IJ;
+    var K0;
+    var O0;
+    if (event.data == "999") {
+      K0 = TeamKills[0];
+      document.getElementById('K0').innerHTML = K0;
+    }
     if (event.data == "1505"){
       OTA = "OTA Enabled";
       document.getElementById('OTA').innerHTML = OTA;
@@ -1318,19 +1908,18 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
        ProcessIncomingCommands();      
       }
     }
-    if (strcmp((char*)data, "toggle9") == 0) {
+    if (strcmp((char*)data, "toggle9") == 0) { // score sync
       Menu[9] = 901;
       WebSocketData = Menu[9];
       notifyClients();
       Serial.println(" menu = " + String(Menu[9]));
-      datapacket2 = Menu[9];
-      datapacket1 = 99;
-      BROADCASTESPNOW = true;
-      if (!INGAME) {
-       incomingData1 = datapacket1;
-       incomingData2 = datapacket2;
-       ProcessIncomingCommands();      
-      }
+      // datapacket2 = 901;
+      // datapacket1 = 99;
+      // BROADCASTESPNOW = true;
+      ClearScores();
+      SCORESYNC = true;
+      Serial.println("Commencing Score Sync Process");
+      ScoreRequestCounter = 0;
     }
     if (strcmp((char*)data, "toggle10") == 0) {
       if (Menu[10] > 1000) {
@@ -1426,7 +2015,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       datapacket2 = Menu[14];
       datapacket1 = 99;
       BROADCASTESPNOW = true;
-      if (!INGAME) {
+      if (INGAME) {
        incomingData1 = datapacket1;
        incomingData2 = datapacket2;
        ProcessIncomingCommands();      
@@ -1464,6 +2053,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
 }
 //**************************************************************
 void ProcessIncomingCommands() {
+  //Serial.print("cOMMS loop running on core ");
+  //Serial.println(xPortGetCoreID());
   if (ESPTimeout) {
     ESPTimeout = false;
   }
@@ -2264,8 +2855,8 @@ void ProcessIncomingCommands() {
     if (incomingData2 < 1000 && incomingData2 > 900) { // Syncing scores
       int b = incomingData2 - 900;
       if (b == 1) {
-        //SyncScores();
         Serial.println("Request Recieved to Sync Scoring");
+        SyncScores();
         AudioSelection="VA91";
         AUDIO=true;
         if (ChangeMyColor > 8) {
@@ -2273,6 +2864,9 @@ void ProcessIncomingCommands() {
         } else { 
           ChangeMyColor++;
         }
+      }
+      if (b == 2) { // this is an incoming score from a player!
+        AccumulateIncomingScores();
       }
     }
     if (incomingData2 < 1100 && incomingData2 > 999) { // Setting Gender
@@ -2535,6 +3129,61 @@ void InitializeJEDGE() {
   sendString("$HLED,0,0,,,10,,*"); // test for gen3
   sendString("$GLED,0,0,0,0,10,,*"); // test for gen3
 }
+//**********************************************************************************************
+void SyncScores() {
+  if (FAKESCORE) { // CHECK IF WE ARE DOING A TEST ONLY FOR DATA SENDING
+     CompletedObjectives = random(25);
+     int playercounter = 0;
+     while (playercounter < 64) {
+      PlayerKillCount[playercounter] = random(20);
+      playercounter++;
+     }
+     PlayerKillCount[GunID] = 0;
+     TeamKillCount[0] = PlayerKillCount[0] + PlayerKillCount[1] + PlayerKillCount[2];
+     TeamKillCount[1] = PlayerKillCount[3] + PlayerKillCount[4] + PlayerKillCount[5];
+     TeamKillCount[2] = PlayerKillCount[6] + PlayerKillCount[7] + PlayerKillCount[8];
+     TeamKillCount[3] = PlayerKillCount[9] + PlayerKillCount[10] + PlayerKillCount[11];
+     if (GunID < 3) {
+      SetTeam = 0;
+     }
+     if (GunID < 6 && GunID > 2) {
+       SetTeam = 1;
+     }
+     if (GunID < 9 && GunID > 5) {
+      SetTeam = 2;
+     } 
+     if (GunID > 8) {
+      SetTeam = 3;
+     }
+  }
+  // create a string that looks like this: 
+  // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
+  String ScoreData = String(GunID)+","+String(SetTeam)+","+String(CompletedObjectives)+","+String(TeamKillCount[0])+","+String(TeamKillCount[1])+","+String(TeamKillCount[2])+","+String(TeamKillCount[3])+","+String(TeamKillCount[4])+","+String(TeamKillCount[5])+","+String(PlayerKillCount[0])+","+String(PlayerKillCount[1])+","+String(PlayerKillCount[2])+","+String(PlayerKillCount[3])+","+String(PlayerKillCount[4])+","+String(PlayerKillCount[5])+","+String(PlayerKillCount[6])+","+String(PlayerKillCount[7])+","+String(PlayerKillCount[8])+","+String(PlayerKillCount[9])+","+String(PlayerKillCount[10])+","+String(PlayerKillCount[11])+","+String(PlayerKillCount[12])+","+String(PlayerKillCount[13])+","+String(PlayerKillCount[14])+","+String(PlayerKillCount[15])+","+String(PlayerKillCount[16])+","+String(PlayerKillCount[17])+","+String(PlayerKillCount[18])+","+String(PlayerKillCount[19])+","+String(PlayerKillCount[20])+","+String(PlayerKillCount[21])+","+String(PlayerKillCount[22])+","+String(PlayerKillCount[23])+","+String(PlayerKillCount[24])+","+String(PlayerKillCount[25])+","+String(PlayerKillCount[26])+","+String(PlayerKillCount[27])+","+String(PlayerKillCount[28])+","+String(PlayerKillCount[29])+","+String(PlayerKillCount[30])+","+String(PlayerKillCount[31])+","+String(PlayerKillCount[32])+","+String(PlayerKillCount[33])+","+String(PlayerKillCount[34])+","+String(PlayerKillCount[35])+","+String(PlayerKillCount[36])+","+String(PlayerKillCount[37])+","+String(PlayerKillCount[38])+","+String(PlayerKillCount[39])+","+String(PlayerKillCount[40])+","+String(PlayerKillCount[41])+","+String(PlayerKillCount[42])+","+String(PlayerKillCount[43])+","+String(PlayerKillCount[44])+","+String(PlayerKillCount[45])+","+String(PlayerKillCount[46])+","+String(PlayerKillCount[47])+","+String(PlayerKillCount[48])+","+String(PlayerKillCount[49])+","+String(PlayerKillCount[50])+","+String(PlayerKillCount[51])+","+String(PlayerKillCount[52])+","+String(PlayerKillCount[53])+","+String(PlayerKillCount[54])+","+String(PlayerKillCount[55])+","+String(PlayerKillCount[56])+","+String(PlayerKillCount[57])+","+String(PlayerKillCount[58])+","+String(PlayerKillCount[59])+","+String(PlayerKillCount[60])+","+String(PlayerKillCount[61])+","+String(PlayerKillCount[62])+","+String(PlayerKillCount[63]);
+  Serial.println("Sending the following Score Data to Server");
+  Serial.println(ScoreData);
+  datapacket1 = incomingData3;
+  datapacket4 = ScoreData;
+  datapacket2 = 902;
+  BROADCASTESPNOW = true;
+  //bridge1.virtualWrite(V100, ScoreData); // sending the whole string from esp32
+  Serial.println("Sent Score data to Server");
+  //reset sent scores:
+  Serial.println("resetting all scores");
+  CompletedObjectives = 0;
+  int teamcounter = 0;
+  while (teamcounter < 6) {
+    TeamKillCount[teamcounter] = 0;
+    teamcounter++;
+    vTaskDelay(1);
+  }
+  int playercounter = 0;
+  while (playercounter < 64) {
+    PlayerKillCount[playercounter] = 0;
+    playercounter++;
+    vTaskDelay(1);
+  }
+  Serial.println("Scores Reset");  
+}
 //******************************************************************************************
 
 // process used to send string properly to gun... splits up longer strings in bytes of 20
@@ -2670,7 +3319,7 @@ String processor(const String& var){
       return "Three";
     }
   }
-  if(var == "INGAME"){
+  if(var == "NGAME"){
     if (Menu[14] == 1400){
       return "Standby";
     } else { return "In Game";}
@@ -2742,31 +3391,6 @@ void InitOTA() {
 
 
 //**********************************************************************************************
-void SyncScores() {
-  // create a string that looks like this: 
-  // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
-  String ScoreData = String(GunID)+","+String(SetTeam)+","+String(CompletedObjectives)+","+String(TeamKillCount[0])+","+String(TeamKillCount[1])+","+String(TeamKillCount[2])+","+String(TeamKillCount[3])+","+String(TeamKillCount[4])+","+String(TeamKillCount[5])+","+String(PlayerKillCount[0])+","+String(PlayerKillCount[1])+","+String(PlayerKillCount[2])+","+String(PlayerKillCount[3])+","+String(PlayerKillCount[4])+","+String(PlayerKillCount[5])+","+String(PlayerKillCount[6])+","+String(PlayerKillCount[7])+","+String(PlayerKillCount[8])+","+String(PlayerKillCount[9])+","+String(PlayerKillCount[10])+","+String(PlayerKillCount[11])+","+String(PlayerKillCount[12])+","+String(PlayerKillCount[13])+","+String(PlayerKillCount[14])+","+String(PlayerKillCount[15])+","+String(PlayerKillCount[16])+","+String(PlayerKillCount[17])+","+String(PlayerKillCount[18])+","+String(PlayerKillCount[19])+","+String(PlayerKillCount[20])+","+String(PlayerKillCount[21])+","+String(PlayerKillCount[22])+","+String(PlayerKillCount[23])+","+String(PlayerKillCount[24])+","+String(PlayerKillCount[25])+","+String(PlayerKillCount[26])+","+String(PlayerKillCount[27])+","+String(PlayerKillCount[28])+","+String(PlayerKillCount[29])+","+String(PlayerKillCount[30])+","+String(PlayerKillCount[31])+","+String(PlayerKillCount[32])+","+String(PlayerKillCount[33])+","+String(PlayerKillCount[34])+","+String(PlayerKillCount[35])+","+String(PlayerKillCount[36])+","+String(PlayerKillCount[37])+","+String(PlayerKillCount[38])+","+String(PlayerKillCount[39])+","+String(PlayerKillCount[40])+","+String(PlayerKillCount[41])+","+String(PlayerKillCount[42])+","+String(PlayerKillCount[43])+","+String(PlayerKillCount[44])+","+String(PlayerKillCount[45])+","+String(PlayerKillCount[46])+","+String(PlayerKillCount[47])+","+String(PlayerKillCount[48])+","+String(PlayerKillCount[49])+","+String(PlayerKillCount[50])+","+String(PlayerKillCount[51])+","+String(PlayerKillCount[52])+","+String(PlayerKillCount[53])+","+String(PlayerKillCount[54])+","+String(PlayerKillCount[55])+","+String(PlayerKillCount[56])+","+String(PlayerKillCount[57])+","+String(PlayerKillCount[58])+","+String(PlayerKillCount[59])+","+String(PlayerKillCount[60])+","+String(PlayerKillCount[61])+","+String(PlayerKillCount[62])+","+String(PlayerKillCount[63]);
-  Serial.println("Sending the following Score Data to Server");
-  Serial.println(ScoreData);
-  //bridge1.virtualWrite(V0, ScoreData); // sending the whole string from esp32
-  Serial.println("Sent Score data to Server");
-  //reset sent scores:
-  Serial.println("resetting all scores");
-  CompletedObjectives = 0;
-  int teamcounter = 0;
-  while (teamcounter < 6) {
-    TeamKillCount[teamcounter] = 0;
-    teamcounter++;
-    vTaskDelay(1);
-  }
-  int playercounter = 0;
-  while (playercounter < 64) {
-    PlayerKillCount[playercounter] = 0;
-    playercounter++;
-    vTaskDelay(1);
-  }
-  Serial.println("Scores Reset");  
-}
 // ****************************************************************************************
 /*Analyzing incoming tag to determine if a perk action is needed
         space 2 is for he type of tag recieved/shot. almost all are 0 and im thinking other types are medic etc.
@@ -4433,7 +5057,6 @@ void ProcessBRXData() {
         } else {
           datapacket3 = GunID; // null action to send
         }
-        getReadings();
         BROADCASTESPNOW = true;
         TeamKillCount[lastTaggedTeam]++; // adding a point to the team who caused the last kill
         PlayerLives--; // taking our preset lives and subtracting one life then talking about it on the monitor
@@ -4489,7 +5112,103 @@ void ChangeColors() {
   //ChangeMyColor = 99;
   CurrentColor = ChangeMyColor;
 }
-
+void ClearScores() {
+  int playercounter = 0;
+  while (playercounter < 64) {
+    PlayerKills[playercounter] = 0;
+    playercounter++;
+    delay(1);
+  }
+  int teamcounter = 0;
+  while (teamcounter < 4) {
+    TeamKills[teamcounter] = 0;
+    TeamObjectives[teamcounter] = 0;
+    TeamDeaths[teamcounter] = 0;
+    teamcounter++;
+  }
+  Serial.println("reset all stored scores from previous game, done");
+}
+void RequestingScores() {
+  datapacket2 = 901;
+  datapacket1 = ScoreRequestCounter;
+  getReadings();
+  BroadcastData(); // sending data via ESPNOW
+  Serial.println("Sent Data Via ESPNOW");
+  ResetReadings();
+  if (ScoreRequestCounter < 63) {
+    Serial.println("Sent Request for Score to Player "+String(ScoreRequestCounter)+" out of 63");
+    ScoreRequestCounter++;
+  } else {
+    SCORESYNC = false; // disables the score requesting object until a score is reported back from a player
+    ScoreRequestCounter = 0;
+    Serial.println("All Scores Requested, Closing Score Request Process, Resetting Counter");
+    UPDATEWEBAPP = true;
+    WebAppUpdaterTimer = millis();
+  }
+  Serial.print("cOMMS loop running on core ");
+  Serial.println(xPortGetCoreID());
+}
+void AccumulateIncomingScores() {
+    //Serial.print("cOMMS loop running on core ");
+    //Serial.println(xPortGetCoreID());
+    Serial.println(String(millis()));
+    ScoreString = incomingData4; // saves incoming data as a temporary string within this object
+    Serial.println("printing data received: ");
+    Serial.println(ScoreString);
+    char *ptr = strtok((char*)ScoreString.c_str(), ","); // looks for commas as breaks to split up the string
+    int index = 0;
+    while (ptr != NULL)
+    {
+      ScoreTokenStrings[index] = ptr; // saves the individual characters divided by commas as individual strings
+      index++;
+      ptr = strtok(NULL, ",");  // takes a list of delimiters
+    }
+    // received a string that looks like this: 
+    // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
+    Serial.println("Score Data Recieved from a tagger:");
+  
+    int Deaths=0;
+    int Objectives=0;
+    int Kills=0;
+    int Team=0;
+    int Player=0;
+    int Data[73];
+    int count=0;
+    while (count<73) {
+      Data[count]=ScoreTokenStrings[count].toInt();
+      // Serial.println("Converting String character "+String(count)+" to integer: "+String(Data[count]));
+      count++;
+    }
+    Player=Data[0];
+    Serial.println("Player ID: " + String(Player));
+    Deaths = Data[3] + Data[4] + Data[5] + Data[6]; // added the total team kills to accumulate the number of deaths of this player
+    Serial.println("Player Deaths: "+String(Deaths));
+    PlayerDeaths[Player] = Deaths; // just converted temporary data to this players death count record
+    TeamKills[0] = TeamKills[0] + Data[3]; // accumulating team kill counts
+    TeamKills[1] = TeamKills[1] + Data[4];
+    TeamKills[2] = TeamKills[2] + Data[5];
+    TeamKills[3] = TeamKills[3] + Data[6]; // note, not handling teams 5/6 because they dont actually report/exist
+    Serial.println("Team Kill Count Accumulation Complete");
+    Serial.println("Red Team Kills: " + String(TeamKills[0]) + "Blue Team Kills: " + String(TeamKills[1]) + "Green Team Kills: " + String(TeamKills[2]) + "Yellow Team Kills: " + String(TeamKills[3]));
+    // accumulating player kill counts
+    int p = 9; // using for data characters 9-72
+    int j = 0; // using for player id status counter
+    Serial.println("Accumulating Player kills against current player...");
+    while (p < 73) {
+      PlayerKills[j] = PlayerKills[j] + Data[p];
+      // Serial.println("Player " + String(j) + " Killed this player " + String(Data[p]) + " times, Player's new score is " + String(PlayerKills[j]));
+      p++;
+      j++;
+    }
+    Team = Data[1]; // setting the player's team for accumulation of player objectives
+    TeamDeaths[Team] = TeamDeaths[Team] + Deaths;
+    PlayerObjectives[Player] = Data[2]; // converted temporary data storage to main memory for score reporting of player objectives
+    Serial.println("Player Objectives completed: "+String(Data[2]));
+    Serial.println("Player Objectives completed: "+String(PlayerObjectives[Player]));
+    TeamObjectives[Team] = TeamObjectives[Team] + Data[2]; // added this player's objective score to his team's objective score
+    Serial.println(String(millis()));
+    //UpdateWebApp();
+}
 
 
 //******************************************************************************************
@@ -4536,6 +5255,13 @@ void loop2(void *pvParameters) {
   while (1) { // starts the forever loop
     if (RUNWEBSERVER) {
       ws.cleanupClients();
+      static unsigned long lastEventTime = millis();
+      static const unsigned long EVENT_INTERVAL_MS = 1000;
+      if ((millis() - lastEventTime) > EVENT_INTERVAL_MS) {
+        events.send("ping",NULL,millis());
+        lastEventTime = millis();
+        //UpdateWebApp();   
+      }
     }
     if (BROADCASTESPNOW) {
       BROADCASTESPNOW = false;
@@ -4572,6 +5298,34 @@ void loop2(void *pvParameters) {
         }
       }
     }
+    if (SCORESYNC) {
+      unsigned long ScoreCurrentMillis = millis();
+      if (ScoreCurrentMillis - ScorePreviousMillis > 200) {
+        ScorePreviousMillis = ScoreCurrentMillis;
+        RequestingScores();
+      }
+    }
+    if (UPDATEWEBAPP) {
+      if (WebAppUpdaterProcessCounter < 3) {
+        unsigned long UpdaterCurrentMillis = millis();
+        if (UpdaterCurrentMillis - WebAppUpdaterTimer > 1200) {
+          WebAppUpdaterTimer = UpdaterCurrentMillis;
+          if (WebAppUpdaterProcessCounter == 0) {
+            UpdateWebApp0();
+          }
+          if (WebAppUpdaterProcessCounter == 1) {
+            UpdateWebApp1();
+          }
+          if (WebAppUpdaterProcessCounter == 2) {
+            UpdateWebApp2();
+          }
+          WebAppUpdaterProcessCounter++;
+        }
+      } else {
+        UPDATEWEBAPP = false;
+        WebAppUpdaterProcessCounter = 0;
+      }
+    }
     delay(1); // this has to be here or the esp32 will just keep rebooting
   }
 }
@@ -4591,14 +5345,25 @@ void setup() {
   Serial.print("setup() running on core ");
   pinMode(ledPin, OUTPUT);
   digitalWrite(ledPin, LOW);
-  InitAP();
-  initWebSocket();
-  // Route for root / web page
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send_P(200, "text/html", index_html, processor);
-  });
-  // Start server
-  server.begin();
+  if (RUNWEBSERVER) {
+    InitAP();
+    initWebSocket();
+    // Route for root / web page
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+      request->send_P(200, "text/html", index_html, processor);
+    });
+    events.onConnect([](AsyncEventSourceClient *client){
+      if(client->lastId()){
+        Serial.printf("Client reconnected! Last message ID that it got is: %u\n", client->lastId());
+      }
+      // send event with message "hello!", id current millis
+      // and set reconnect delay to 1 second
+      client->send("hello!", NULL, millis(), 10000);
+    });
+    server.addHandler(&events);
+    // Start server
+    server.begin();
+  }
   Serial.print("ESP Board MAC Address:  ");
   Serial.println(WiFi.macAddress());
   Serial.println("Starting ESPNOW");
