@@ -135,13 +135,14 @@ bool FAKESCORE = false;
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
-int GunID = 2; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+int GunID = 10; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
 int GunGeneration = 2; // change to gen 1, 2, 3
-const char GunName[] = "GUN#2"; // used for OTA id recognition on network and for AP for web server
+const char GunName[] = "GUN#10"; // used for OTA id recognition on network and for AP for web server
 const char* password = "123456789"; // Password for web server
 const char* OTAssid = "maxipad"; // network name to update OTA
 const char* OTApassword = "9165047812"; // Network password for OTA
 bool RUNWEBSERVER = true; // this enables the esp to act as a web server with an access point to connect to
+int TaggersOwned = 64; // how many taggers do you own or will play?
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -489,7 +490,7 @@ void UpdateWebApp0() {
     id++;
     //delay(1);
   }
-  while (pid < 64) {
+  while (pid < TaggersOwned) {
     //PlayerKills[pid] = random(25);
     //board["pid"] = pid;
     board["temporaryplayerscore"+String(pid)] = PlayerKills[pid];
@@ -509,7 +510,7 @@ void UpdateWebApp0() {
 }
 void UpdateWebApp1() { 
   pid = 0; // player id place holder
-  while (pid < 64) {
+  while (pid < TaggersOwned) {
     //PlayerKills[pid] = random(25);
     //board["pid"] = pid;
     //board["temporaryplayerscore"+String(pid)] = PlayerKills[pid];
@@ -529,7 +530,7 @@ void UpdateWebApp1() {
 }
 void UpdateWebApp2() { 
   pid = 0; // player id place holder
-  while (pid < 64) {
+  while (pid < TaggersOwned) {
     //PlayerKills[pid] = random(25);
     //board["pid"] = pid;
     //board["temporaryplayerscore"+String(pid)] = PlayerKills[pid];
@@ -5317,7 +5318,7 @@ void loop2(void *pvParameters) {
             UpdateWebApp1();
           }
           if (WebAppUpdaterProcessCounter == 2) {
-            UpdateWebApp2();
+            //UpdateWebApp2();
           }
           WebAppUpdaterProcessCounter++;
         }
