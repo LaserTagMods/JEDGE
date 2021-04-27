@@ -128,7 +128,7 @@ bool ESPTimeout = true; // if true, this enables automatic deep sleep of esp32 d
 long TimeOutCurrentMillis = 0;
 long TimeOutInterval = 240000;
 int BaudRate = 57600; // 115200 is for GEN2/3, 57600 is for GEN1, this is set automatically based upon user input
-
+bool RUNWEBSERVER = true; // this enables the esp to act as a web server with an access point to connect to
 bool FAKESCORE = false;
 
 //******************* IMPORTANT *********************
@@ -141,8 +141,8 @@ const char GunName[] = "GUN#10"; // used for OTA id recognition on network and f
 const char* password = "123456789"; // Password for web server
 const char* OTAssid = "maxipad"; // network name to update OTA
 const char* OTApassword = "9165047812"; // Network password for OTA
-bool RUNWEBSERVER = true; // this enables the esp to act as a web server with an access point to connect to
 int TaggersOwned = 64; // how many taggers do you own or will play?
+bool ACTASHOST = true; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -256,6 +256,7 @@ bool SPECIALWEAPONLOADOUT = false; // used for enabling special weapon loading
 bool AMMOPOUCH = false; // used for enabling reload of a weapon
 bool LOOT = false; // used to indicate a loot occured
 bool STEALTH = false; // used to turn off gun led side lights
+bool INITJEDGE = false;
 
 long startScan = 0; // part of BLE enabling
 
@@ -639,6 +640,19 @@ const char index_html[] PROGMEM = R"rawliteral(
   </div>
   <div class="content">
     <div class="card">
+      <h2>Initialize JEDGE</h2>
+      <p class="state">Initialize JEDGE<span id="IJ">%JEDGE%</span></p>
+      <p><button id="initializejedge" class="button">Lockout Players</button></p>
+      <h2>Firmware-Upgrade</h2>
+      <p class="state">Init OTA<span id="OTA">%UPDATE%</span></p>
+      <p><button id="initializeotaupdate" class="button">OTA Mode</button></p>
+    </div>
+  </div>
+  <div class="stopnav">
+    <h3>Host Control Panel</h3>
+  </div>
+  <div class="content">  
+    <div class="card">
       <h2>Primary Weapon</h2>
       <p class="state">Selected: <span id="W0">%WEAP0%</span></p>
       <p><button id="weapon0" class="button">Toggle</button></p>
@@ -684,11 +698,6 @@ const char index_html[] PROGMEM = R"rawliteral(
       <p><button id="delaystarttimer" class="button">Toggle</button></p>
     </div>
     <div class="card">
-      <h2>Sync Scores</h2>
-      <p class="state">Press <span id="SS">%SYNC%</span></p>
-      <p><button id="syncscores" class="button">Sync</button></p>
-    </div>
-    <div class="card">
       <h2>Player Gender</h2>
       <p class="state">Selected: <span id="GND">%GENDER%</span></p>
       <p><button id="playergender" class="button">Toggle</button></p>
@@ -715,11 +724,9 @@ const char index_html[] PROGMEM = R"rawliteral(
       <p><button id="gameend" class="button">End</button></p>
     </div>
     <div class="card">
-      <h2>Initialize JEDGE</h2>
-      <p class="state">Initialize JEDGE<span id="IJ">%JEDGE%</span></p>
-      <p><button id="initializejedge" class="button">Toggle</button></p>
-      <p class="state">Init OTA<span id="OTA">%UPDATE%</span></p>
-      <p><button id="initializeotaupdate" class="button">Togggle</button></p>
+      <h2>Sync Scores</h2>
+      <p class="state">Press <span id="SS">%SYNC%</span></p>
+      <p><button id="syncscores" class="button">Sync</button></p>
     </div>
   </div>
   <div class="stopnav">
@@ -729,19 +736,34 @@ const char index_html[] PROGMEM = R"rawliteral(
     <div class="scards">
       <div class="scard red">
         <h4>Alpha Team</h4>
-        <p><span class="reading">K:<span id="tk0"></span><span class="reading"> D:<span id="td0"></span><span class="reading"> O:<span id="to0"></span></p>
+        <p><span class="reading">Kills:<span id="tk0"></span><span class="reading"> Deaths:<span id="td0"></span><span class="reading"> Points:<span id="to0"></span></p>
       </div>
       <div class="scard blue">
         <h4>Bravo Team</h4><p>
-        <p><span class="reading">K:<span id="tk1"></span><span class="reading"> D:<span id="td1"></span><span class="reading"> O:<span id="to1"></span></p>
+        <p><span class="reading">Kills:<span id="tk1"></span><span class="reading"> Deaths:<span id="td1"></span><span class="reading"> Points:<span id="to1"></span></p>
       </div>
       <div class="scard yellow">
         <h4>Charlie Team</h4>
-        <p><span class="reading">K:<span id="tk2"></span><span class="reading"> D:<span id="td2"></span><span class="reading"> O:<span id="to2"></span></p>
+        <p><span class="reading">Kills:<span id="tk2"></span><span class="reading"> Deaths:<span id="td2"></span><span class="reading"> Points:<span id="to2"></span></p>
       </div>
       <div class="scard green">
         <h4>Delta Team</h4>
-        <p><span class="reading">K:<span id="tk3"></span><span class="reading"> D:<span id="td3"></span><span class="reading"> O:<span id="to3"></span></p>
+        <p><span class="reading">Kills:<span id="tk3"></span><span class="reading"> Deaths:<span id="td3"></span><span class="reading"> Points:<span id="to3"></span></p>
+      </div>
+    </div>
+  </div>
+  <div class="stopnav">
+    <h3>Game Highlights</h3>
+  </div>
+  <div class="scontent">
+    <div class="scards">
+      <div class="scard black">
+        <h2>Most Kills</h2>
+        <p><span class="reading">Player:<span id="MK"></span></p>
+        <h2>Most Deaths</h2>
+        <p><span class="reading">Player:<span id="MD"></span></p>
+        <h2>Most Points</h2>
+        <p><span class="reading">Player:<span id="MO"></span></p>
       </div>
     </div>
   </div>
@@ -750,197 +772,197 @@ const char index_html[] PROGMEM = R"rawliteral(
   </div>
   <div class="scontent">
     <div class="scards">
-            <div class="scard black">
-        <h4>Player 0</h4><p><span class="reading">K:<span id="pk0"></span><span class="reading"> D:<span id="pd0"></span><span class="reading"> O:<span id="po0"></span></p>
+      <div class="scard black">
+        <h4>Player 0</h4><p><span class="reading">Kills:<span id="pk0"></span><span class="reading"> Deaths:<span id="pd0"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 1</h4><p><span class="reading">K:<span id="pk1"></span><span class="reading"> D:<span id="pd1"></span><span class="reading"> O:<span id="po1"></span></p>
+        <h4>Player 1</h4><p><span class="reading">Kills:<span id="pk1"></span><span class="reading"> Deaths:<span id="pd1"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 2</h4><p><span class="reading">K:<span id="pk2"></span><span class="reading"> D:<span id="pd2"></span><span class="reading"> O:<span id="po2"></span></p>
+        <h4>Player 2</h4><p><span class="reading">Kills:<span id="pk2"></span><span class="reading"> Deaths:<span id="pd2"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 3</h4><p><span class="reading">K:<span id="pk3"></span><span class="reading"> D:<span id="pd3"></span><span class="reading"> O:<span id="po3"></span></p>
+        <h4>Player 3</h4><p><span class="reading">Kills:<span id="pk3"></span><span class="reading"> Deaths:<span id="pd3"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 4</h4><p><span class="reading">K:<span id="pk4"></span><span class="reading"> D:<span id="pd4"></span><span class="reading"> O:<span id="po4"></span></p>
+        <h4>Player 4</h4><p><span class="reading">Kills:<span id="pk4"></span><span class="reading"> Deaths:<span id="pd4"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 5</h4><p><span class="reading">K:<span id="pk5"></span><span class="reading"> D:<span id="pd5"></span><span class="reading"> O:<span id="po5"></span></p>
+        <h4>Player 5</h4><p><span class="reading">Kills:<span id="pk5"></span><span class="reading"> Deaths:<span id="pd5"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 6</h4><p><span class="reading">K:<span id="pk6"></span><span class="reading"> D:<span id="pd6"></span><span class="reading"> O:<span id="po6"></span></p>
+        <h4>Player 6</h4><p><span class="reading">Kills:<span id="pk6"></span><span class="reading"> Deaths:<span id="pd6"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 7</h4><p><span class="reading">K:<span id="pk7"></span><span class="reading"> D:<span id="pd7"></span><span class="reading"> O:<span id="po7"></span></p>
+        <h4>Player 7</h4><p><span class="reading">Kills:<span id="pk7"></span><span class="reading"> Deaths:<span id="pd7"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 8</h4><p><span class="reading">K:<span id="pk8"></span><span class="reading"> D:<span id="pd8"></span><span class="reading"> O:<span id="po8"></span></p>
+        <h4>Player 8</h4><p><span class="reading">Kills:<span id="pk8"></span><span class="reading"> Deaths:<span id="pd8"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 9</h4><p><span class="reading">K:<span id="pk9"></span><span class="reading"> D:<span id="pd9"></span><span class="reading"> O:<span id="po9"></span></p>
+        <h4>Player 9</h4><p><span class="reading">Kills:<span id="pk9"></span><span class="reading"> Deaths:<span id="pd9"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 10</h4><p><span class="reading">K:<span id="pk10"></span><span class="reading"> D:<span id="pd10"></span><span class="reading"> O:<span id="po10"></span></p>
+        <h4>Player 10</h4><p><span class="reading">Kills:<span id="pk10"></span><span class="reading"> Deaths:<span id="pd10"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 11</h4><p><span class="reading">K:<span id="pk11"></span><span class="reading"> D:<span id="pd11"></span><span class="reading"> O:<span id="po11"></span></p>
+        <h4>Player 11</h4><p><span class="reading">Kills:<span id="pk11"></span><span class="reading"> Deaths:<span id="pd11"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 12</h4><p><span class="reading">K:<span id="pk12"></span><span class="reading"> D:<span id="pd12"></span><span class="reading"> O:<span id="po12"></span></p>
+        <h4>Player 12</h4><p><span class="reading">Kills:<span id="pk12"></span><span class="reading"> Deaths:<span id="pd12"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 13</h4><p><span class="reading">K:<span id="pk13"></span><span class="reading"> D:<span id="pd13"></span><span class="reading"> O:<span id="po13"></span></p>
+        <h4>Player 13</h4><p><span class="reading">Kills:<span id="pk13"></span><span class="reading"> Deaths:<span id="pd13"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 14</h4><p><span class="reading">K:<span id="pk14"></span><span class="reading"> D:<span id="pd14"></span><span class="reading"> O:<span id="po14"></span></p>
+        <h4>Player 14</h4><p><span class="reading">Kills:<span id="pk14"></span><span class="reading"> Deaths:<span id="pd14"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 15</h4><p><span class="reading">K:<span id="pk15"></span><span class="reading"> D:<span id="pd15"></span><span class="reading"> O:<span id="po15"></span></p>
+        <h4>Player 15</h4><p><span class="reading">Kills:<span id="pk15"></span><span class="reading"> Deaths:<span id="pd15"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 16</h4><p><span class="reading">K:<span id="pk16"></span><span class="reading"> D:<span id="pd16"></span><span class="reading"> O:<span id="po16"></span></p>
+        <h4>Player 16</h4><p><span class="reading">Kills:<span id="pk16"></span><span class="reading"> Deaths:<span id="pd16"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 17</h4><p><span class="reading">K:<span id="pk17"></span><span class="reading"> D:<span id="pd17"></span><span class="reading"> O:<span id="po17"></span></p>
+        <h4>Player 17</h4><p><span class="reading">Kills:<span id="pk17"></span><span class="reading"> Deaths:<span id="pd17"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 18</h4><p><span class="reading">K:<span id="pk18"></span><span class="reading"> D:<span id="pd18"></span><span class="reading"> O:<span id="po18"></span></p>
+        <h4>Player 18</h4><p><span class="reading">Kills:<span id="pk18"></span><span class="reading"> Deaths:<span id="pd18"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 19</h4><p><span class="reading">K:<span id="pk19"></span><span class="reading"> D:<span id="pd19"></span><span class="reading"> O:<span id="po19"></span></p>
+        <h4>Player 19</h4><p><span class="reading">Kills:<span id="pk19"></span><span class="reading"> Deaths:<span id="pd19"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 20</h4><p><span class="reading">K:<span id="pk20"></span><span class="reading"> D:<span id="pd20"></span><span class="reading"> O:<span id="po20"></span></p>
+        <h4>Player 20</h4><p><span class="reading">Kills:<span id="pk20"></span><span class="reading"> Deaths:<span id="pd20"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 21</h4><p><span class="reading">K:<span id="pk21"></span><span class="reading"> D:<span id="pd21"></span><span class="reading"> O:<span id="po21"></span></p>
+        <h4>Player 21</h4><p><span class="reading">Kills:<span id="pk21"></span><span class="reading"> Deaths:<span id="pd21"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 22</h4><p><span class="reading">K:<span id="pk22"></span><span class="reading"> D:<span id="pd22"></span><span class="reading"> O:<span id="po22"></span></p>
+        <h4>Player 22</h4><p><span class="reading">Kills:<span id="pk22"></span><span class="reading"> Deaths:<span id="pd22"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 23</h4><p><span class="reading">K:<span id="pk23"></span><span class="reading"> D:<span id="pd23"></span><span class="reading"> O:<span id="po23"></span></p>
+        <h4>Player 23</h4><p><span class="reading">Kills:<span id="pk23"></span><span class="reading"> Deaths:<span id="pd23"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 24</h4><p><span class="reading">K:<span id="pk24"></span><span class="reading"> D:<span id="pd24"></span><span class="reading"> O:<span id="po24"></span></p>
+        <h4>Player 24</h4><p><span class="reading">Kills:<span id="pk24"></span><span class="reading"> Deaths:<span id="pd24"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 25</h4><p><span class="reading">K:<span id="pk25"></span><span class="reading"> D:<span id="pd25"></span><span class="reading"> O:<span id="po25"></span></p>
+        <h4>Player 25</h4><p><span class="reading">Kills:<span id="pk25"></span><span class="reading"> Deaths:<span id="pd25"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 26</h4><p><span class="reading">K:<span id="pk26"></span><span class="reading"> D:<span id="pd26"></span><span class="reading"> O:<span id="po26"></span></p>
+        <h4>Player 26</h4><p><span class="reading">Kills:<span id="pk26"></span><span class="reading"> Deaths:<span id="pd26"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 27</h4><p><span class="reading">K:<span id="pk27"></span><span class="reading"> D:<span id="pd27"></span><span class="reading"> O:<span id="po27"></span></p>
+        <h4>Player 27</h4><p><span class="reading">Kills:<span id="pk27"></span><span class="reading"> Deaths:<span id="pd27"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 28</h4><p><span class="reading">K:<span id="pk28"></span><span class="reading"> D:<span id="pd28"></span><span class="reading"> O:<span id="po28"></span></p>
+        <h4>Player 28</h4><p><span class="reading">Kills:<span id="pk28"></span><span class="reading"> Deaths:<span id="pd28"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 29</h4><p><span class="reading">K:<span id="pk29"></span><span class="reading"> D:<span id="pd29"></span><span class="reading"> O:<span id="po29"></span></p>
+        <h4>Player 29</h4><p><span class="reading">Kills:<span id="pk29"></span><span class="reading"> Deaths:<span id="pd29"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 30</h4><p><span class="reading">K:<span id="pk30"></span><span class="reading"> D:<span id="pd30"></span><span class="reading"> O:<span id="po30"></span></p>
+        <h4>Player 30</h4><p><span class="reading">Kills:<span id="pk30"></span><span class="reading"> Deaths:<span id="pd30"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 31</h4><p><span class="reading">K:<span id="pk31"></span><span class="reading"> D:<span id="pd31"></span><span class="reading"> O:<span id="po31"></span></p>
+        <h4>Player 31</h4><p><span class="reading">Kills:<span id="pk31"></span><span class="reading"> Deaths:<span id="pd31"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 32</h4><p><span class="reading">K:<span id="pk32"></span><span class="reading"> D:<span id="pd32"></span><span class="reading"> O:<span id="po32"></span></p>
+        <h4>Player 32</h4><p><span class="reading">Kills:<span id="pk32"></span><span class="reading"> Deaths:<span id="pd32"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 33</h4><p><span class="reading">K:<span id="pk33"></span><span class="reading"> D:<span id="pd33"></span><span class="reading"> O:<span id="po33"></span></p>
+        <h4>Player 33</h4><p><span class="reading">Kills:<span id="pk33"></span><span class="reading"> Deaths:<span id="pd33"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 34</h4><p><span class="reading">K:<span id="pk34"></span><span class="reading"> D:<span id="pd34"></span><span class="reading"> O:<span id="po34"></span></p>
+        <h4>Player 34</h4><p><span class="reading">Kills:<span id="pk34"></span><span class="reading"> Deaths:<span id="pd34"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 35</h4><p><span class="reading">K:<span id="pk35"></span><span class="reading"> D:<span id="pd35"></span><span class="reading"> O:<span id="po35"></span></p>
+        <h4>Player 35</h4><p><span class="reading">Kills:<span id="pk35"></span><span class="reading"> Deaths:<span id="pd35"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 36</h4><p><span class="reading">K:<span id="pk36"></span><span class="reading"> D:<span id="pd36"></span><span class="reading"> O:<span id="po36"></span></p>
+        <h4>Player 36</h4><p><span class="reading">Kills:<span id="pk36"></span><span class="reading"> Deaths:<span id="pd36"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 37</h4><p><span class="reading">K:<span id="pk37"></span><span class="reading"> D:<span id="pd37"></span><span class="reading"> O:<span id="po37"></span></p>
+        <h4>Player 37</h4><p><span class="reading">Kills:<span id="pk37"></span><span class="reading"> Deaths:<span id="pd37"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 38</h4><p><span class="reading">K:<span id="pk38"></span><span class="reading"> D:<span id="pd38"></span><span class="reading"> O:<span id="po38"></span></p>
+        <h4>Player 38</h4><p><span class="reading">Kills:<span id="pk38"></span><span class="reading"> Deaths:<span id="pd38"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 39</h4><p><span class="reading">K:<span id="pk39"></span><span class="reading"> D:<span id="pd39"></span><span class="reading"> O:<span id="po39"></span></p>
+        <h4>Player 39</h4><p><span class="reading">Kills:<span id="pk39"></span><span class="reading"> Deaths:<span id="pd39"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 40</h4><p><span class="reading">K:<span id="pk40"></span><span class="reading"> D:<span id="pd40"></span><span class="reading"> O:<span id="po40"></span></p>
+        <h4>Player 40</h4><p><span class="reading">Kills:<span id="pk40"></span><span class="reading"> Deaths:<span id="pd40"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 41</h4><p><span class="reading">K:<span id="pk41"></span><span class="reading"> D:<span id="pd41"></span><span class="reading"> O:<span id="po41"></span></p>
+        <h4>Player 41</h4><p><span class="reading">Kills:<span id="pk41"></span><span class="reading"> Deaths:<span id="pd41"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 42</h4><p><span class="reading">K:<span id="pk42"></span><span class="reading"> D:<span id="pd42"></span><span class="reading"> O:<span id="po42"></span></p>
+        <h4>Player 42</h4><p><span class="reading">Kills:<span id="pk42"></span><span class="reading"> Deaths:<span id="pd42"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 43</h4><p><span class="reading">K:<span id="pk43"></span><span class="reading"> D:<span id="pd43"></span><span class="reading"> O:<span id="po43"></span></p>
+        <h4>Player 43</h4><p><span class="reading">Kills:<span id="pk43"></span><span class="reading"> Deaths:<span id="pd43"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 44</h4><p><span class="reading">K:<span id="pk44"></span><span class="reading"> D:<span id="pd44"></span><span class="reading"> O:<span id="po44"></span></p>
+        <h4>Player 44</h4><p><span class="reading">Kills:<span id="pk44"></span><span class="reading"> Deaths:<span id="pd44"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 45</h4><p><span class="reading">K:<span id="pk45"></span><span class="reading"> D:<span id="pd45"></span><span class="reading"> O:<span id="po45"></span></p>
+        <h4>Player 45</h4><p><span class="reading">Kills:<span id="pk45"></span><span class="reading"> Deaths:<span id="pd45"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 46</h4><p><span class="reading">K:<span id="pk46"></span><span class="reading"> D:<span id="pd46"></span><span class="reading"> O:<span id="po46"></span></p>
+        <h4>Player 46</h4><p><span class="reading">Kills:<span id="pk46"></span><span class="reading"> Deaths:<span id="pd46"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 47</h4><p><span class="reading">K:<span id="pk47"></span><span class="reading"> D:<span id="pd47"></span><span class="reading"> O:<span id="po47"></span></p>
+        <h4>Player 47</h4><p><span class="reading">Kills:<span id="pk47"></span><span class="reading"> Deaths:<span id="pd47"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 48</h4><p><span class="reading">K:<span id="pk48"></span><span class="reading"> D:<span id="pd48"></span><span class="reading"> O:<span id="po48"></span></p>
+        <h4>Player 48</h4><p><span class="reading">Kills:<span id="pk48"></span><span class="reading"> Deaths:<span id="pd48"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 49</h4><p><span class="reading">K:<span id="pk49"></span><span class="reading"> D:<span id="pd49"></span><span class="reading"> O:<span id="po49"></span></p>
+        <h4>Player 49</h4><p><span class="reading">Kills:<span id="pk49"></span><span class="reading"> Deaths:<span id="pd49"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 50</h4><p><span class="reading">K:<span id="pk50"></span><span class="reading"> D:<span id="pd50"></span><span class="reading"> O:<span id="po50"></span></p>
+        <h4>Player 50</h4><p><span class="reading">Kills:<span id="pk50"></span><span class="reading"> Deaths:<span id="pd50"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 51</h4><p><span class="reading">K:<span id="pk51"></span><span class="reading"> D:<span id="pd51"></span><span class="reading"> O:<span id="po51"></span></p>
+        <h4>Player 51</h4><p><span class="reading">Kills:<span id="pk51"></span><span class="reading"> Deaths:<span id="pd51"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 52</h4><p><span class="reading">K:<span id="pk52"></span><span class="reading"> D:<span id="pd52"></span><span class="reading"> O:<span id="po52"></span></p>
+        <h4>Player 52</h4><p><span class="reading">Kills:<span id="pk52"></span><span class="reading"> Deaths:<span id="pd52"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 53</h4><p><span class="reading">K:<span id="pk53"></span><span class="reading"> D:<span id="pd53"></span><span class="reading"> O:<span id="po53"></span></p>
+        <h4>Player 53</h4><p><span class="reading">Kills:<span id="pk53"></span><span class="reading"> Deaths:<span id="pd53"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 54</h4><p><span class="reading">K:<span id="pk54"></span><span class="reading"> D:<span id="pd54"></span><span class="reading"> O:<span id="po54"></span></p>
+        <h4>Player 54</h4><p><span class="reading">Kills:<span id="pk54"></span><span class="reading"> Deaths:<span id="pd54"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 55</h4><p><span class="reading">K:<span id="pk55"></span><span class="reading"> D:<span id="pd55"></span><span class="reading"> O:<span id="po55"></span></p>
+        <h4>Player 55</h4><p><span class="reading">Kills:<span id="pk55"></span><span class="reading"> Deaths:<span id="pd55"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 56</h4><p><span class="reading">K:<span id="pk56"></span><span class="reading"> D:<span id="pd56"></span><span class="reading"> O:<span id="po56"></span></p>
+        <h4>Player 56</h4><p><span class="reading">Kills:<span id="pk56"></span><span class="reading"> Deaths:<span id="pd56"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 57</h4><p><span class="reading">K:<span id="pk57"></span><span class="reading"> D:<span id="pd57"></span><span class="reading"> O:<span id="po57"></span></p>
+        <h4>Player 57</h4><p><span class="reading">Kills:<span id="pk57"></span><span class="reading"> Deaths:<span id="pd57"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 58</h4><p><span class="reading">K:<span id="pk58"></span><span class="reading"> D:<span id="pd58"></span><span class="reading"> O:<span id="po58"></span></p>
+        <h4>Player 58</h4><p><span class="reading">Kills:<span id="pk58"></span><span class="reading"> Deaths:<span id="pd58"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 59</h4><p><span class="reading">K:<span id="pk59"></span><span class="reading"> D:<span id="pd59"></span><span class="reading"> O:<span id="po59"></span></p>
+        <h4>Player 59</h4><p><span class="reading">Kills:<span id="pk59"></span><span class="reading"> Deaths:<span id="pd59"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 60</h4><p><span class="reading">K:<span id="pk60"></span><span class="reading"> D:<span id="pd60"></span><span class="reading"> O:<span id="po60"></span></p>
+        <h4>Player 60</h4><p><span class="reading">Kills:<span id="pk60"></span><span class="reading"> Deaths:<span id="pd60"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 61</h4><p><span class="reading">K:<span id="pk61"></span><span class="reading"> D:<span id="pd61"></span><span class="reading"> O:<span id="po61"></span></p>
+        <h4>Player 61</h4><p><span class="reading">Kills:<span id="pk61"></span><span class="reading"> Deaths:<span id="pd61"></span></p>
       </div>      
       <div class="scard black">
-        <h4>Player 62</h4><p><span class="reading">K:<span id="pk62"></span><span class="reading"> D:<span id="pd62"></span><span class="reading"> O:<span id="po62"></span></p>
+        <h4>Player 62</h4><p><span class="reading">Kills:<span id="pk62"></span><span class="reading"> Deaths:<span id="pd62"></span></p>
       </div>
       <div class="scard black">
-        <h4>Player 63</h4><p><span class="reading">K:<span id="pk63"></span><span class="reading"> D:<span id="pd63"></span><span class="reading"> O:<span id="po63"></span></p>
+        <h4>Player 63</h4><p><span class="reading">Kills:<span id="pk63"></span><span class="reading"> Deaths:<span id="pd63"></span></p>
       </div>
     </div>
 <script>
@@ -978,194 +1000,131 @@ if (!!window.EventSource) {
   
   document.getElementById("pk0").innerHTML = obj.temporaryplayerscore0;
   document.getElementById("pd0").innerHTML = obj.temporaryplayerdeaths0;
-  document.getElementById("po0").innerHTML = obj.temporaryplayerobjectives0;
   document.getElementById("pk1").innerHTML = obj.temporaryplayerscore1;
   document.getElementById("pd1").innerHTML = obj.temporaryplayerdeaths1;
-  document.getElementById("po1").innerHTML = obj.temporaryplayerobjectives1;
   document.getElementById("pk2").innerHTML = obj.temporaryplayerscore2;
   document.getElementById("pd2").innerHTML = obj.temporaryplayerdeaths2;
-  document.getElementById("po2").innerHTML = obj.temporaryplayerobjectives2;
   document.getElementById("pk3").innerHTML = obj.temporaryplayerscore3;
   document.getElementById("pd3").innerHTML = obj.temporaryplayerdeaths3;
-  document.getElementById("po3").innerHTML = obj.temporaryplayerobjectives3;
   document.getElementById("pk4").innerHTML = obj.temporaryplayerscore4;
   document.getElementById("pd4").innerHTML = obj.temporaryplayerdeaths4;
-  document.getElementById("po4").innerHTML = obj.temporaryplayerobjectives4;
   document.getElementById("pk5").innerHTML = obj.temporaryplayerscore5;
   document.getElementById("pd5").innerHTML = obj.temporaryplayerdeaths5;
-  document.getElementById("po5").innerHTML = obj.temporaryplayerobjectives5;
   document.getElementById("pk6").innerHTML = obj.temporaryplayerscore6;
   document.getElementById("pd6").innerHTML = obj.temporaryplayerdeaths6;
-  document.getElementById("po6").innerHTML = obj.temporaryplayerobjectives6;
   document.getElementById("pk7").innerHTML = obj.temporaryplayerscore7;
   document.getElementById("pd7").innerHTML = obj.temporaryplayerdeaths7;
-  document.getElementById("po7").innerHTML = obj.temporaryplayerobjectives7;
   document.getElementById("pk8").innerHTML = obj.temporaryplayerscore8;
   document.getElementById("pd8").innerHTML = obj.temporaryplayerdeaths8;
-  document.getElementById("po8").innerHTML = obj.temporaryplayerobjectives8;
   document.getElementById("pk9").innerHTML = obj.temporaryplayerscore9;
   document.getElementById("pd9").innerHTML = obj.temporaryplayerdeaths9;
-  document.getElementById("po9").innerHTML = obj.temporaryplayerobjectives9;
   document.getElementById("pk10").innerHTML = obj.temporaryplayerscore10;
   document.getElementById("pd10").innerHTML = obj.temporaryplayerdeaths10;
-  document.getElementById("po10").innerHTML = obj.temporaryplayerobjectives10;
   document.getElementById("pk11").innerHTML = obj.temporaryplayerscore11;
   document.getElementById("pd11").innerHTML = obj.temporaryplayerdeaths11;
-  document.getElementById("po11").innerHTML = obj.temporaryplayerobjectives11;
   document.getElementById("pk12").innerHTML = obj.temporaryplayerscore12;
   document.getElementById("pd12").innerHTML = obj.temporaryplayerdeaths12;
-  document.getElementById("po12").innerHTML = obj.temporaryplayerobjectives12;
   document.getElementById("pk13").innerHTML = obj.temporaryplayerscore13;
   document.getElementById("pd13").innerHTML = obj.temporaryplayerdeaths13;
-  document.getElementById("po13").innerHTML = obj.temporaryplayerobjectives13;
   document.getElementById("pk14").innerHTML = obj.temporaryplayerscore14;
   document.getElementById("pd14").innerHTML = obj.temporaryplayerdeaths14;
-  document.getElementById("po14").innerHTML = obj.temporaryplayerobjectives14;
   document.getElementById("pk15").innerHTML = obj.temporaryplayerscore15;
   document.getElementById("pd15").innerHTML = obj.temporaryplayerdeaths15;
-  document.getElementById("po15").innerHTML = obj.temporaryplayerobjectives15;
   document.getElementById("pk16").innerHTML = obj.temporaryplayerscore16;
   document.getElementById("pd16").innerHTML = obj.temporaryplayerdeaths16;
-  document.getElementById("po16").innerHTML = obj.temporaryplayerobjectives16;
   document.getElementById("pk17").innerHTML = obj.temporaryplayerscore17;
   document.getElementById("pd17").innerHTML = obj.temporaryplayerdeaths17;
-  document.getElementById("po17").innerHTML = obj.temporaryplayerobjectives17;
   document.getElementById("pk18").innerHTML = obj.temporaryplayerscore18;
   document.getElementById("pd18").innerHTML = obj.temporaryplayerdeaths18;
-  document.getElementById("po18").innerHTML = obj.temporaryplayerobjectives18;
   document.getElementById("pk19").innerHTML = obj.temporaryplayerscore19;
   document.getElementById("pd19").innerHTML = obj.temporaryplayerdeaths19;
-  document.getElementById("po19").innerHTML = obj.temporaryplayerobjectives19;
   document.getElementById("pk20").innerHTML = obj.temporaryplayerscore20;
   document.getElementById("pd20").innerHTML = obj.temporaryplayerdeaths20;
-  document.getElementById("po20").innerHTML = obj.temporaryplayerobjectives20;
   document.getElementById("pk21").innerHTML = obj.temporaryplayerscore21;
   document.getElementById("pd21").innerHTML = obj.temporaryplayerdeaths21;
-  document.getElementById("po21").innerHTML = obj.temporaryplayerobjectives21;
   document.getElementById("pk22").innerHTML = obj.temporaryplayerscore22;
   document.getElementById("pd22").innerHTML = obj.temporaryplayerdeaths22;
-  document.getElementById("po22").innerHTML = obj.temporaryplayerobjectives22;
   document.getElementById("pk23").innerHTML = obj.temporaryplayerscore23;
   document.getElementById("pd23").innerHTML = obj.temporaryplayerdeaths23;
-  document.getElementById("po23").innerHTML = obj.temporaryplayerobjectives23;
   document.getElementById("pk24").innerHTML = obj.temporaryplayerscore24;
   document.getElementById("pd24").innerHTML = obj.temporaryplayerdeaths24;
-  document.getElementById("po24").innerHTML = obj.temporaryplayerobjectives24;
   document.getElementById("pk25").innerHTML = obj.temporaryplayerscore25;
   document.getElementById("pd25").innerHTML = obj.temporaryplayerdeaths25;
-  document.getElementById("po25").innerHTML = obj.temporaryplayerobjectives25;
   document.getElementById("pk26").innerHTML = obj.temporaryplayerscore26;
   document.getElementById("pd26").innerHTML = obj.temporaryplayerdeaths26;
-  document.getElementById("po26").innerHTML = obj.temporaryplayerobjectives26;
   document.getElementById("pk27").innerHTML = obj.temporaryplayerscore27;
   document.getElementById("pd27").innerHTML = obj.temporaryplayerdeaths27;
-  document.getElementById("po27").innerHTML = obj.temporaryplayerobjectives27;
   document.getElementById("pk28").innerHTML = obj.temporaryplayerscore28;
   document.getElementById("pd28").innerHTML = obj.temporaryplayerdeaths28;
-  document.getElementById("po28").innerHTML = obj.temporaryplayerobjectives28;
   document.getElementById("pk29").innerHTML = obj.temporaryplayerscore29;
   document.getElementById("pd29").innerHTML = obj.temporaryplayerdeaths29;
-  document.getElementById("po29").innerHTML = obj.temporaryplayerobjectives29;
   document.getElementById("pk30").innerHTML = obj.temporaryplayerscore30;
   document.getElementById("pd30").innerHTML = obj.temporaryplayerdeaths30;
-  document.getElementById("po30").innerHTML = obj.temporaryplayerobjectives30;
   document.getElementById("pk31").innerHTML = obj.temporaryplayerscore31;
   document.getElementById("pd31").innerHTML = obj.temporaryplayerdeaths31;
-  document.getElementById("po31").innerHTML = obj.temporaryplayerobjectives31;
   document.getElementById("pk32").innerHTML = obj.temporaryplayerscore32;
   document.getElementById("pd32").innerHTML = obj.temporaryplayerdeaths32;
-  document.getElementById("po32").innerHTML = obj.temporaryplayerobjectives32;
   document.getElementById("pk33").innerHTML = obj.temporaryplayerscore33;
   document.getElementById("pd33").innerHTML = obj.temporaryplayerdeaths33;
-  document.getElementById("po33").innerHTML = obj.temporaryplayerobjectives33;
   document.getElementById("pk34").innerHTML = obj.temporaryplayerscore34;
   document.getElementById("pd34").innerHTML = obj.temporaryplayerdeaths34;
-  document.getElementById("po34").innerHTML = obj.temporaryplayerobjectives34;
   document.getElementById("pk35").innerHTML = obj.temporaryplayerscore35;
   document.getElementById("pd35").innerHTML = obj.temporaryplayerdeaths35;
-  document.getElementById("po35").innerHTML = obj.temporaryplayerobjectives35;
   document.getElementById("pk36").innerHTML = obj.temporaryplayerscore36;
   document.getElementById("pk36").innerHTML = obj.temporaryplayerscore36;
   document.getElementById("pd36").innerHTML = obj.temporaryplayerdeaths36;
-  document.getElementById("po37").innerHTML = obj.temporaryplayerobjectives37;
   document.getElementById("pk37").innerHTML = obj.temporaryplayerscore37;
   document.getElementById("pd37").innerHTML = obj.temporaryplayerdeaths37;
-  document.getElementById("po38").innerHTML = obj.temporaryplayerobjectives38;
   document.getElementById("pk38").innerHTML = obj.temporaryplayerscore38;
   document.getElementById("pd38").innerHTML = obj.temporaryplayerdeaths38;
-  document.getElementById("po39").innerHTML = obj.temporaryplayerobjectives39;
   document.getElementById("pk39").innerHTML = obj.temporaryplayerscore39;
   document.getElementById("pd39").innerHTML = obj.temporaryplayerdeaths39;
-  document.getElementById("po40").innerHTML = obj.temporaryplayerobjectives40;
   document.getElementById("pk40").innerHTML = obj.temporaryplayerscore40;
   document.getElementById("pd40").innerHTML = obj.temporaryplayerdeaths40;
-  document.getElementById("po41").innerHTML = obj.temporaryplayerobjectives41;
   document.getElementById("pk41").innerHTML = obj.temporaryplayerscore41;
   document.getElementById("pd41").innerHTML = obj.temporaryplayerdeaths41;
-  document.getElementById("po42").innerHTML = obj.temporaryplayerobjectives42;
   document.getElementById("pk42").innerHTML = obj.temporaryplayerscore42;
   document.getElementById("pd42").innerHTML = obj.temporaryplayerdeaths42;
-  document.getElementById("po43").innerHTML = obj.temporaryplayerobjectives43;
   document.getElementById("pk43").innerHTML = obj.temporaryplayerscore43;
   document.getElementById("pd43").innerHTML = obj.temporaryplayerdeaths43;
-  document.getElementById("po44").innerHTML = obj.temporaryplayerobjectives44;
   document.getElementById("pk44").innerHTML = obj.temporaryplayerscore44;
   document.getElementById("pd44").innerHTML = obj.temporaryplayerdeaths44;
-  document.getElementById("po45").innerHTML = obj.temporaryplayerobjectives45;
   document.getElementById("pk45").innerHTML = obj.temporaryplayerscore45;
   document.getElementById("pd45").innerHTML = obj.temporaryplayerdeaths45;
-  document.getElementById("po46").innerHTML = obj.temporaryplayerobjectives46;
   document.getElementById("pk46").innerHTML = obj.temporaryplayerscore46;
   document.getElementById("pd46").innerHTML = obj.temporaryplayerdeaths46;
-  document.getElementById("po47").innerHTML = obj.temporaryplayerobjectives47;
   document.getElementById("pk47").innerHTML = obj.temporaryplayerscore47;
   document.getElementById("pd47").innerHTML = obj.temporaryplayerdeaths47;
-  document.getElementById("po48").innerHTML = obj.temporaryplayerobjectives48;
   document.getElementById("pk48").innerHTML = obj.temporaryplayerscore48;
   document.getElementById("pd48").innerHTML = obj.temporaryplayerdeaths48;
-  document.getElementById("po49").innerHTML = obj.temporaryplayerobjectives49;
   document.getElementById("pk49").innerHTML = obj.temporaryplayerscore49;
   document.getElementById("pd49").innerHTML = obj.temporaryplayerdeaths49;
-  document.getElementById("po50").innerHTML = obj.temporaryplayerobjectives50;
   document.getElementById("pk50").innerHTML = obj.temporaryplayerscore50;
   document.getElementById("pd50").innerHTML = obj.temporaryplayerdeaths50;
-  document.getElementById("po51").innerHTML = obj.temporaryplayerobjectives51;
   document.getElementById("pk51").innerHTML = obj.temporaryplayerscore51;
   document.getElementById("pd51").innerHTML = obj.temporaryplayerdeaths51;
-  document.getElementById("po52").innerHTML = obj.temporaryplayerobjectives52;
   document.getElementById("pk52").innerHTML = obj.temporaryplayerscore52;
   document.getElementById("pd52").innerHTML = obj.temporaryplayerdeaths52;
-  document.getElementById("po53").innerHTML = obj.temporaryplayerobjectives53;
   document.getElementById("pk53").innerHTML = obj.temporaryplayerscore53;
   document.getElementById("pd53").innerHTML = obj.temporaryplayerdeaths53;
-  document.getElementById("po54").innerHTML = obj.temporaryplayerobjectives54;
   document.getElementById("pk54").innerHTML = obj.temporaryplayerscore54;
   document.getElementById("pd54").innerHTML = obj.temporaryplayerdeaths54;
-  document.getElementById("po55").innerHTML = obj.temporaryplayerobjectives55;
   document.getElementById("pk55").innerHTML = obj.temporaryplayerscore55;
   document.getElementById("pd55").innerHTML = obj.temporaryplayerdeaths55;
-  document.getElementById("po56").innerHTML = obj.temporaryplayerobjectives56;
   document.getElementById("pk56").innerHTML = obj.temporaryplayerscore56;
   document.getElementById("pd56").innerHTML = obj.temporaryplayerdeaths56;
-  document.getElementById("po57").innerHTML = obj.temporaryplayerobjectives57;
   document.getElementById("pk57").innerHTML = obj.temporaryplayerscore57;
   document.getElementById("pd57").innerHTML = obj.temporaryplayerdeaths57;
-  document.getElementById("po58").innerHTML = obj.temporaryplayerobjectives58;
   document.getElementById("pk58").innerHTML = obj.temporaryplayerscore58;
   document.getElementById("pd58").innerHTML = obj.temporaryplayerdeaths58;
-  document.getElementById("po59").innerHTML = obj.temporaryplayerobjectives59;
   document.getElementById("pk59").innerHTML = obj.temporaryplayerscore59;
   document.getElementById("pd59").innerHTML = obj.temporaryplayerdeaths59;
-  document.getElementById("po60").innerHTML = obj.temporaryplayerobjectives60;
   document.getElementById("pk60").innerHTML = obj.temporaryplayerscore60;
   document.getElementById("pd60").innerHTML = obj.temporaryplayerdeaths60;
-  document.getElementById("po61").innerHTML = obj.temporaryplayerobjectives61;
   document.getElementById("pk61").innerHTML = obj.temporaryplayerscore61;
   document.getElementById("pd61").innerHTML = obj.temporaryplayerdeaths61;
-  document.getElementById("po62").innerHTML = obj.temporaryplayerobjectives62;
   document.getElementById("pk62").innerHTML = obj.temporaryplayerscore62;
   document.getElementById("pd62").innerHTML = obj.temporaryplayerdeaths62;
-  document.getElementById("po63").innerHTML = obj.temporaryplayerobjectives63;
   document.getElementById("pk63").innerHTML = obj.temporaryplayerscore63;
   document.getElementById("pd63").innerHTML = obj.temporaryplayerdeaths63;
  }, false);
@@ -3001,7 +2960,8 @@ void ProcessIncomingCommands() {
    if (incomingData2 < 1600 && incomingData2 > 1499) { // Misc. Debug
      int b = incomingData2 - 1500;
      if (b==1) {
-       InitializeJEDGE();
+       INITJEDGE = true;
+       //InitializeJEDGE();
        ChangeMyColor = SetTeam; // triggers a gun/tagger color change
      }
      if (b==2) {
@@ -3116,16 +3076,16 @@ void InitializeJEDGE() {
     forfun--;
   }
   */
-  sendString("$_BAT,4162,*"); // test for gen3
-  sendString("$PLAYX,0,*"); // test for gen3
-  sendString("$VERSION,*"); // test for gen3
+  //sendString("$_BAT,4162,*"); // test for gen3
+  //sendString("$PLAYX,0,*"); // test for gen3
+  //sendString("$VERSION,*"); // test for gen3
   sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
   Serial.println();
   Serial.println("JEDGE is taking over the BRX");
   //sendString("$CLEAR,*"); // clears any brx settings
   sendString("$STOP,*"); // starts the callsign mode up
-  delay(300);
-  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
+  //delay(300);
+  //sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
   sendString("$PLAY,VA20,4,6,,,,,*"); // says "connection established"
   sendString("$HLED,0,0,,,10,,*"); // test for gen3
   sendString("$GLED,0,0,0,0,10,,*"); // test for gen3
@@ -4352,12 +4312,12 @@ void Audio() {
 //********************************************************************************************
 // This main game object
 void MainGame() {
+  if (INITJEDGE) {
+    INITJEDGE = false;
+    InitializeJEDGE();
+  }
   if (ChangeMyColor != CurrentColor) { // need to change colors
     ChangeColors();
-  }
-  if (TERMINALINPUT) {
-    TERMINALINPUT = false;
-    sendString(TerminalInput); // sets max volume on gun 0-100 feet distance
   }
   if (AUDIO) {
     Audio();
@@ -5252,7 +5212,11 @@ void loop2(void *pvParameters) {
   Menu[13] = 1303;
   Menu[14] = 1400;
   Menu[15] = 1500;
-  
+  if (!ACTASHOST) {
+    RUNWEBSERVER = false;
+    WiFi.softAPdisconnect (true);
+    Serial.println("Device is not intended to act as WebServer / Host. Shutting down AP and WebServer");
+  }
   while (1) { // starts the forever loop
     if (RUNWEBSERVER) {
       ws.cleanupClients();
@@ -5318,7 +5282,7 @@ void loop2(void *pvParameters) {
             UpdateWebApp1();
           }
           if (WebAppUpdaterProcessCounter == 2) {
-            //UpdateWebApp2();
+            UpdateWebApp2();
           }
           WebAppUpdaterProcessCounter++;
         }
