@@ -100,7 +100,7 @@
  * UPDATED 04/20/2021 Fixed the bug for ending games, on host device/tagger
  *                    Added a toggle to allow for disabling Access point and web server
  * updated 04/26/2021 Fixed all scoring bugs (I hope) had it tested by Paul a bit and tested a bit on my own. Finalized how i want scoring to show on the app for totals - I should be all done with scoring
- * 
+ *                    Added in syncing local scores if host device is a tagger.
  *                    
  *                    
  *                    
@@ -287,6 +287,7 @@ int TeamObjectives[4];
 int TeamDeaths[4];
 String ScoreString = "0";
 long ScorePreviousMillis = 0;
+bool SYNCLOCALSCORES = false;
 
 
 //*****************************************************************************************
@@ -3311,21 +3312,21 @@ void SyncScores() {
   //bridge1.virtualWrite(V100, ScoreData); // sending the whole string from esp32
   Serial.println("Sent Score data to Server");
   //reset sent scores:
-  Serial.println("resetting all scores");
-  CompletedObjectives = 0;
-  int teamcounter = 0;
-  while (teamcounter < 6) {
-    TeamKillCount[teamcounter] = 0;
-    teamcounter++;
-    vTaskDelay(1);
-  }
-  int playercounter = 0;
-  while (playercounter < 64) {
-    PlayerKillCount[playercounter] = 0;
-    playercounter++;
-    vTaskDelay(1);
-  }
-  Serial.println("Scores Reset");  
+  //Serial.println("resetting all scores");
+  //CompletedObjectives = 0;
+  //int teamcounter = 0;
+  //while (teamcounter < 6) {
+    //TeamKillCount[teamcounter] = 0;
+    //teamcounter++;
+    //vTaskDelay(1);
+  //}
+  //int playercounter = 0;
+  //while (playercounter < 64) {
+    //PlayerKillCount[playercounter] = 0;
+    //playercounter++;
+    //vTaskDelay(1);
+  //}
+  //Serial.println("Scores Reset");  
 }
 //******************************************************************************************
 
@@ -5286,6 +5287,7 @@ void RequestingScores() {
     ScoreRequestCounter = 0;
     Serial.println("All Scores Requested, Closing Score Request Process, Resetting Counter");
     UPDATEWEBAPP = true;
+    SYNCLOCALSCORES = true;
     WebAppUpdaterTimer = millis();
   }
   Serial.print("cOMMS loop running on core ");
@@ -5454,6 +5456,16 @@ void loop2(void *pvParameters) {
     }
     if (UPDATEWEBAPP) {
       if (WebAppUpdaterProcessCounter < 3) {
+        if (SYNCLOCALSCORES) {
+          SYNCLOCALSCORES = false;
+          // create a string that looks like this: 
+          // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
+          String LocalScoreData = String(GunID)+","+String(SetTeam)+","+String(CompletedObjectives)+","+String(TeamKillCount[0])+","+String(TeamKillCount[1])+","+String(TeamKillCount[2])+","+String(TeamKillCount[3])+","+String(TeamKillCount[4])+","+String(TeamKillCount[5])+","+String(PlayerKillCount[0])+","+String(PlayerKillCount[1])+","+String(PlayerKillCount[2])+","+String(PlayerKillCount[3])+","+String(PlayerKillCount[4])+","+String(PlayerKillCount[5])+","+String(PlayerKillCount[6])+","+String(PlayerKillCount[7])+","+String(PlayerKillCount[8])+","+String(PlayerKillCount[9])+","+String(PlayerKillCount[10])+","+String(PlayerKillCount[11])+","+String(PlayerKillCount[12])+","+String(PlayerKillCount[13])+","+String(PlayerKillCount[14])+","+String(PlayerKillCount[15])+","+String(PlayerKillCount[16])+","+String(PlayerKillCount[17])+","+String(PlayerKillCount[18])+","+String(PlayerKillCount[19])+","+String(PlayerKillCount[20])+","+String(PlayerKillCount[21])+","+String(PlayerKillCount[22])+","+String(PlayerKillCount[23])+","+String(PlayerKillCount[24])+","+String(PlayerKillCount[25])+","+String(PlayerKillCount[26])+","+String(PlayerKillCount[27])+","+String(PlayerKillCount[28])+","+String(PlayerKillCount[29])+","+String(PlayerKillCount[30])+","+String(PlayerKillCount[31])+","+String(PlayerKillCount[32])+","+String(PlayerKillCount[33])+","+String(PlayerKillCount[34])+","+String(PlayerKillCount[35])+","+String(PlayerKillCount[36])+","+String(PlayerKillCount[37])+","+String(PlayerKillCount[38])+","+String(PlayerKillCount[39])+","+String(PlayerKillCount[40])+","+String(PlayerKillCount[41])+","+String(PlayerKillCount[42])+","+String(PlayerKillCount[43])+","+String(PlayerKillCount[44])+","+String(PlayerKillCount[45])+","+String(PlayerKillCount[46])+","+String(PlayerKillCount[47])+","+String(PlayerKillCount[48])+","+String(PlayerKillCount[49])+","+String(PlayerKillCount[50])+","+String(PlayerKillCount[51])+","+String(PlayerKillCount[52])+","+String(PlayerKillCount[53])+","+String(PlayerKillCount[54])+","+String(PlayerKillCount[55])+","+String(PlayerKillCount[56])+","+String(PlayerKillCount[57])+","+String(PlayerKillCount[58])+","+String(PlayerKillCount[59])+","+String(PlayerKillCount[60])+","+String(PlayerKillCount[61])+","+String(PlayerKillCount[62])+","+String(PlayerKillCount[63]);
+          Serial.println("Sending the following Score Data to Server");
+          Serial.println(LocalScoreData);
+          incomingData4 = LocalScoreData;
+          AccumulateIncomingScores();
+        }
         unsigned long UpdaterCurrentMillis = millis();
         if (UpdaterCurrentMillis - WebAppUpdaterTimer > 1200) {
           WebAppUpdaterTimer = UpdaterCurrentMillis;
