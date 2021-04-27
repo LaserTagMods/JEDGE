@@ -99,6 +99,8 @@
  *                    Added OTA back in
  * UPDATED 04/20/2021 Fixed the bug for ending games, on host device/tagger
  *                    Added a toggle to allow for disabling Access point and web server
+ * updated 04/26/2021 Fixed all scoring bugs (I hope) had it tested by Paul a bit and tested a bit on my own. Finalized how i want scoring to show on the app for totals - I should be all done with scoring
+ * 
  *                    
  *                    
  *                    
@@ -530,20 +532,173 @@ void UpdateWebApp1() {
   //Serial.println(xPortGetCoreID());
 }
 void UpdateWebApp2() { 
-  pid = 0; // player id place holder
-  while (pid < TaggersOwned) {
-    //PlayerKills[pid] = random(25);
-    //board["pid"] = pid;
-    //board["temporaryplayerscore"+String(pid)] = PlayerKills[pid];
-    //board["temporaryplayerdeaths"+String(pid)] = PlayerDeaths[pid];
-    board["temporaryplayerobjectives"+String(pid)] = PlayerObjectives[pid];
-    //Serial.println("p value: " + String(PlayerKills[pid]));
-    //Serial.println("player ID: " + String(pid));
-    //String jsonString = JSON.stringify(board);
-    //events.send(jsonString.c_str(), "new_readings", millis());
-    pid++; //
-    //delay(1);
-  }
+  // now we calculate and send leader board information
+      Serial.println("Game Highlights:");
+      Serial.println();
+      int KillsLeader[3];
+      int ObjectiveLeader[3];
+      int DeathsLeader[3];
+      int LeaderScore[3];
+      // first Leader for Kills:
+      int kmax=0; 
+      int highest=0;
+      for (int k=0; k<64; k++)
+      if (PlayerKills[k] > highest) {
+        highest = PlayerKills[k];
+        kmax = k;
+      }
+      //  max now contains the largest kills value
+      // kmax contains the index to the largest kills value.
+      KillsLeader[0] = kmax; // setting the slot 0 for the first place holder
+      LeaderScore[0] = highest; // setts the leader score as a temp stored data for now      
+      PlayerKills[kmax]=0; // resetting the first place leader's score
+      // we do it again for second place
+      kmax=0; highest=0; // starting over again but now the highest score is gone
+      for (int k=0; k<64; k++)
+      if (PlayerKills[k] > highest) {
+        highest = PlayerKills[k];
+        kmax = k;
+      }
+      //  max now contains the largest kills value
+      // kmax contains the index to the largest kills value.
+      KillsLeader[1] = kmax; // setting the slot 1 for the second place holder
+      LeaderScore[1] = highest; // setts the leader score as a temp stored data for now      
+      PlayerKills[kmax]=0; // resetting the second place leader's score
+      // one final time for third place
+      kmax=0; highest=0; // starting over again but now the highest score is gone
+      for (int k=0; k<64; k++)
+      if (PlayerKills[k] > highest) {
+        highest = PlayerKills[k];
+        kmax = k;
+      }
+      //  max now contains the largest kills value
+      // kmax contains the index to the largest kills value.
+      KillsLeader[2] = kmax; // setting the slot 2 for the first place holder
+      LeaderScore[2] = highest; // setts the third score as a temp stored data for now      
+      PlayerKills[kmax]=0; // resetting the first place leader's score
+      // now we send the updates to the blynk app
+      Serial.println("Most Deadliest, Players with the most kills:");
+      Serial.println("1st place: Player " + String(KillsLeader[0]) + " with " + String(LeaderScore[0]));
+      Serial.println("2nd place: Player " + String(KillsLeader[1]) + " with " + String(LeaderScore[1]));
+      Serial.println("3rd place: Player " + String(KillsLeader[2]) + " with " + String(LeaderScore[2]));
+      Serial.println();
+      board["KillsLeader0"] = KillsLeader[0];
+      board["Leader0Kills"] = LeaderScore[0];
+      board["KillsLeader1"] = KillsLeader[1];
+      board["Leader1Kills"] = LeaderScore[1];
+      board["KillsLeader2"] = KillsLeader[2];
+      board["Leader2Kills"] = LeaderScore[2];
+      // now get the player's scores back where they should be:
+      PlayerKills[KillsLeader[0]] = LeaderScore[0];
+      PlayerKills[KillsLeader[1]] = LeaderScore[1];
+      PlayerKills[KillsLeader[2]] = LeaderScore[2];
+
+      // Now Leader for Objectives:
+      kmax=0; highest=0;
+      for (int k=0; k<64; k++)
+      if (PlayerObjectives[k] > highest) {
+        highest = PlayerObjectives[k];
+        kmax = k;
+      }
+      //  max now contains the largest kills value
+      // kmax contains the index to the largest kills value.
+      ObjectiveLeader[0] = kmax; // setting the slot 0 for the first place holder
+      LeaderScore[0] = highest; // setts the leader score as a temp stored data for now      
+      PlayerObjectives[kmax]=0; // resetting the first place leader's score
+      // we do it again for second place
+      kmax=0; highest=0; // starting over again but now the highest score is gone
+      for (int k=0; k<64; k++)
+      if (PlayerObjectives[k] > highest) {
+        highest = PlayerObjectives[k];
+        kmax = k;
+      }
+      //  max now contains the largest kills value
+      // kmax contains the index to the largest kills value.
+      ObjectiveLeader[1] = kmax; // setting the slot 1 for the second place holder
+      LeaderScore[1] = highest; // setts the leader score as a temp stored data for now      
+      PlayerObjectives[kmax]=0; // resetting the second place leader's score
+      // one final time for third place
+      kmax=0; highest=0; // starting over again but now the highest score is gone
+      for (int k=0; k<64; k++)
+      if (PlayerObjectives[k] > highest) {
+        highest = PlayerObjectives[k];
+        kmax = k;
+      }
+      //  max now contains the largest kills value
+      // kmax contains the index to the largest kills value.
+      ObjectiveLeader[2] = kmax; // setting the slot 2 for the first place holder
+      LeaderScore[2] = highest; // setts the third score as a temp stored data for now      
+      PlayerObjectives[kmax]=0; // resetting the first place leader's score
+      // now we send the updates to the blynk app
+      Serial.println("The Dominator, Players with the most objective points:");
+      Serial.println("1st place: Player " + String(ObjectiveLeader[0]) + " with " + String(LeaderScore[0]));
+      Serial.println("2nd place: Player " + String(ObjectiveLeader[1]) + " with " + String(LeaderScore[1]));
+      Serial.println("3rd place: Player " + String(ObjectiveLeader[2]) + " with " + String(LeaderScore[2]));
+      Serial.println();      
+      board["ObjectiveLeader0"] = ObjectiveLeader[0];
+      board["Leader0Objectives"] = LeaderScore[0];
+      board["ObjectiveLeader1"] = ObjectiveLeader[1];
+      board["Leader1Objectives"] = LeaderScore[1];
+      board["ObjectiveLeader2"] = ObjectiveLeader[2];
+      board["Leader2Objectives"] = LeaderScore[2];
+      // now get the player's scores back where they should be:
+      PlayerObjectives[ObjectiveLeader[0]] = LeaderScore[0];
+      PlayerObjectives[ObjectiveLeader[1]] = LeaderScore[1];
+      PlayerObjectives[ObjectiveLeader[2]] = LeaderScore[2];
+
+      // Now Leader for Deaths (this is opposite:
+      kmax=0; highest=0;
+      for (int k=0; k<64; k++)
+      if (PlayerDeaths[k] > highest) {
+        highest = PlayerDeaths[k];
+        kmax = k;
+      }
+      //  max now contains the largest kills value
+      // kmax contains the index to the largest kills value.
+      DeathsLeader[0] = kmax; // setting the slot 0 for the first place holder
+      LeaderScore[0] = highest; // setts the leader score as a temp stored data for now      
+      PlayerDeaths[kmax]=0; // resetting the first place leader's score
+      // we do it again for second place
+      kmax=0; highest=0; // starting over again but now the highest score is gone
+      for (int k=0; k<64; k++)
+      if (PlayerDeaths[k] > highest) {
+        highest = PlayerDeaths[k];
+        kmax = k;
+      }
+      //  max now contains the largest kills value
+      // kmax contains the index to the largest kills value.
+      DeathsLeader[1] = kmax; // setting the slot 1 for the second place holder
+      LeaderScore[1] = highest; // setts the leader score as a temp stored data for now      
+      PlayerDeaths[kmax]=0; // resetting the second place leader's score
+      // one final time for third place
+      kmax=0; highest=0; // starting over again but now the highest score is gone
+      for (int k=0; k<64; k++)
+      if (PlayerDeaths[k] > highest) {
+        highest = PlayerDeaths[k];
+        kmax = k;
+      }
+      //  max now contains the largest kills value
+      // kmax contains the index to the largest kills value.
+      DeathsLeader[2] = kmax; // setting the slot 2 for the first place holder
+      LeaderScore[2] = highest; // setts the third score as a temp stored data for now      
+      PlayerDeaths[kmax]=0; // resetting the first place leader's score
+      // now we send the updates to the blynk app
+      Serial.println("Easy Target, Players with the most deaths:");
+      Serial.println("1st place: Player " + String(DeathsLeader[0]) + " with " + String(LeaderScore[0]));
+      Serial.println("2nd place: Player " + String(DeathsLeader[1]) + " with " + String(LeaderScore[1]));
+      Serial.println("3rd place: Player " + String(DeathsLeader[2]) + " with " + String(LeaderScore[2]));
+      Serial.println();
+      board["DeathsLeader0"] = DeathsLeader[0];
+      board["Leader0Deaths"] = LeaderScore[0];
+      board["DeathsLeader1"] = DeathsLeader[1];
+      board["Leader1Deaths"] = LeaderScore[1];
+      board["DeathsLeader2"] = DeathsLeader[2];
+      board["Leader2Deaths"] = LeaderScore[2];
+      // now get the player's scores back where they should be:
+      PlayerDeaths[DeathsLeader[0]] = LeaderScore[0];
+      PlayerDeaths[DeathsLeader[1]] = LeaderScore[1];
+      PlayerDeaths[DeathsLeader[2]] = LeaderScore[2];
+  
   String jsonString = JSON.stringify(board);
   events.send(jsonString.c_str(), "new_readings", millis());
   //Serial.print("cOMMS loop running on core ");
@@ -759,11 +914,17 @@ const char index_html[] PROGMEM = R"rawliteral(
     <div class="scards">
       <div class="scard black">
         <h2>Most Kills</h2>
-        <p><span class="reading">Player:<span id="MK"></span></p>
+        <p><span class="reading">Player <span id="MK0"></span><span class="reading"> : <span id="MK10"></span></p>
+        <p><span class="reading">Player <span id="MK1"></span><span class="reading"> : <span id="MK11"></span></p>
+        <p><span class="reading">Player <span id="MK2"></span><span class="reading"> : <span id="MK12"></span></p>
         <h2>Most Deaths</h2>
-        <p><span class="reading">Player:<span id="MD"></span></p>
+        <p><span class="reading">Player <span id="MD0"></span><span class="reading"> : <span id="MD10"></span></p>
+        <p><span class="reading">Player <span id="MD1"></span><span class="reading"> : <span id="MD11"></span></p>
+        <p><span class="reading">Player <span id="MD2"></span><span class="reading"> : <span id="MD12"></span></p>
         <h2>Most Points</h2>
-        <p><span class="reading">Player:<span id="MO"></span></p>
+        <p><span class="reading">Player <span id="MO0"></span><span class="reading"> : <span id="MO10"></span></p>
+        <p><span class="reading">Player <span id="MO1"></span><span class="reading"> : <span id="MO11"></span></p>
+        <p><span class="reading">Player <span id="MO2"></span><span class="reading"> : <span id="MO12"></span></p>
       </div>
     </div>
   </div>
@@ -1127,6 +1288,27 @@ if (!!window.EventSource) {
   document.getElementById("pd62").innerHTML = obj.temporaryplayerdeaths62;
   document.getElementById("pk63").innerHTML = obj.temporaryplayerscore63;
   document.getElementById("pd63").innerHTML = obj.temporaryplayerdeaths63;
+
+  document.getElementById("MK0").innerHTML = obj.KillsLeader0;
+  document.getElementById("MK10").innerHTML = obj.Leader0Kills;
+  document.getElementById("MK1").innerHTML = obj.KillsLeader1;
+  document.getElementById("MK11").innerHTML = obj.Leader1Kills;
+  document.getElementById("MK2").innerHTML = obj.KillsLeader2;
+  document.getElementById("MK12").innerHTML = obj.Leader2Kills;
+
+  document.getElementById("MO0").innerHTML = obj.ObjectivesLeader0;
+  document.getElementById("MO10").innerHTML = obj.Leader0Objectives;
+  document.getElementById("MO1").innerHTML = obj.ObjectivesLeader1;
+  document.getElementById("MO11").innerHTML = obj.Leader1Objectives;
+  document.getElementById("MO2").innerHTML = obj.ObjectivesLeader2;
+  document.getElementById("MO12").innerHTML = obj.Leader2Objectives;
+
+  document.getElementById("MD0").innerHTML = obj.DeathsLeader0;
+  document.getElementById("MD10").innerHTML = obj.Leader0Deaths;
+  document.getElementById("MD1").innerHTML = obj.DeathsLeader1;
+  document.getElementById("MD11").innerHTML = obj.Leader1Deaths;
+  document.getElementById("MD2").innerHTML = obj.DeathsLeader2;
+  document.getElementById("MD12").innerHTML = obj.Leader2Deaths;
  }, false);
 }
   var gateway = `ws://${window.location.hostname}/ws`;
