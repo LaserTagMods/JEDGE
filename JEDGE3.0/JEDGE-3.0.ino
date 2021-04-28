@@ -259,6 +259,8 @@ bool AMMOPOUCH = false; // used for enabling reload of a weapon
 bool LOOT = false; // used to indicate a loot occured
 bool STEALTH = false; // used to turn off gun led side lights
 bool INITJEDGE = false;
+bool STRINGSENDER = false;
+String StringSender = "Null";
 
 long startScan = 0; // part of BLE enabling
 
@@ -799,9 +801,6 @@ const char index_html[] PROGMEM = R"rawliteral(
       <h2>Initialize JEDGE</h2>
       <p class="state">Initialize JEDGE<span id="IJ">%JEDGE%</span></p>
       <p><button id="initializejedge" class="button">Lockout Players</button></p>
-      <h2>Firmware-Upgrade</h2>
-      <p class="state">Init OTA<span id="OTA">%UPDATE%</span></p>
-      <p><button id="initializeotaupdate" class="button">OTA Mode</button></p>
     </div>
   </div>
   <div class="stopnav">
@@ -1127,6 +1126,16 @@ const char index_html[] PROGMEM = R"rawliteral(
         <h4>Player 63</h4><p><span class="reading">Kills:<span id="pk63"></span><span class="reading"> Deaths:<span id="pd63"></span></p>
       </div>
     </div>
+  <div class="topnav">
+    <h1>Firmware Upgrade</h1>
+  </div>
+  <div class="content">
+    <div class="card">
+      <h2>Over The Air Updates</h2>
+      <p class="state">Init OTA<span id="OTA">%UPDATE%</span></p>
+      <p><button id="initializeotaupdate" class="button">OTA Mode</button></p>
+    </div>
+  </div>
 <script>
 if (!!window.EventSource) {
  var source = new EventSource('/events');
@@ -1355,7 +1364,7 @@ if (!!window.EventSource) {
     }
     if (event.data == "1505"){
       OTA = "OTA Enabled";
-      document.getElementById('OTA').innerHTML = OTA;
+      document.getElementById('OTA').innerHTML = OTA;     
     }
     if (event.data == "1"){
       W0 = "Manual Selection";
@@ -3187,11 +3196,10 @@ void ProcessIncomingCommands() {
      if (b==5) { //1505
        Serial.println("OTA Update Mode");
        INITIALIZEOTA = true;
-       if (ChangeMyColor > 8) {
-          ChangeMyColor = 4; // triggers a gun/tagger color change
-        } else { 
-          ChangeMyColor++;
-        }
+       StringSender = "$HLOOP,2,1200,*";
+       STRINGSENDER = true;
+       AudioSelection="VA3L";
+       AUDIO=true;       
      }
    }
    if (incomingData2 < 1700 && incomingData2 > 1599) { // Player-Team Selector
@@ -4351,7 +4359,7 @@ void delaystart() {
   Serial.println("resetting all scores");
   CompletedObjectives = 0;
   int teamcounter = 0;
-  while (teamcounter < 6) {
+  while (teamcounter < 4) {
     TeamKillCount[teamcounter] = 0;
     teamcounter++;
     vTaskDelay(1);
@@ -4523,6 +4531,11 @@ void MainGame() {
   }
   if (AUDIO1) {
     Audio();
+  }
+  if (STRINGSENDER) {
+    STRINGSENDER = false;
+    sendString(StringSender); //
+    StringSender = "Null";
   }
   if (GAMEOVER) { // checks if something triggered game over (out of lives, objective met)
     gameover(); // runs object to kick player out of game
