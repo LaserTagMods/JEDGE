@@ -4347,6 +4347,22 @@ void delaystart() {
   GAMEOVER=false;
   INGAME=true;
   sendString("$PLAY,VA1A,4,6,,,,,*"); // plays the .. let the battle begin
+  //reset sent scores:
+  Serial.println("resetting all scores");
+  CompletedObjectives = 0;
+  int teamcounter = 0;
+  while (teamcounter < 6) {
+    TeamKillCount[teamcounter] = 0;
+    teamcounter++;
+    vTaskDelay(1);
+  }
+  int playercounter = 0;
+  while (playercounter < 64) {
+    PlayerKillCount[playercounter] = 0;
+    playercounter++;
+    vTaskDelay(1);
+  }
+  Serial.println("Scores Reset");
 }
 
 
