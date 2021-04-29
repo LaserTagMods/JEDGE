@@ -259,6 +259,8 @@ bool AMMOPOUCH = false; // used for enabling reload of a weapon
 bool LOOT = false; // used to indicate a loot occured
 bool STEALTH = false; // used to turn off gun led side lights
 bool INITJEDGE = false;
+bool STRINGSENDER = false;
+String StringSender = "Null";
 
 long startScan = 0; // part of BLE enabling
 
@@ -3190,6 +3192,10 @@ void ProcessIncomingCommands() {
      if (b==5) { //1505
        Serial.println("OTA Update Mode");
        INITIALIZEOTA = true;
+       StringSender = "$HLOOP,2,1200,*";
+       STRINGSENDER = true;
+       AudioSelection="VA3L";
+       AUDIO=true;  
        if (ChangeMyColor > 8) {
           ChangeMyColor = 4; // triggers a gun/tagger color change
         } else { 
@@ -4352,6 +4358,22 @@ void delaystart() {
   GAMEOVER=false;
   INGAME=true;
   sendString("$PLAY,VA1A,4,6,,,,,*"); // plays the .. let the battle begin
+  //reset sent scores:
+  Serial.println("resetting all scores");
+  CompletedObjectives = 0;
+  int teamcounter = 0;
+  while (teamcounter < 4) {
+    TeamKillCount[teamcounter] = 0;
+    teamcounter++;
+    vTaskDelay(1);
+  }
+  int playercounter = 0;
+  while (playercounter < 64) {
+    PlayerKillCount[playercounter] = 0;
+    playercounter++;
+    vTaskDelay(1);
+  }
+  Serial.println("Scores Reset");
 }
 
 
@@ -4512,6 +4534,11 @@ void MainGame() {
   }
   if (AUDIO1) {
     Audio();
+  }
+  if (STRINGSENDER) {
+    STRINGSENDER = false;
+    sendString(StringSender); //
+    StringSender = "Null";
   }
   if (GAMEOVER) { // checks if something triggered game over (out of lives, objective met)
     gameover(); // runs object to kick player out of game
