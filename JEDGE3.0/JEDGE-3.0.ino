@@ -137,14 +137,14 @@ bool FAKESCORE = false;
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
-int GunID = 10; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+int GunID = 0; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
 int GunGeneration = 2; // change to gen 1, 2, 3
-const char GunName[] = "GUN#10"; // used for OTA id recognition on network and for AP for web server
+const char GunName[] = "GUN#0"; // used for OTA id recognition on network and for AP for web server
 const char* password = "123456789"; // Password for web server
 const char* OTAssid = "maxipad"; // network name to update OTA
 const char* OTApassword = "9165047812"; // Network password for OTA
 int TaggersOwned = 64; // how many taggers do you own or will play?
-bool ACTASHOST = true; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
+bool ACTASHOST = false; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -259,8 +259,6 @@ bool AMMOPOUCH = false; // used for enabling reload of a weapon
 bool LOOT = false; // used to indicate a loot occured
 bool STEALTH = false; // used to turn off gun led side lights
 bool INITJEDGE = false;
-bool STRINGSENDER = false;
-String StringSender = "Null";
 
 long startScan = 0; // part of BLE enabling
 
@@ -802,6 +800,11 @@ const char index_html[] PROGMEM = R"rawliteral(
       <p class="state">Initialize JEDGE<span id="IJ">%JEDGE%</span></p>
       <p><button id="initializejedge" class="button">Lockout Players</button></p>
     </div>
+    <div class="card">
+      <h2>OTA Updates</h2>
+      <p class="state">Init OTA<span id="OTA">%UPDATE%</span></p>
+      <p><button id="initializeotaupdate" class="button">OTA Mode</button></p>
+    </div>
   </div>
   <div class="stopnav">
     <h3>Host Control Panel</h3>
@@ -1126,15 +1129,6 @@ const char index_html[] PROGMEM = R"rawliteral(
         <h4>Player 63</h4><p><span class="reading">Kills:<span id="pk63"></span><span class="reading"> Deaths:<span id="pd63"></span></p>
       </div>
     </div>
-  <div class="topnav">
-    <h1>Firmware Upgrade</h1>
-  </div>
-  <div class="content">
-    <div class="card">
-      <h2>Over The Air Updates</h2>
-      <p class="state">Init OTA<span id="OTA">%UPDATE%</span></p>
-      <p><button id="initializeotaupdate" class="button">OTA Mode</button></p>
-    </div>
   </div>
 <script>
 if (!!window.EventSource) {
@@ -1364,7 +1358,7 @@ if (!!window.EventSource) {
     }
     if (event.data == "1505"){
       OTA = "OTA Enabled";
-      document.getElementById('OTA').innerHTML = OTA;     
+      document.getElementById('OTA').innerHTML = OTA;
     }
     if (event.data == "1"){
       W0 = "Manual Selection";
@@ -3196,10 +3190,11 @@ void ProcessIncomingCommands() {
      if (b==5) { //1505
        Serial.println("OTA Update Mode");
        INITIALIZEOTA = true;
-       StringSender = "$HLOOP,2,1200,*";
-       STRINGSENDER = true;
-       AudioSelection="VA3L";
-       AUDIO=true;       
+       if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
+        }
      }
    }
    if (incomingData2 < 1700 && incomingData2 > 1599) { // Player-Team Selector
@@ -3498,7 +3493,9 @@ void InitAP() {
 void InitOTA() {
   Serial.println("Starting OTA Update");
   WiFi.softAPdisconnect (true);
+  delay(200);
   WiFi.mode(WIFI_STA);
+  delay(200);
   WiFi.begin(OTAssid, OTApassword);
   while (WiFi.waitForConnectResult() != WL_CONNECTED) {
     Serial.println("Connection Failed! Rebooting...");
@@ -4355,22 +4352,6 @@ void delaystart() {
   GAMEOVER=false;
   INGAME=true;
   sendString("$PLAY,VA1A,4,6,,,,,*"); // plays the .. let the battle begin
-  //reset sent scores:
-  Serial.println("resetting all scores");
-  CompletedObjectives = 0;
-  int teamcounter = 0;
-  while (teamcounter < 4) {
-    TeamKillCount[teamcounter] = 0;
-    teamcounter++;
-    vTaskDelay(1);
-  }
-  int playercounter = 0;
-  while (playercounter < 64) {
-    PlayerKillCount[playercounter] = 0;
-    playercounter++;
-    vTaskDelay(1);
-  }
-  Serial.println("Scores Reset");
 }
 
 
@@ -4531,11 +4512,6 @@ void MainGame() {
   }
   if (AUDIO1) {
     Audio();
-  }
-  if (STRINGSENDER) {
-    STRINGSENDER = false;
-    sendString(StringSender); //
-    StringSender = "Null";
   }
   if (GAMEOVER) { // checks if something triggered game over (out of lives, objective met)
     gameover(); // runs object to kick player out of game
