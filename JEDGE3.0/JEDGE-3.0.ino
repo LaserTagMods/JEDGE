@@ -101,6 +101,9 @@
  *                    Added a toggle to allow for disabling Access point and web server
  * updated 04/26/2021 Fixed all scoring bugs (I hope) had it tested by Paul a bit and tested a bit on my own. Finalized how i want scoring to show on the app for totals - I should be all done with scoring
  *                    Added in syncing local scores if host device is a tagger.
+ * updated 05/01/2021 found bug for assimilation - hopefully fixed by adding in player settings object
+ *                    added in menu option for doing variations of melee.
+ *                    finished gun game mode
  *                    
  *                    
  *                    
@@ -137,14 +140,14 @@ bool FAKESCORE = false;
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
-int GunID = 0; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+int GunID = 10; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
 int GunGeneration = 2; // change to gen 1, 2, 3
-const char GunName[] = "GUN#0"; // used for OTA id recognition on network and for AP for web server
+const char GunName[] = "GUN#10"; // used for OTA id recognition on network and for AP for web server
 const char* password = "123456789"; // Password for web server
 const char* OTAssid = "maxipad"; // network name to update OTA
 const char* OTApassword = "9165047812"; // Network password for OTA
 int TaggersOwned = 64; // how many taggers do you own or will play?
-bool ACTASHOST = false; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
+bool ACTASHOST = true; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -160,6 +163,7 @@ int settingsallowed = 0; // trigger variable used to walk through steps for conf
 int settingsallowed1 = 0; // trigger variable used to walk through steps for configuring gun(s) for BLE core
 int SetSlotA=2; // this is for weapon slot 0, default is AMR
 int SLOTA=100; // used when weapon selection is manual
+int Melee = 0; // default melee to off
 int SetSlotB=1; // this is for weapon slot 1, default is unarmed
 int SLOTB=100; // used when weapon selection is manual
 int SetLives=32000; // used for configuring lives
@@ -261,6 +265,7 @@ bool STEALTH = false; // used to turn off gun led side lights
 bool INITJEDGE = false;
 bool STRINGSENDER = false;
 String StringSender = "Null";
+bool DISARMED = false;
 
 long startScan = 0; // part of BLE enabling
 
@@ -823,6 +828,11 @@ const char index_html[] PROGMEM = R"rawliteral(
       <p><button id="weapon1" class="button">Toggle</button></p>
     </div>
     <div class="card">
+      <h2>Melee Attacks</h2>
+      <p class="state">Selected: <span id="W2">%WEAP2%</span></p>
+      <p><button id="weapon2" class="button">Toggle</button></p>
+    </div>
+    <div class="card">
       <h2>Player Lives</h2>
       <p class="state">Selected: <span id="L0">%LVS0%</span></p>
       <p><button id="lives0" class="button">Toggle</button></p>
@@ -1345,6 +1355,7 @@ if (!!window.EventSource) {
     var TM;
     var W0;
     var W1;
+    var W2;
     var L0;
     var GT;
     var AMB;
@@ -1529,6 +1540,18 @@ if (!!window.EventSource) {
     if (event.data == "121"){
       W1 = "Pistol";
       document.getElementById('W1').innerHTML = W1;
+    }
+    if (event.data == "1700"){
+      W2 = "OFF";
+      document.getElementById('W2').innerHTML = W2;
+    }
+    if (event.data == "1701"){
+      W2 = "Standard";
+      document.getElementById('W2').innerHTML = W2;
+    }
+    if (event.data == "1702"){
+      W2 = "Disarm/Arm";
+      document.getElementById('W2').innerHTML = W2;
     }
     if (event.data == "207"){
       L0 = "Unlimited";
@@ -1826,6 +1849,7 @@ if (!!window.EventSource) {
     document.getElementById('gameend').addEventListener('click', toggle14e);
     document.getElementById('initializejedge').addEventListener('click', toggle15);
     document.getElementById('initializeotaupdate').addEventListener('click', toggle15D);
+    document.getElementById('weapon2').addEventListener('click', toggle16);
   }
   function toggle0(){
     websocket.send('toggle0');
@@ -1880,6 +1904,9 @@ if (!!window.EventSource) {
   }
   function toggle15D(){
     websocket.send('toggle15D');
+  }
+  function toggle16(){
+    websocket.send('toggle16');
   }
 </script>
 </body>
@@ -2131,7 +2158,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       }
       WebSocketData = Menu[13];
       notifyClients();
-      Serial.println(" menu = " + String(Menu[11]));
+      Serial.println(" menu = " + String(Menu[13]));
       datapacket2 = Menu[13];
       datapacket1 = 99;
       BROADCASTESPNOW = true;
@@ -2197,9 +2224,144 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
        ProcessIncomingCommands();      
       }
     }
+    if (strcmp((char*)data, "toggle16") == 0) {
+      if (Menu[17] == 1702) {
+        Menu[17] = 1700;
+      } else {
+        Menu[17]++;
+      }
+      WebSocketData = Menu[17];
+      notifyClients();
+      Serial.println(" menu = " + String(Menu[17]));
+      datapacket2 = Menu[17];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      if (!INGAME) {
+       incomingData1 = datapacket1;
+       incomingData2 = datapacket2;
+       ProcessIncomingCommands();      
+      }
+    }
   }
 }
+void ClearScores() {
+  int playercounter = 0;
+  while (playercounter < 64) {
+    PlayerKills[playercounter] = 0;
+    playercounter++;
+    delay(1);
+  }
+  int teamcounter = 0;
+  while (teamcounter < 4) {
+    TeamKills[teamcounter] = 0;
+    TeamObjectives[teamcounter] = 0;
+    TeamDeaths[teamcounter] = 0;
+    teamcounter++;
+  }
+  Serial.println("reset all stored scores from previous game, done");
+}
 //**************************************************************
+void SyncScores() {
+  /*
+   if (FAKESCORE) { // CHECK IF WE ARE DOING A TEST ONLY FOR DATA SENDING
+     CompletedObjectives = random(25);
+     int playercounter = 0;
+     while (playercounter < 64) {
+      PlayerKillCount[playercounter] = random(20);
+      playercounter++;
+     }
+     PlayerKillCount[GunID] = 0;
+     TeamKillCount[0] = PlayerKillCount[0] + PlayerKillCount[1] + PlayerKillCount[2];
+     TeamKillCount[1] = PlayerKillCount[3] + PlayerKillCount[4] + PlayerKillCount[5];
+     TeamKillCount[2] = PlayerKillCount[6] + PlayerKillCount[7] + PlayerKillCount[8];
+     TeamKillCount[3] = PlayerKillCount[9] + PlayerKillCount[10] + PlayerKillCount[11];
+     if (GunID < 3) {
+      SetTeam = 0;
+     }
+     if (GunID < 6 && GunID > 2) {
+       SetTeam = 1;
+     }
+     if (GunID < 9 && GunID > 5) {
+      SetTeam = 2;
+     } 
+     if (GunID > 8) {
+      SetTeam = 3;
+     }
+  }
+  */
+  // create a string that looks like this: 
+  // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
+  String ScoreData = String(GunID)+","+String(SetTeam)+","+String(CompletedObjectives)+","+String(TeamKillCount[0])+","+String(TeamKillCount[1])+","+String(TeamKillCount[2])+","+String(TeamKillCount[3])+","+String(TeamKillCount[4])+","+String(TeamKillCount[5])+","+String(PlayerKillCount[0])+","+String(PlayerKillCount[1])+","+String(PlayerKillCount[2])+","+String(PlayerKillCount[3])+","+String(PlayerKillCount[4])+","+String(PlayerKillCount[5])+","+String(PlayerKillCount[6])+","+String(PlayerKillCount[7])+","+String(PlayerKillCount[8])+","+String(PlayerKillCount[9])+","+String(PlayerKillCount[10])+","+String(PlayerKillCount[11])+","+String(PlayerKillCount[12])+","+String(PlayerKillCount[13])+","+String(PlayerKillCount[14])+","+String(PlayerKillCount[15])+","+String(PlayerKillCount[16])+","+String(PlayerKillCount[17])+","+String(PlayerKillCount[18])+","+String(PlayerKillCount[19])+","+String(PlayerKillCount[20])+","+String(PlayerKillCount[21])+","+String(PlayerKillCount[22])+","+String(PlayerKillCount[23])+","+String(PlayerKillCount[24])+","+String(PlayerKillCount[25])+","+String(PlayerKillCount[26])+","+String(PlayerKillCount[27])+","+String(PlayerKillCount[28])+","+String(PlayerKillCount[29])+","+String(PlayerKillCount[30])+","+String(PlayerKillCount[31])+","+String(PlayerKillCount[32])+","+String(PlayerKillCount[33])+","+String(PlayerKillCount[34])+","+String(PlayerKillCount[35])+","+String(PlayerKillCount[36])+","+String(PlayerKillCount[37])+","+String(PlayerKillCount[38])+","+String(PlayerKillCount[39])+","+String(PlayerKillCount[40])+","+String(PlayerKillCount[41])+","+String(PlayerKillCount[42])+","+String(PlayerKillCount[43])+","+String(PlayerKillCount[44])+","+String(PlayerKillCount[45])+","+String(PlayerKillCount[46])+","+String(PlayerKillCount[47])+","+String(PlayerKillCount[48])+","+String(PlayerKillCount[49])+","+String(PlayerKillCount[50])+","+String(PlayerKillCount[51])+","+String(PlayerKillCount[52])+","+String(PlayerKillCount[53])+","+String(PlayerKillCount[54])+","+String(PlayerKillCount[55])+","+String(PlayerKillCount[56])+","+String(PlayerKillCount[57])+","+String(PlayerKillCount[58])+","+String(PlayerKillCount[59])+","+String(PlayerKillCount[60])+","+String(PlayerKillCount[61])+","+String(PlayerKillCount[62])+","+String(PlayerKillCount[63]);
+  Serial.println("Sending the following Score Data to Server");
+  Serial.println(ScoreData);
+  datapacket1 = incomingData3;
+  datapacket4 = ScoreData;
+  datapacket2 = 902;
+  BROADCASTESPNOW = true;
+  //bridge1.virtualWrite(V100, ScoreData); // sending the whole string from esp32
+  Serial.println("Sent Score data to Server");  
+}
+void AccumulateIncomingScores() {
+    //Serial.print("cOMMS loop running on core ");
+    //Serial.println(xPortGetCoreID());
+    Serial.println(String(millis()));
+    ScoreString = incomingData4; // saves incoming data as a temporary string within this object
+    Serial.println("printing data received: ");
+    Serial.println(ScoreString);
+    char *ptr = strtok((char*)ScoreString.c_str(), ","); // looks for commas as breaks to split up the string
+    int index = 0;
+    while (ptr != NULL)
+    {
+      ScoreTokenStrings[index] = ptr; // saves the individual characters divided by commas as individual strings
+      index++;
+      ptr = strtok(NULL, ",");  // takes a list of delimiters
+    }
+    // received a string that looks like this: 
+    // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
+    Serial.println("Score Data Recieved from a tagger:");
+  
+    int Deaths=0;
+    int Objectives=0;
+    int Kills=0;
+    int Team=0;
+    int Player=0;
+    int Data[73];
+    int count=0;
+    while (count<73) {
+      Data[count]=ScoreTokenStrings[count].toInt();
+      // Serial.println("Converting String character "+String(count)+" to integer: "+String(Data[count]));
+      count++;
+    }
+    Player=Data[0];
+    Serial.println("Player ID: " + String(Player));
+    Deaths = Data[3] + Data[4] + Data[5] + Data[6]; // added the total team kills to accumulate the number of deaths of this player
+    Serial.println("Player Deaths: "+String(Deaths));
+    PlayerDeaths[Player] = Deaths; // just converted temporary data to this players death count record
+    TeamKills[0] = TeamKills[0] + Data[3]; // accumulating team kill counts
+    TeamKills[1] = TeamKills[1] + Data[4];
+    TeamKills[2] = TeamKills[2] + Data[5];
+    TeamKills[3] = TeamKills[3] + Data[6]; // note, not handling teams 5/6 because they dont actually report/exist
+    Serial.println("Team Kill Count Accumulation Complete");
+    Serial.println("Red Team Kills: " + String(TeamKills[0]) + "Blue Team Kills: " + String(TeamKills[1]) + "Green Team Kills: " + String(TeamKills[2]) + "Yellow Team Kills: " + String(TeamKills[3]));
+    // accumulating player kill counts
+    int p = 9; // using for data characters 9-72
+    int j = 0; // using for player id status counter
+    Serial.println("Accumulating Player kills against current player...");
+    while (p < 73) {
+      PlayerKills[j] = PlayerKills[j] + Data[p];
+      // Serial.println("Player " + String(j) + " Killed this player " + String(Data[p]) + " times, Player's new score is " + String(PlayerKills[j]));
+      p++;
+      j++;
+    }
+    Team = Data[1]; // setting the player's team for accumulation of player objectives
+    TeamDeaths[Team] = TeamDeaths[Team] + Deaths;
+    PlayerObjectives[Player] = Data[2]; // converted temporary data storage to main memory for score reporting of player objectives
+    Serial.println("Player Objectives completed: "+String(Data[2]));
+    Serial.println("Player Objectives completed: "+String(PlayerObjectives[Player]));
+    TeamObjectives[Team] = TeamObjectives[Team] + Data[2]; // added this player's objective score to his team's objective score
+    Serial.println(String(millis()));
+    //UpdateWebApp();
+}
 void ProcessIncomingCommands() {
   //Serial.print("cOMMS loop running on core ");
   //Serial.println(xPortGetCoreID());
@@ -2858,7 +3020,47 @@ void ProcessIncomingCommands() {
         }
         if (b==9) { // Gun Game
           GameMode=9;
-          Serial.println("Game mode set to Gun Game");
+          /*
+           * Weapon 0 - AMR
+           * Weapon 1 - Unarmed
+           * Lives - Unlimited
+           * Game Time - Unlimited
+           * Delay Start - Off
+           * Ammunitions - Unlimited magazines
+           * Lighting/Ambience - Outdoor mode
+           * Teams - Free for all
+           * Respawn - Immediate
+           * Gender - Male
+           * Friendly Fire - On
+           * Volume - 3
+           */
+          SetSlotA = 2; // set weapon slot 0 as AMR
+          Serial.println("Weapon slot 0 set to AMR");
+          SetSlotB = 1; // set weapon slot 1 as unarmed
+          Serial.println("Weapon slot 1 set to Unarmed");
+          SetLives = 32000; // set lives to unlimited
+          Serial.println("Lives is set to Unlimited");
+          SetTime=2000000000; // set game time to unlimited
+          Serial.println("Game time set to Unlimited");
+          DelayStart=30000; // set delay start to 30 seconds
+          Serial.println("Delay Start Set to 30 seconds"); 
+          UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
+          Serial.println("Ammo set to unlimited magazies"); 
+          SetODMode=0; // outdoor mode set
+          Serial.println("Outdoor Mode On");
+          SetTeam=0; // set to red/alpha team
+          Serial.println("Set teams to free for all, red");
+          SetRSPNMode=2; // set respon mode to auto
+          RespawnTimer=15000; // set delay timer for respawns
+          Serial.println("Respawn Set to auto 15 seconds"); 
+          SetGNDR=0; // male player audio selection engaged
+          Serial.println("Gender set to Male");
+          SetFF=1; // free for all set to on
+          Serial.println("Friendly Fire On");
+          SetVol = 80;
+          Serial.println("Volume set to" + String(SetVol));
+          VOLUMEADJUST=true;
+          Serial.println("Game mode set to GunGame");;
           AudioSelection="VA9T";
         }
         if (b==10) {
@@ -3133,6 +3335,9 @@ void ProcessIncomingCommands() {
        if (INGAME){
          GAMEOVER=true; 
          Serial.println("ending game");
+         datapacket2 = 1400;
+         datapacket1 = 99;
+         BROADCASTESPNOW = true;
        }
      }
      if (b==1) {
@@ -3231,6 +3436,12 @@ void ProcessIncomingCommands() {
         }
       }
      }
+    }
+    if (incomingData2 < 1800 && incomingData2 > 1699) { // Melee Use
+      int b = incomingData2 - 1700;
+      if (!INGAME) {
+        Melee = b;
+      } 
     }    
     if (incomingData2 == 32000) { // if true, this is a kill confirmation
       MyKills++; // accumulate one kill count
@@ -3247,10 +3458,119 @@ void ProcessIncomingCommands() {
         SelectButtonTimer = millis();
         AudioSelection1="VA9B"; // set audio playback to "press select button"   
       }
+      if (GameMode == 9) { // we are playing gun game
+        SetSlotA++;
+        Serial.println("Weapon Slot 0 set"); 
+        if(SetSlotA == 2) {
+          Serial.println("Weapon 0 set to AMR"); 
+          StringSender = "$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,32768,1400,0,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,9999999,75,,*";
+        }
+        if(SetSlotA == 3) {
+          Serial.println("Weapon 0 set to Assault Rifle");
+          StringSender = "$WEAP,0,,100,0,0,9,0,,,,,,,,100,850,32,32768,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,9999999,75,,*";
+        }
+        if(SetSlotA == 4) {
+          Serial.println("Weapon 0 set to Bolt Rifle");
+          StringSender = "$WEAP,0,,100,0,3,13,0,,,,,,,,225,850,18,32768,2000,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,18,9999999,75,,*";
+        }
+        if(SetSlotA == 5) {
+          Serial.println("Weapon 0 set to BurstRifle"); 
+          StringSender = "$WEAP,0,,100,0,3,9,0,,,,,,,,75,850,36,32768,1700,0,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,9999999,75,,*";
+        }
+        if(SetSlotA == 6) {
+          Serial.println("Weapon 0 set to ChargeRifle"); 
+          StringSender = "$WEAP,0,,100,8,0,100,0,,,,,,,,1250,850,100,32768,2500,0,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,9999999,75,,*";
+        }
+        if(SetSlotA == 7) {
+          Serial.println("Weapon 0 set to Energy Launcher");
+          StringSender = "$WEAP,0,,100,9,3,115,0,,,,,,,,360,850,1,32768,1400,0,0,100,100,,0,,,J15,,,,D14,D13,D12,D18,,,,,1,9999999,75,,*";
+        }
+        if(SetSlotA == 8) {
+          Serial.println("Weapon 0 set to Energy Rifle"); 
+          StringSender = "$WEAP,0,,100,0,0,9,0,,,,,,,,90,850,300,32768,2400,0,0,100,100,,6,,,E12,,,,D17,D16,D15,A73,D122,,,,300,9999999,75,,*";
+        }
+        if(SetSlotA == 9) {
+          Serial.println("Weapon 0 set to Force Rifle"); 
+          StringSender = "$WEAP,0,,100,0,1,9,0,,,,,,,,100,850,36,32768,1700,0,9,100,100,250,0,,,R23,D20,D19,,D23,D22,D21,D18,,,,,36,9999999,75,,*";
+        }
+        if(SetSlotA == 10) {
+          Serial.println("Weapon 0 set to Ion Sniper"); 
+          StringSender = "$WEAP,0,,100,0,0,115,0,,,,,,,,1000,850,2,32768,2000,0,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,9999999,75,,*";
+        }
+        if(SetSlotA == 11) {
+          Serial.println("Weapon 0 set to Laser Cannon"); 
+          StringSender = "$WEAP,0,,100,0,0,115,0,,,,,,,,1500,850,4,32768,2000,0,3,100,100,,0,,,C06,C11,,,D17,D16,D15,A73,,,,,4,9999999,75,,*";
+        }
+        if(SetSlotA == 12) {
+          Serial.println("Weapon 0 set to Plasma Sniper"); 
+          StringSender = "$WEAP,0,2,100,0,0,80,0,,,,,,80,80,225,850,10,32768,2000,0,7,100,100,,30,,,E17,,,,D35,D34,D36,A73,D122,,,,10,9999999,75,40,*";
+        }
+        if(SetSlotA == 13) {
+          Serial.println("Weapon 0 set to Rail Gun"); 
+          StringSender = "$WEAP,0,0,100,6,0,115,0,,,,,,,,1200,850,1,32768,2400,0,2,100,100,,0,,,C03,C08,,,D36,D35,D34,A73,,,,,1,9999999,75,,*";
+        }
+        if(SetSlotA == 14) {
+          Serial.println("Weapon 0 set to Rocket Launcher"); 
+          StringSender = "$WEAP,0,2,100,10,0,115,0,,,,,,115,80,1000,850,2,32768,1200,0,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,9999999,75,30,*";
+        }
+        if(SetSlotA == 15) {
+          Serial.println("Weapon 0 set to Shotgun"); 
+          StringSender = "$WEAP,0,2,100,0,0,45,0,,,,,,70,80,900,850,6,32768,400,2,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,9999999,75,30,*";
+        }
+        if(SetSlotA == 16) {
+          Serial.println("Weapon 0 set to SMG"); 
+          StringSender = "$WEAP,0,,100,0,0,8,0,,,,,,,,90,850,72,32768,2500,0,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,9999999,75,,*";
+        }
+        if(SetSlotA == 17) {
+          Serial.println("Weapon 0 set to Sniper Rifle");
+          StringSender = "$WEAP,0,,100,0,1,80,0,,,,,,,,300,850,4,32768,1700,0,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,9999999,75,,*";
+        }
+        if(SetSlotA == 18) {
+          Serial.println("Weapon 0 set to Stinger");
+          StringSender = "$WEAP,0,,100,0,0,15,0,,,,,,,,120,850,18,32768,1700,0,0,100,100,,0,,,E11,,,,D17,D16,D15,A73,,,,,18,9999999,75,,*";
+        }
+        if(SetSlotA == 19) {
+          Serial.println("Weapon 0 set to Suppressor"); 
+          StringSender = "$WEAP,0,,100,0,0,8,0,,,,,,,,75,850,48,32768,2000,0,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,9999999,75,,*";
+        }
+        if(SetSlotA == 20) {
+          Serial.println("Weapon 0 set to Pistol"); 
+          StringSender = "$WEAP,0,,35,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,20,,*";
+        }        
+        if (SetSlotA < 10) {
+          AudioSelection = ("GN0" + String(SetSlotA));
+          AUDIO=true;
+          STRINGSENDER = true;
+        }
+        if (SetSlotA > 9 && SetSlotA < 20) {
+          AudioSelection = ("GN" + String(SetSlotA));
+          AUDIO=true;
+          STRINGSENDER = true;
+        }
+        if (SetSlotA == 20) {
+          AudioSelection = ("VA50");
+          AUDIO=true;
+          STRINGSENDER = true;
+        }
+        if (SetSlotA > 20) { // player just won
+          datapacket2 = 1400;
+          datapacket1 = 99;
+          BROADCASTESPNOW = true;
+          incomingData1 = datapacket1;
+          incomingData2 = datapacket2;
+          ProcessIncomingCommands();      
+          delay(3000);
+          AudioSelection = "VSF";
+          AUDIO=true;
+          StringSender = "$HLED,4,2,,,10,100,*";
+          STRINGSENDER = true;
+        }
+      }
     }
-    digitalWrite(2, LOW);
-  }  
-}
+  }
+  digitalWrite(2, LOW);
+}  
+
 //******************************************************************************************
 void InitializeJEDGE() {
   Serial.println();
@@ -3283,60 +3603,7 @@ void InitializeJEDGE() {
   sendString("$GLED,0,0,0,0,10,,*"); // test for gen3
 }
 //**********************************************************************************************
-void SyncScores() {
-  if (FAKESCORE) { // CHECK IF WE ARE DOING A TEST ONLY FOR DATA SENDING
-     CompletedObjectives = random(25);
-     int playercounter = 0;
-     while (playercounter < 64) {
-      PlayerKillCount[playercounter] = random(20);
-      playercounter++;
-     }
-     PlayerKillCount[GunID] = 0;
-     TeamKillCount[0] = PlayerKillCount[0] + PlayerKillCount[1] + PlayerKillCount[2];
-     TeamKillCount[1] = PlayerKillCount[3] + PlayerKillCount[4] + PlayerKillCount[5];
-     TeamKillCount[2] = PlayerKillCount[6] + PlayerKillCount[7] + PlayerKillCount[8];
-     TeamKillCount[3] = PlayerKillCount[9] + PlayerKillCount[10] + PlayerKillCount[11];
-     if (GunID < 3) {
-      SetTeam = 0;
-     }
-     if (GunID < 6 && GunID > 2) {
-       SetTeam = 1;
-     }
-     if (GunID < 9 && GunID > 5) {
-      SetTeam = 2;
-     } 
-     if (GunID > 8) {
-      SetTeam = 3;
-     }
-  }
-  // create a string that looks like this: 
-  // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
-  String ScoreData = String(GunID)+","+String(SetTeam)+","+String(CompletedObjectives)+","+String(TeamKillCount[0])+","+String(TeamKillCount[1])+","+String(TeamKillCount[2])+","+String(TeamKillCount[3])+","+String(TeamKillCount[4])+","+String(TeamKillCount[5])+","+String(PlayerKillCount[0])+","+String(PlayerKillCount[1])+","+String(PlayerKillCount[2])+","+String(PlayerKillCount[3])+","+String(PlayerKillCount[4])+","+String(PlayerKillCount[5])+","+String(PlayerKillCount[6])+","+String(PlayerKillCount[7])+","+String(PlayerKillCount[8])+","+String(PlayerKillCount[9])+","+String(PlayerKillCount[10])+","+String(PlayerKillCount[11])+","+String(PlayerKillCount[12])+","+String(PlayerKillCount[13])+","+String(PlayerKillCount[14])+","+String(PlayerKillCount[15])+","+String(PlayerKillCount[16])+","+String(PlayerKillCount[17])+","+String(PlayerKillCount[18])+","+String(PlayerKillCount[19])+","+String(PlayerKillCount[20])+","+String(PlayerKillCount[21])+","+String(PlayerKillCount[22])+","+String(PlayerKillCount[23])+","+String(PlayerKillCount[24])+","+String(PlayerKillCount[25])+","+String(PlayerKillCount[26])+","+String(PlayerKillCount[27])+","+String(PlayerKillCount[28])+","+String(PlayerKillCount[29])+","+String(PlayerKillCount[30])+","+String(PlayerKillCount[31])+","+String(PlayerKillCount[32])+","+String(PlayerKillCount[33])+","+String(PlayerKillCount[34])+","+String(PlayerKillCount[35])+","+String(PlayerKillCount[36])+","+String(PlayerKillCount[37])+","+String(PlayerKillCount[38])+","+String(PlayerKillCount[39])+","+String(PlayerKillCount[40])+","+String(PlayerKillCount[41])+","+String(PlayerKillCount[42])+","+String(PlayerKillCount[43])+","+String(PlayerKillCount[44])+","+String(PlayerKillCount[45])+","+String(PlayerKillCount[46])+","+String(PlayerKillCount[47])+","+String(PlayerKillCount[48])+","+String(PlayerKillCount[49])+","+String(PlayerKillCount[50])+","+String(PlayerKillCount[51])+","+String(PlayerKillCount[52])+","+String(PlayerKillCount[53])+","+String(PlayerKillCount[54])+","+String(PlayerKillCount[55])+","+String(PlayerKillCount[56])+","+String(PlayerKillCount[57])+","+String(PlayerKillCount[58])+","+String(PlayerKillCount[59])+","+String(PlayerKillCount[60])+","+String(PlayerKillCount[61])+","+String(PlayerKillCount[62])+","+String(PlayerKillCount[63]);
-  Serial.println("Sending the following Score Data to Server");
-  Serial.println(ScoreData);
-  datapacket1 = incomingData3;
-  datapacket4 = ScoreData;
-  datapacket2 = 902;
-  BROADCASTESPNOW = true;
-  //bridge1.virtualWrite(V100, ScoreData); // sending the whole string from esp32
-  Serial.println("Sent Score data to Server");
-  //reset sent scores:
-  //Serial.println("resetting all scores");
-  //CompletedObjectives = 0;
-  //int teamcounter = 0;
-  //while (teamcounter < 6) {
-    //TeamKillCount[teamcounter] = 0;
-    //teamcounter++;
-    //vTaskDelay(1);
-  //}
-  //int playercounter = 0;
-  //while (playercounter < 64) {
-    //PlayerKillCount[playercounter] = 0;
-    //playercounter++;
-    //vTaskDelay(1);
-  //}
-  //Serial.println("Scores Reset");  
-}
+
 //******************************************************************************************
 
 // process used to send string properly to gun... splits up longer strings in bytes of 20
@@ -4352,7 +4619,12 @@ void delaystart() {
   weaponsettingsA();
   weaponsettingsB();
   weaponsettingsC();
-  sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
+  if (Melee == 1) {
+    sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
+  }
+  if (Melee == 2) {
+    sendString("$WEAP,4,1,90,13,2,0,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
+  }
   Serial.println("Delayed Start Complete, should be in game play mode now");
   GameStartTime=millis();
   GAMEOVER=false;
@@ -4454,6 +4726,10 @@ void respawnplayer() {
   //sendString("$WEAP,1,*"); // cleared out weapon 1
   //sendString("$WEAP,4,*"); // cleared out melee weapon
   //sendString("$WEAP,3,*"); // cleared out melee weapon
+  //weaponsettingsA();
+  //weaponsettingsB();
+  //weaponsettingsC();
+  //sendString("$WEAP,4,1,90,13,2,0,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
   int hloopreset = 0;
   while (hloopreset < 10) {
     sendString("$HLOOP,0,0,*"); // stops headset flashing
@@ -4463,7 +4739,12 @@ void respawnplayer() {
   weaponsettingsA();
   weaponsettingsB();
   weaponsettingsC();
-  sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
+  if (Melee == 1) {
+    sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
+  }
+  if (Melee == 2) {
+    sendString("$WEAP,4,1,90,13,2,0,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
+  }
   sendString("$GLED,,,,5,,,*"); // changes headset to tagged out color
   sendString("$SPAWN,,*"); // respawns player back in game
   sendString("$HLOOP,0,0,*"); // stops headset flashing
@@ -4518,7 +4799,14 @@ void Audio() {
     AudioSelection1 = "NULL";
     }
 }
-
+void ChangeColors() {
+  String colorstring = ("$GLED," + String(ChangeMyColor) + "," + String(ChangeMyColor) + "," + String(ChangeMyColor) + ",0,10,,*");
+  sendString(colorstring);
+  colorstring = ("$HLED," + String(ChangeMyColor) + ",0,,,10,,*");
+  sendString(colorstring);
+  //ChangeMyColor = 99;
+  CurrentColor = ChangeMyColor;
+}
 //********************************************************************************************
 // This main game object
 void MainGame() {
@@ -4762,8 +5050,8 @@ void ProcessBRXData() {
       fixgen3data1++;
     }
     Serial.println("changed serial data from brx to match gen1/2 data packets");
-    TerminalInput = "Modified Gen3 Data to Match Gen 1/2";
-    WRITETOTERMINAL = true;
+    //TerminalInput = "Modified Gen3 Data to Match Gen 1/2";
+    //WRITETOTERMINAL = true;
   }
     /* 
      *  Mapping of the BLE buttons pressed
@@ -5176,6 +5464,25 @@ void ProcessBRXData() {
       if (tokenStrings[2] == "15" || tokenStrings[2] == "1") {
         TagPerks();
       }
+      if (tokenStrings[2] == "13") { // melee attack received
+        if (tokenStrings[7] == "2") { // arm/disarm tag recieved
+          String TeamChecker = String(SetTeam);
+          if (tokenStrings[4] == TeamChecker) {
+            }
+            if (DISARMED) {
+              DISARMED = false;
+              weaponsettingsA();
+              weaponsettingsB();
+              weaponsettingsC();
+              sendString("$WEAP,4,1,90,13,2,0,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
+            } else {
+              DISARMED = true;
+              sendString("$WEAP,0,*"); // cleared out weapon 0
+              sendString("$WEAP,1,*"); // cleared out weapon 1
+              sendString("$WEAP,4,*"); // cleared out melee weapon
+            }
+          }
+        }
       lastTaggedPlayer = tokenStrings[3].toInt();
       lastTaggedTeam = tokenStrings[4].toInt();
       Serial.println("Just tagged by: " + String(lastTaggedPlayer) + " on team: " + String(lastTaggedTeam));
@@ -5244,35 +5551,34 @@ void ProcessBRXData() {
         Serial.println("Team: " + String(lastTaggedTeam) + "Score: " + String(TeamKillCount[lastTaggedTeam]));
         Serial.println("Player: " + String(lastTaggedPlayer) + " Score: " + String(PlayerKillCount[lastTaggedPlayer]));
         Serial.println("Death Count: " + String(Deaths));
-        if (GameMode != 8) {
-          if (PlayerLives > 0 && SetRSPNMode < 9) { // doing a check if we still have lives left after dying
-            RESPAWN = true;
-            Serial.println("Auto respawn enabled");
-          }
-          if (PlayerLives > 0 && SetRSPNMode == 9) { // doing a check if we still have lives left after dying
-            MANUALRESPAWN = true;
-            Serial.println("Manual respawn enabled");
-          }
-          if (PlayerLives == 0) {
-            //GAMEOVER=true;
-            TerminalInput = "Lives Depleted"; // storing the string for sending to Tagger, elswhere
-            WRITETOTERMINAL = true;
-            delay(3000);
-            sendString("$HLOOP,2,1200,*"); // this puts the headset in a loop for flashing
-            sendString("$PLAY,VA46,4,6,,,,,*"); // says lives depleted
-            Serial.println("lives depleted");
-          }
-        }
         if (GameMode == 8) {
           RESPAWN = true;
           SetTeam = lastTaggedTeam;
-          if (SetTeam == 0) {sendString("$PLAY,VA5G,4,6,,,,,*");}
+          playersettings();
+          if (SetTeam == 0) {sendString("$PLAY,VA13,4,6,,,,,*");}
           if (SetTeam == 1) {sendString("$PLAY,VA1L,4,6,,,,,*");}
           if (SetTeam == 2) {sendString("$PLAY,VA1R,4,6,,,,,*");}
           if (SetTeam == 3) {sendString("$PLAY,VA27,4,6,,,,,*");}
         }
+        if (PlayerLives > 0 && SetRSPNMode < 9) { // doing a check if we still have lives left after dying
+          RESPAWN = true;
+          Serial.println("Auto respawn enabled");
+        }
+        if (PlayerLives > 0 && SetRSPNMode == 9) { // doing a check if we still have lives left after dying
+          MANUALRESPAWN = true;
+          Serial.println("Manual respawn enabled");
+        }
+        if (PlayerLives == 0) {
+          //GAMEOVER=true;
+          TerminalInput = "Lives Depleted"; // storing the string for sending to Tagger, elswhere
+          WRITETOTERMINAL = true;
+          delay(3000);
+          sendString("$HLOOP,2,1200,*"); // this puts the headset in a loop for flashing
+          sendString("$PLAY,VA46,4,6,,,,,*"); // says lives depleted
+          Serial.println("lives depleted");
+        }
+      }    
     }
-  }
 }
 //******************************************************************************************
 //******************************************************************************************
@@ -5280,30 +5586,8 @@ void SoftWareReset() {
   ESP.restart();
 }
 //******************************************************************************************
-void ChangeColors() {
-  String colorstring = ("$GLED," + String(ChangeMyColor) + "," + String(ChangeMyColor) + "," + String(ChangeMyColor) + ",0,10,,*");
-  sendString(colorstring);
-  colorstring = ("$HLED," + String(ChangeMyColor) + ",0,,,10,,*");
-  sendString(colorstring);
-  //ChangeMyColor = 99;
-  CurrentColor = ChangeMyColor;
-}
-void ClearScores() {
-  int playercounter = 0;
-  while (playercounter < 64) {
-    PlayerKills[playercounter] = 0;
-    playercounter++;
-    delay(1);
-  }
-  int teamcounter = 0;
-  while (teamcounter < 4) {
-    TeamKills[teamcounter] = 0;
-    TeamObjectives[teamcounter] = 0;
-    TeamDeaths[teamcounter] = 0;
-    teamcounter++;
-  }
-  Serial.println("reset all stored scores from previous game, done");
-}
+
+
 void RequestingScores() {
   datapacket2 = 901;
   datapacket1 = ScoreRequestCounter;
@@ -5325,7 +5609,7 @@ void RequestingScores() {
   Serial.print("cOMMS loop running on core ");
   Serial.println(xPortGetCoreID());
 }
-void AccumulateIncomingScores() {
+void AccumulateIncomingScores1() {
     //Serial.print("cOMMS loop running on core ");
     //Serial.println(xPortGetCoreID());
     Serial.println(String(millis()));
@@ -5386,8 +5670,6 @@ void AccumulateIncomingScores() {
     Serial.println(String(millis()));
     //UpdateWebApp();
 }
-
-
 //******************************************************************************************
 // ***********************************  DIRTY LOOP  ****************************************
 // *****************************************************************************************
@@ -5428,6 +5710,7 @@ void loop2(void *pvParameters) {
   Menu[13] = 1303;
   Menu[14] = 1400;
   Menu[15] = 1500;
+  Menu[17] = 1700;
   if (!ACTASHOST) {
     RUNWEBSERVER = false;
     WiFi.softAPdisconnect (true);
@@ -5496,7 +5779,7 @@ void loop2(void *pvParameters) {
           Serial.println("Sending the following Score Data to Server");
           Serial.println(LocalScoreData);
           incomingData4 = LocalScoreData;
-          AccumulateIncomingScores();
+          AccumulateIncomingScores1();
         }
         unsigned long UpdaterCurrentMillis = millis();
         if (UpdaterCurrentMillis - WebAppUpdaterTimer > 1200) {
