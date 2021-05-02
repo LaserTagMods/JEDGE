@@ -104,7 +104,8 @@
  * updated 05/01/2021 found bug for assimilation - hopefully fixed by adding in player settings object
  *                    added in menu option for doing variations of melee.
  *                    finished gun game mode
- *                    
+ * updated 05/01/2021 tweaked a bit more on melee disarm function                   
+ *                    finished up main settings for infection mode.
  *                    
  *                    
  *                    
@@ -140,14 +141,14 @@ bool FAKESCORE = false;
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
-int GunID = 10; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+int GunID = 1; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
 int GunGeneration = 2; // change to gen 1, 2, 3
-const char GunName[] = "GUN#10"; // used for OTA id recognition on network and for AP for web server
+const char GunName[] = "GUN#1"; // used for OTA id recognition on network and for AP for web server
 const char* password = "123456789"; // Password for web server
 const char* OTAssid = "maxipad"; // network name to update OTA
 const char* OTApassword = "9165047812"; // Network password for OTA
 int TaggersOwned = 64; // how many taggers do you own or will play?
-bool ACTASHOST = true; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
+bool ACTASHOST = false; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -1682,7 +1683,7 @@ if (!!window.EventSource) {
       document.getElementById('GMD').innerHTML = GMD;
     }
     if (event.data == "610"){
-      GMD = "Basic Team Domination";
+      GMD = "Team DeathMatch - Energy Weapons";
       document.getElementById('GMD').innerHTML = GMD;
     }
     if (event.data == "611"){
@@ -2666,12 +2667,10 @@ void ProcessIncomingCommands() {
            * Game Time - Unlimited
            * Delay Start - Off
            * Ammunitions - Unlimited magazines
-           * Lighting/Ambience - Outdoor mode
            * Teams - Free for all
            * Respawn - Immediate
            * Gender - Male
            * Friendly Fire - On
-           * Volume - 3
            */
           SetSlotA = 2; // set weapon slot 0 as AMR
           Serial.println("Weapon slot 0 set to AMR");
@@ -2685,8 +2684,6 @@ void ProcessIncomingCommands() {
           Serial.println("Delay Start Set to Immediate"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
-          SetODMode=0; // outdoor mode set
-          Serial.println("Outdoor Mode On");
           SetTeam=0; // set to red/alpha team
           Serial.println("Set teams to free for all, red");
           SetRSPNMode=1; // set respon mode to auto
@@ -2696,9 +2693,6 @@ void ProcessIncomingCommands() {
           Serial.println("Gender set to Male");
           SetFF=1; // free for all set to on
           Serial.println("Friendly Fire On");
-          SetVol = 80;
-          Serial.println("Volume set to" + String(SetVol));
-          VOLUMEADJUST=true;
           Serial.println("Game mode set to Defaults");
           AudioSelection="VA5Z";
         }
@@ -2711,12 +2705,10 @@ void ProcessIncomingCommands() {
            * Game Time - 5 minutes
            * Delay Start - 30 seconds
            * Ammunitions - Unlimited magazines
-           * Lighting/Ambience - Outdoor mode
            * Teams - Free for all
            * Respawn - 15 seconds Automatic
            * Gender - Male
            * Friendly Fire - On
-           * Volume - 5
            */
           SetSlotA = 3; // set weapon slot 0 as Assault Rifle
           Serial.println("Weapon slot 0 set to Assault Rifle");
@@ -2730,8 +2722,6 @@ void ProcessIncomingCommands() {
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
-          SetODMode=0; // outdoor mode set
-          Serial.println("Outdoor Mode On");
           SetTeam=0; // set to red/alpha team
           Serial.println("Set teams to free for all, red");
           SetRSPNMode=2; // set respon mode to auto
@@ -2741,9 +2731,6 @@ void ProcessIncomingCommands() {
           Serial.println("Gender set to Male");
           SetFF=1; // free for all set to on
           Serial.println("Friendly Fire On");
-          SetVol = 100;
-          Serial.println("Volume set to" + String(SetVol));
-          VOLUMEADJUST=true;
           Serial.println("Game mode set to 5Min F4A AR + Shotguns"); 
           AudioSelection="VA8I";
         }
@@ -2756,12 +2743,10 @@ void ProcessIncomingCommands() {
            * Game Time - 10 minutes
            * Delay Start - 30 seconds
            * Ammunitions - Unlimited magazines
-           * Lighting/Ambience - Outdoor mode
            * Teams - Free for all
            * Respawn - Immediate
            * Gender - Male
            * Friendly Fire - On
-           * Volume - 5
            */
           SetSlotA = random(2, 19); // set weapon slot 0 as Random
           Serial.println("Weapon slot 0 set to Random");
@@ -2775,8 +2760,6 @@ void ProcessIncomingCommands() {
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
-          SetODMode=0; // outdoor mode set
-          Serial.println("Outdoor Mode On");
           SetTeam=0; // set to red/alpha team
           Serial.println("Set teams to free for all, red");
           SetRSPNMode=2; // set respon mode to auto
@@ -2786,13 +2769,10 @@ void ProcessIncomingCommands() {
           Serial.println("Gender set to Male");
           SetFF=1; // free for all set to on
           Serial.println("Friendly Fire On");
-          SetVol = 100;
-          Serial.println("Volume set to" + String(SetVol));
-          VOLUMEADJUST=true;
           Serial.println("Game mode set to 10 Min F4A Rndm Weapon");
           AudioSelection="VA8I";
         }
-        if (b==4) { // SwapBRX
+        if (b==4) { // Battle Royal (SwapBRX)
           GameMode=4;
           /*
            * Weapon 0 - PISTOL
@@ -2801,13 +2781,10 @@ void ProcessIncomingCommands() {
            * Game Time - Unlimited
            * Delay Start - 30 Seconds
            * Ammunitions - Limited magazines
-           * Lighting/Ambience - Outdoor mode
            * Teams - Free for all
            * Respawn - Immediate
            * Gender - Male
            * Friendly Fire - On
-           * Volume - 5
-           * 
            * integrate IR protocol for random weapon swap...
            */
           SetSlotA = 20; // set weapon slot 0 as pistol
@@ -2822,8 +2799,6 @@ void ProcessIncomingCommands() {
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=1; // set ammunitions to limited mags
           Serial.println("Ammo set to limited magazies"); 
-          SetODMode=0; // outdoor mode set
-          Serial.println("Outdoor Mode On");
           SetTeam=0; // set to red/alpha team
           Serial.println("Set teams to free for all, red");
           SetRSPNMode=9; // set respon mode to manual
@@ -2833,9 +2808,6 @@ void ProcessIncomingCommands() {
           Serial.println("Gender set to Male");
           SetFF=1; // free for all set to on
           Serial.println("Friendly Fire On");
-          SetVol = 100;
-          Serial.println("Volume set to" + String(SetVol));
-          VOLUMEADJUST=true;
           Serial.println("Game mode set to Battle Royale or SwapBRX"); 
           AudioSelection="VA8J";
         }
@@ -2848,12 +2820,10 @@ void ProcessIncomingCommands() {
            * Game Time - 15 Minutes
            * Delay Start - 30 seconds
            * Ammunitions - Unlimited magazines
-           * Lighting/Ambience - Outdoor mode
            * Teams - Free For All
            * Respawn - Manual Respawn (station)
            * Gender - Male
            * Friendly Fire - Off
-           * Volume - 5
            */
           SetSlotA = 16; // set weapon slot 0 as SMG
           Serial.println("Weapon slot 0 set to SMG");
@@ -2867,8 +2837,6 @@ void ProcessIncomingCommands() {
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
-          SetODMode=0; // outdoor mode set
-          Serial.println("Outdoor Mode On");
           SetRSPNMode=9; // set respon mode to manual
           RespawnTimer=10; // set delay timer for respawns
           Serial.println("Respawn Set to manual (station)"); 
@@ -2876,9 +2844,6 @@ void ProcessIncomingCommands() {
           Serial.println("Gender set to Male");
           SetFF=2; // free for all set to off
           Serial.println("Friendly Fire off");
-          SetVol = 100;
-          Serial.println("Volume set to" + String(SetVol));
-          VOLUMEADJUST=true;
           Serial.println("Game mode set to Capture the Flag");
           AudioSelection="VA8P";
           AUDIO=true;
@@ -2892,12 +2857,10 @@ void ProcessIncomingCommands() {
            * Game Time - 15 Minutes
            * Delay Start - 30 seconds
            * Ammunitions - Unlimited magazines
-           * Lighting/Ambience - Outdoor mode
            * Teams - No change
            * Respawn - Manual (station)
            * Gender - Male
            * Friendly Fire - Off
-           * Volume - 5
            */
           SetSlotA = 9; // set weapon slot 0 as force rifle
           Serial.println("Weapon slot 0 set to force rifle");
@@ -2911,8 +2874,6 @@ void ProcessIncomingCommands() {
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
-          SetODMode=0; // outdoor mode set
-          Serial.println("Outdoor Mode On");
           SetRSPNMode=9; // set respon mode to manual
           RespawnTimer=10; // set delay timer for respawns
           Serial.println("Respawn Set to manual (station)"); 
@@ -2920,9 +2881,6 @@ void ProcessIncomingCommands() {
           Serial.println("Gender set to Male");
           SetFF=2; // free for all set to off
           Serial.println("Friendly Fire off");
-          SetVol = 100;
-          Serial.println("Volume set to" + String(SetVol));
-          VOLUMEADJUST=true;
           Serial.println("Game mode set to Own the Zone");
           AudioSelection="VA93";
           AUDIO=true;
@@ -2938,18 +2896,15 @@ void ProcessIncomingCommands() {
            * Game Time - 10
            * Delay Start - 30 sec
            * Ammunitions - ulimited mags
-           * Lighting/Ambience - outdoor
            * Teams - manual set (just red and green) human and infected
            * Respawn - Auto 15 seconds
            * Gender - Male
            * Friendly Fire - Off
-           * Volume - 5
            */
           SetSlotA = 5; // set weapon slot 0 as burst rifle
           Serial.println("Weapon slot 0 set to burst rifle");
-          // change game start sequence to make alt fire a health "perk" instead of "weapon selection/cycle"
-          // SetSlotB = 10; // set weapon slot 1 as ion sniper rifle
-          // Serial.println("Weapon slot 1 set to ion sniper rifle");
+          SetSlotB = 21; // set weapon slot 1 as ion sniper rifle
+          Serial.println("Weapon slot 1 set to Med Kit");
           SetLives = 32000; // set lives to unlimited
           Serial.println("Lives is set to Unlimited");
           SetTime=600000;
@@ -2958,8 +2913,6 @@ void ProcessIncomingCommands() {
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
-          SetODMode=0; // outdoor mode set
-          Serial.println("Outdoor Mode On");
           SetRSPNMode=2; // set respon mode to auto
           RespawnTimer=15000; // set delay timer for respawns
           Serial.println("Respawn Set to auto 15 seconds");
@@ -2967,9 +2920,6 @@ void ProcessIncomingCommands() {
           Serial.println("Gender set to Male");
           SetFF=2; // free for all set to off
           Serial.println("Friendly Fire off");
-          SetVol = 100;
-          Serial.println("Volume set to" + String(SetVol));
-          VOLUMEADJUST=true;
           Serial.println("Game mode set to Survival / Infection");
           AudioSelection="VA64";
           AUDIO=true;
@@ -2977,18 +2927,16 @@ void ProcessIncomingCommands() {
         }
         if (b==8) { // Assimilation
           /*
-           * Weapon 0 - 
-           * Weapon 1 - 
-           * Lives - 
-           * Game Time - 
-           * Delay Start - 
-           * Ammunitions - 
-           * Lighting/Ambience - 
-           * Teams - 
-           * Respawn - 
-           * Gender - 
-           * Friendly Fire - 
-           * Volume - 
+           * Weapon 0 - Assault Rifle
+           * Weapon 1 - Shotgun
+           * Lives - Unlimited
+           * Game Time - 15 Minutes
+           * Delay Start - 30 seconds
+           * Ammunitions - Unlimited Gags
+           * Teams - Free for All
+           * Respawn - 15 sec auto
+           * Gender - male
+           * Friendly Fire - off
            */
           GameMode=8; 
           Serial.println("Game mode set to Assimilation");
@@ -3005,7 +2953,6 @@ void ProcessIncomingCommands() {
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
-          SetODMode=0; // outdoor mode set
           Serial.println("Set teams to free for all, red");
           SetRSPNMode=2; // set respon mode to auto
           RespawnTimer=15000; // set delay timer for respawns
@@ -3014,9 +2961,6 @@ void ProcessIncomingCommands() {
           Serial.println("Gender set to Male");
           SetFF=0; // friendly fire set to off
           Serial.println("Friendly Fire Off");
-          SetVol = 100;
-          Serial.println("Volume set to" + String(SetVol));
-          VOLUMEADJUST=true;
         }
         if (b==9) { // Gun Game
           GameMode=9;
@@ -3025,14 +2969,12 @@ void ProcessIncomingCommands() {
            * Weapon 1 - Unarmed
            * Lives - Unlimited
            * Game Time - Unlimited
-           * Delay Start - Off
+           * Delay Start - 30 seconds
            * Ammunitions - Unlimited magazines
-           * Lighting/Ambience - Outdoor mode
            * Teams - Free for all
-           * Respawn - Immediate
+           * Respawn - 15 seconds
            * Gender - Male
-           * Friendly Fire - On
-           * Volume - 3
+           * Friendly Fire - On - part of free for all
            */
           SetSlotA = 2; // set weapon slot 0 as AMR
           Serial.println("Weapon slot 0 set to AMR");
@@ -3046,8 +2988,6 @@ void ProcessIncomingCommands() {
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
-          SetODMode=0; // outdoor mode set
-          Serial.println("Outdoor Mode On");
           SetTeam=0; // set to red/alpha team
           Serial.println("Set teams to free for all, red");
           SetRSPNMode=2; // set respon mode to auto
@@ -3057,20 +2997,17 @@ void ProcessIncomingCommands() {
           Serial.println("Gender set to Male");
           SetFF=1; // free for all set to on
           Serial.println("Friendly Fire On");
-          SetVol = 80;
-          Serial.println("Volume set to" + String(SetVol));
-          VOLUMEADJUST=true;
           Serial.println("Game mode set to GunGame");;
           AudioSelection="VA9T";
         }
         if (b==10) {
           GameMode=10; 
-          Serial.println("Game mode set to One Domination"); 
+          Serial.println("Game mode set to Team Death Match with Energy Weapons"); 
           AudioSelection="VA26";
         }
         if (b==11) {
           GameMode=11; 
-          Serial.println("Game mode set to Battle Royale"); 
+          Serial.println("Game mode set to Trouble in Terrorist Town"); 
           AudioSelection = "VA8J";
         }
         AUDIO=true;
@@ -4248,7 +4185,7 @@ void weaponsettingsB() {
     SetSlotB=SLOTB; 
     SLOTB=100;
   }
-  if (UNLIMITEDAMMO==3){
+  if (UNLIMITEDAMMO==3){// unlimited rounds
     if(SetSlotB == 1) {
       Serial.println("Weapon 1 set to Unarmed"); 
       sendString("$WEAP,1,*");
@@ -4325,8 +4262,12 @@ void weaponsettingsB() {
       Serial.println("Weapon 1 set to Suppressor"); 
       sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,75,850,48,0,2000,10,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,144,75,,*");
     }
+    if (SetSlotB == 21) {
+      Serial.println("Weapon 1 set to Medkit"); 
+      sendString("$WEAP,2,1,90,1,0,40,0,,,,,,,,1400,50,10,0,0,10,1,100,100,,0,,,H29,,,,,,,,,,,,10,10,20,,*");
+    }
   }  
-  if (UNLIMITEDAMMO==2) {
+  if (UNLIMITEDAMMO==2) {// unlimited Mags
       if(SetSlotB == 1) {
         Serial.println("Weapon 1 set to Unarmed"); 
         sendString("$WEAP,1,*");
@@ -4403,8 +4344,12 @@ void weaponsettingsB() {
         Serial.println("Weapon 1 set to Suppressor"); 
         sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,75,850,48,32768,2000,0,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,9999999,75,,*");
         }
+      if (SetSlotB == 21) {
+        Serial.println("Weapon 1 set to Medkit"); 
+        sendString("$WEAP,2,1,90,1,0,40,0,,,,,,,,1400,50,10,0,0,10,1,100,100,,0,,,H29,,,,,,,,,,,,10,9999999,20,,*");
+      }
     }
-    if (UNLIMITEDAMMO==1) {
+    if (UNLIMITEDAMMO==1) {// limited rounds
       if(SetSlotB == 1) {
         Serial.println("Weapon 1 set to Unarmed");
         sendString("$WEAP,1,*");
@@ -4480,7 +4425,11 @@ void weaponsettingsB() {
       if(SetSlotB == 19) {
         Serial.println("Weapon 1 set to Suppressor"); 
         sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,75,850,48,288,2000,0,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,144,75,,*");
-        }
+      }
+      if (SetSlotB == 21) {
+        Serial.println("Weapon 1 set to Medkit"); 
+        sendString("$WEAP,2,1,90,1,0,40,0,,,,,,,,1400,50,10,0,0,10,1,100,100,,0,,,H29,,,,,,,,,,,,10,10,20,,*");
+      }
     }
 }
 
@@ -4623,7 +4572,7 @@ void delaystart() {
     sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
   }
   if (Melee == 2) {
-    sendString("$WEAP,4,1,90,13,2,0,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
+    sendString("$WEAP,4,1,90,13,2,1,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
   }
   Serial.println("Delayed Start Complete, should be in game play mode now");
   GameStartTime=millis();
@@ -4659,14 +4608,19 @@ void playersettings() {
   // Gender is determined by the audio call outs listed, tokens 9 and on
   // male is default as 0, female is 1
   // health = 45; armor = 70; shield =70;
-  if (GameMode == 7 && Team == 3) { // infected team
-    sendString("$PSET,"+String(GunID)+",3,67,105,105,50,,H44,JAD,V33,V3I,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
+  
+  if(SetGNDR == 0) {
+    sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,H44,JAD,V33,V3I,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
   } else {
-    if(SetGNDR == 0) {
-      sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,H44,JAD,V33,V3I,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
-    }
-    else {
-      sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,H44,JAD,VB3,VBI,VBC,VBG,VBE,VB7,H06,H55,H13,H21,H02,U15,W71,A10,*");
+    sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,H44,JAD,VB3,VBI,VBC,VBG,VBE,VB7,H06,H55,H13,H21,H02,U15,W71,A10,*");
+  }
+  if (GameMode == 7 && Team == 3) { // infected 
+    if (Team == 3) {
+      sendString("$PSET,"+String(GunID)+",3,67,105,105,50,,A100,A20,A100,V7J,V16,V96,V52,V66,H06,V76,V16,V56,H06,U15,W71,A10,*");
+      SetSlotB = 1;
+      SetSlotA = 8;
+    } else {
+      SetSlotB = 21;
     }
   }
 }
@@ -5468,18 +5422,23 @@ void ProcessBRXData() {
         if (tokenStrings[7] == "2") { // arm/disarm tag recieved
           String TeamChecker = String(SetTeam);
           if (tokenStrings[4] == TeamChecker) {
-            }
             if (DISARMED) {
               DISARMED = false;
               weaponsettingsA();
               weaponsettingsB();
               weaponsettingsC();
               sendString("$WEAP,4,1,90,13,2,0,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
-            } else {
+              AudioSelection1="VA9T";
+              AUDIO1=true;
+            }
+          } 
+          if (tokenStrings[4] != TeamChecker) {
               DISARMED = true;
               sendString("$WEAP,0,*"); // cleared out weapon 0
               sendString("$WEAP,1,*"); // cleared out weapon 1
               sendString("$WEAP,4,*"); // cleared out melee weapon
+              AudioSelection1="GN01";
+              AUDIO1=true;
             }
           }
         }
@@ -5559,6 +5518,13 @@ void ProcessBRXData() {
           if (SetTeam == 1) {sendString("$PLAY,VA1L,4,6,,,,,*");}
           if (SetTeam == 2) {sendString("$PLAY,VA1R,4,6,,,,,*");}
           if (SetTeam == 3) {sendString("$PLAY,VA27,4,6,,,,,*");}
+        }
+        if (GameMode == 7) { // infected game mode
+          RESPAWN = true;
+          SetTeam = 3; // make sure you are now team green
+          SetSlotB = 1; // make sure you dont have a med kit
+          // SetSlotA = ?;
+          playersettings(); // setting your new team
         }
         if (PlayerLives > 0 && SetRSPNMode < 9) { // doing a check if we still have lives left after dying
           RESPAWN = true;
