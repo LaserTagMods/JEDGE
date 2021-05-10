@@ -6,15 +6,10 @@
 #include <esp_wifi.h> // needed for resetting the mac address
 #include <Arduino_JSON.h>
 
-//******************* IMPORTANT *********************
-//******************* IMPORTANT *********************
-//*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
+// no need to change this
 int GunID = 99; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
-int GunGeneration = 2; // change to gen 1, 2, 3
+int aGunGeneration = 2; // change to gen 1, 2, 3
 int TaggersOwned = 64; // how many taggers do you own or will play?
-//******************* IMPORTANT *********************
-//******************* IMPORTANT *********************
-
 
 // Replace with your network credentials
 const char* ssid = "GUN#99";
