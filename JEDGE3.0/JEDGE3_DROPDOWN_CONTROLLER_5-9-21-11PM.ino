@@ -967,120 +967,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   </div>
   
 <script>
-  var gateway = `ws://${window.location.hostname}/ws`;
-  var websocket;
-  window.addEventListener('load', onLoad);
-  function initWebSocket() {
-    console.log('Trying to open a WebSocket connection...');
-    websocket = new WebSocket(gateway);
-    websocket.onopen    = onOpen;
-    websocket.onclose   = onClose;
-    websocket.onmessage = onMessage; // <-- add this line
-  }
-  function onOpen(event) {
-    console.log('Connection opened');
-  }
-  function onClose(event) {
-    console.log('Connection closed');
-    setTimeout(initWebSocket, 2000);
-  }
-  function onMessage(event) {
-    var state;
-    
-  }
-  
-  function onLoad(event) {
-    initWebSocket();
-    initButton();
-  }
-  function initButton() {
-    document.getElementById('initializejedge').addEventListener('click', toggle15);
-    document.getElementById('initializeotaupdate').addEventListener('click', toggle15D);
-    document.getElementById('presetgamemodesid').addEventListener('change', handleGMode, false);
-    document.getElementById('primaryid').addEventListener('change', handleprimary, false);
-    document.getElementById('secondaryid').addEventListener('change', handlesecondary, false);
-    document.getElementById('meleesettingid').addEventListener('change', handlemelee, false);
-    document.getElementById('playerlivesid').addEventListener('change', handlelives, false);
-    document.getElementById('gametimeid').addEventListener('change', handlegametime, false);
-    document.getElementById('ambienceid').addEventListener('change', handleambience, false);
-    document.getElementById('teamselectionid').addEventListener('change', handleteams, false);
-    document.getElementById('respawnid').addEventListener('change', handlerespawn, false);
-    document.getElementById('starttimerid').addEventListener('change', handlestartimer, false);
-    document.getElementById('friendlyfireid').addEventListener('change', handlefriendlyfire, false);
-    document.getElementById('ammoid').addEventListener('change', handleammo, false);
-    document.getElementById('adjustvolumeid').addEventListener('change', handlevolumesetting, false);
-    document.getElementById('gamestart').addEventListener('click', toggle14s);
-    document.getElementById('gameend').addEventListener('click', toggle14e);
-    document.getElementById('syncscores').addEventListener('click', toggle9);
-  }
-  function toggle9(){
-    websocket.send('toggle9');
-  }
-  function toggle14s(){
-    websocket.send('toggle14s');
-  }
-  function toggle14e(){
-    websocket.send('toggle14e');
-  }
-  function handleprimary() {
-    var xa = document.getElementById("primaryid").value;
-    websocket.send(xa);
-  }
-  function handlesecondary() {
-    var xb = document.getElementById("secondaryid").value;
-    websocket.send(xb);
-  }
-  function handlemelee() {
-    var xc = document.getElementById("meleesettingid").value;
-    websocket.send(xc);
-  }
-  function handleGMode() {
-    var xd = document.getElementById("presetgamemodesid").value;
-    websocket.send(xd);
-  }
-  function handlelives() {
-    var xe = document.getElementById("playerlivesid").value;
-    websocket.send(xe);
-  }
-  function handlegametime() {
-    var xf = document.getElementById("gametimeid").value;
-    websocket.send(xf);
-  }
-  function handleambience() {
-    var xg = document.getElementById("ambienceid").value;
-    websocket.send(xg);
-  }
-  function handleteams() {
-    var xg = document.getElementById("teamselectionid").value;
-    websocket.send(xg);
-  }
-  function handlerespawn() {
-    var xh = document.getElementById("respawnid").value;
-    websocket.send(xh);
-  }
-  function handlestartimer() {
-    var xi = document.getElementById("starttimerid").value;
-    websocket.send(xi);
-  }
-  function handlefriendlyfire() {
-    var xj = document.getElementById("friendlyfireid").value;
-    websocket.send(xj);
-  }
-  function handleammo() {
-    var xl = document.getElementById("ammoid").value;
-    websocket.send(xl);
-  }
-  function handlevolumesetting() {
-    var xm = document.getElementById("adjustvolumeid").value;
-    websocket.send(xm);
-  }
-  function toggle15(){
-    websocket.send('toggle15');
-  }
-  function toggle15D(){
-    websocket.send('toggle15D');
-  }
-  if (!!window.EventSource) {
+if (!!window.EventSource) {
  var source = new EventSource('/events');
  
  source.addEventListener('open', function(e) {
@@ -1249,11 +1136,11 @@ const char index_html[] PROGMEM = R"rawliteral(
   document.getElementById("MK2").innerHTML = obj.KillsLeader2;
   document.getElementById("MK12").innerHTML = obj.Leader2Kills;
 
-  document.getElementById("MO0").innerHTML = obj.ObjectivesLeader0;
+  document.getElementById("MO0").innerHTML = obj.ObjectiveLeader0;
   document.getElementById("MO10").innerHTML = obj.Leader0Objectives;
-  document.getElementById("MO1").innerHTML = obj.ObjectivesLeader1;
+  document.getElementById("MO1").innerHTML = obj.ObjectiveLeader1;
   document.getElementById("MO11").innerHTML = obj.Leader1Objectives;
-  document.getElementById("MO2").innerHTML = obj.ObjectivesLeader2;
+  document.getElementById("MO2").innerHTML = obj.ObjectiveLeader2;
   document.getElementById("MO12").innerHTML = obj.Leader2Objectives;
 
   document.getElementById("MD0").innerHTML = obj.DeathsLeader0;
@@ -1264,6 +1151,120 @@ const char index_html[] PROGMEM = R"rawliteral(
   document.getElementById("MD12").innerHTML = obj.Leader2Deaths;
  }, false);
 }
+  var gateway = `ws://${window.location.hostname}/ws`;
+  var websocket;
+  window.addEventListener('load', onLoad);
+  function initWebSocket() {
+    console.log('Trying to open a WebSocket connection...');
+    websocket = new WebSocket(gateway);
+    websocket.onopen    = onOpen;
+    websocket.onclose   = onClose;
+    websocket.onmessage = onMessage; // <-- add this line
+  }
+  function onOpen(event) {
+    console.log('Connection opened');
+  }
+  function onClose(event) {
+    console.log('Connection closed');
+    setTimeout(initWebSocket, 2000);
+  }
+  function onMessage(event) {
+    var state;
+    
+  }
+  
+  function onLoad(event) {
+    initWebSocket();
+    initButton();
+  }
+  function initButton() {
+    document.getElementById('initializejedge').addEventListener('click', toggle15);
+    document.getElementById('initializeotaupdate').addEventListener('click', toggle15D);
+    document.getElementById('presetgamemodesid').addEventListener('change', handleGMode, false);
+    document.getElementById('primaryid').addEventListener('change', handleprimary, false);
+    document.getElementById('secondaryid').addEventListener('change', handlesecondary, false);
+    document.getElementById('meleesettingid').addEventListener('change', handlemelee, false);
+    document.getElementById('playerlivesid').addEventListener('change', handlelives, false);
+    document.getElementById('gametimeid').addEventListener('change', handlegametime, false);
+    document.getElementById('ambienceid').addEventListener('change', handleambience, false);
+    document.getElementById('teamselectionid').addEventListener('change', handleteams, false);
+    document.getElementById('respawnid').addEventListener('change', handlerespawn, false);
+    document.getElementById('starttimerid').addEventListener('change', handlestartimer, false);
+    document.getElementById('friendlyfireid').addEventListener('change', handlefriendlyfire, false);
+    document.getElementById('ammoid').addEventListener('change', handleammo, false);
+    document.getElementById('adjustvolumeid').addEventListener('change', handlevolumesetting, false);
+    document.getElementById('gamestart').addEventListener('click', toggle14s);
+    document.getElementById('gameend').addEventListener('click', toggle14e);
+    document.getElementById('syncscores').addEventListener('click', toggle9);
+  }
+  function toggle9(){
+    websocket.send('toggle9');
+  }
+  function toggle14s(){
+    websocket.send('toggle14s');
+  }
+  function toggle14e(){
+    websocket.send('toggle14e');
+  }
+  function handleprimary() {
+    var xa = document.getElementById("primaryid").value;
+    websocket.send(xa);
+  }
+  function handlesecondary() {
+    var xb = document.getElementById("secondaryid").value;
+    websocket.send(xb);
+  }
+  function handlemelee() {
+    var xc = document.getElementById("meleesettingid").value;
+    websocket.send(xc);
+  }
+  function handleGMode() {
+    var xd = document.getElementById("presetgamemodesid").value;
+    websocket.send(xd);
+  }
+  function handlelives() {
+    var xe = document.getElementById("playerlivesid").value;
+    websocket.send(xe);
+  }
+  function handlegametime() {
+    var xf = document.getElementById("gametimeid").value;
+    websocket.send(xf);
+  }
+  function handleambience() {
+    var xg = document.getElementById("ambienceid").value;
+    websocket.send(xg);
+  }
+  function handleteams() {
+    var xg = document.getElementById("teamselectionid").value;
+    websocket.send(xg);
+  }
+  function handlerespawn() {
+    var xh = document.getElementById("respawnid").value;
+    websocket.send(xh);
+  }
+  function handlestartimer() {
+    var xi = document.getElementById("starttimerid").value;
+    websocket.send(xi);
+  }
+  function handlefriendlyfire() {
+    var xj = document.getElementById("friendlyfireid").value;
+    websocket.send(xj);
+  }
+  function handleammo() {
+    var xl = document.getElementById("ammoid").value;
+    websocket.send(xl);
+  }
+  function handlevolumesetting() {
+    var xm = document.getElementById("adjustvolumeid").value;
+    websocket.send(xm);
+  }
+  function toggle15(){
+    websocket.send('toggle15');
+  }
+  function toggle15D(){
+    websocket.send('toggle15D');
+  }
+
 
 </script>
 </body>
@@ -1289,7 +1290,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       datapacket2 = 901;
       datapacket1 = 99;
       ClearScores();
-      BROADCASTESPNOW = true;
+      // BROADCASTESPNOW = true;
       SCORESYNC = true;
       Serial.println("Commencing Score Sync Process");
       ScoreRequestCounter = 0;
@@ -2173,7 +2174,6 @@ void AccumulateIncomingScores() {
     Serial.println("Player Objectives completed: "+String(PlayerObjectives[Player]));
     TeamObjectives[Team] = TeamObjectives[Team] + Data[2]; // added this player's objective score to his team's objective score
     Serial.println(String(millis()));
-    //UpdateWebApp();
 }
 void PrimaryMenu() {
   WebSocketData = Menu[0];
@@ -2206,6 +2206,17 @@ void setup(){
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send_P(200, "text/html", index_html, processor);
   });
+  
+  // json events
+    events.onConnect([](AsyncEventSourceClient *client){
+      if(client->lastId()){
+        Serial.printf("Client reconnected! Last message ID that it got is: %u\n", client->lastId());
+      }
+      // send event with message "hello!", id current millis
+      // and set reconnect delay to 1 second
+      client->send("hello!", NULL, millis(), 10000);
+    });
+    server.addHandler(&events);
 
   // Start server
   server.begin();
@@ -2246,5 +2257,33 @@ void loop() {
     BroadcastData(); // sending data via ESPNOW
     Serial.println("Sent Data Via ESPNOW");
     ResetReadings();
+  }
+  if (SCORESYNC) {
+      unsigned long ScoreCurrentMillis = millis();
+      if (ScoreCurrentMillis - ScorePreviousMillis > 200) {
+        ScorePreviousMillis = ScoreCurrentMillis;
+        RequestingScores();
+      }
+    }
+  if (UPDATEWEBAPP) {
+    if (WebAppUpdaterProcessCounter < 3) {
+      unsigned long UpdaterCurrentMillis = millis();
+      if (UpdaterCurrentMillis - WebAppUpdaterTimer > 1200) {
+        WebAppUpdaterTimer = UpdaterCurrentMillis;
+        if (WebAppUpdaterProcessCounter == 0) {
+          UpdateWebApp0();
+        }
+        if (WebAppUpdaterProcessCounter == 1) {
+          UpdateWebApp1();
+        }
+        if (WebAppUpdaterProcessCounter == 2) {
+          UpdateWebApp2();
+        }
+        WebAppUpdaterProcessCounter++;
+      }
+    } else {
+      UPDATEWEBAPP = false;
+      WebAppUpdaterProcessCounter = 0;
+    }
   }
 }
