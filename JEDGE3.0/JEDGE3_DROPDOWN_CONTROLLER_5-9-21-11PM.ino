@@ -12,7 +12,7 @@ int aGunGeneration = 2; // change to gen 1, 2, 3
 int TaggersOwned = 64; // how many taggers do you own or will play?
 
 // Replace with your network credentials
-const char* ssid = "GUN#99";
+const char* ssid = "JEDGEHOST";
 const char* password = "123456789";
 
 int WebSocketData;
