@@ -6,13 +6,18 @@
 #include <esp_wifi.h> // needed for resetting the mac address
 #include <Arduino_JSON.h>
 
-// no need to change this
+//******************* IMPORTANT *********************
+//******************* IMPORTANT *********************
+//*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
 int GunID = 99; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
-int aGunGeneration = 2; // change to gen 1, 2, 3
+int GunGeneration = 2; // change to gen 1, 2, 3
 int TaggersOwned = 64; // how many taggers do you own or will play?
+//******************* IMPORTANT *********************
+//******************* IMPORTANT *********************
+
 
 // Replace with your network credentials
-const char* ssid = "JEDGEHOST";
+const char* ssid = "GUN#99";
 const char* password = "123456789";
 
 int WebSocketData;
@@ -704,6 +709,79 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="1305">5</option>
         </select>
       </p>
+       <h2>Player/Team Selector</h2>
+      <p><select name="playerselector" id="playerselectorid">
+        <option value="1668">All</option>
+        <option value="1664">Red</option>
+        <option value="1665">Blue</option>
+        <option value="1666">Yellow</option>
+        <option value="1667">Green</option>
+        <option value="1600">Player 0</option>
+        <option value="1601">Player 1</option>
+        <option value="1602">Player 2</option>
+        <option value="1603">Player 3</option>
+        <option value="1604">Player 4</option>
+        <option value="1605">Player 5</option>
+        <option value="1606">Player 6</option>
+        <option value="1607">Player 7</option>
+        <option value="1608">Player 8</option>
+        <option value="1609">Player 9</option>
+        <option value="1610">Player 10</option>
+        <option value="1611">Player 11</option>
+        <option value="1612">Player 12</option>
+        <option value="1613">Player 13</option>
+        <option value="1614">Player 14</option>
+        <option value="1615">Player 15</option>
+        <option value="1616">Player 16</option>
+        <option value="1617">Player 17</option>
+        <option value="1618">Player 18</option>
+        <option value="1619">Player 19</option>
+        <option value="1620">Player 20</option>
+        <option value="1621">Player 21</option>
+        <option value="1622">Player 22</option>
+        <option value="1623">Player 23</option>
+        <option value="1624">Player 24</option>
+        <option value="1625">Player 25</option>
+        <option value="1626">Player 26</option>
+        <option value="1627">Player 27</option>
+        <option value="1628">Player 28</option>
+        <option value="1629">Player 29</option>
+        <option value="1630">Player 30</option>
+        <option value="1631">Player 31</option>
+        <option value="1632">Player 32</option>
+        <option value="1633">Player 33</option>
+        <option value="1634">Player 34</option>
+        <option value="1635">Player 35</option>
+        <option value="1636">Player 36</option>
+        <option value="1637">Player 37</option>
+        <option value="1638">Player 38</option>
+        <option value="1639">Player 39</option>
+        <option value="1640">Player 40</option>
+        <option value="1641">Player 41</option>
+        <option value="1642">Player 42</option>
+        <option value="1643">Player 43</option>
+        <option value="1644">Player 44</option>
+        <option value="1645">Player 45</option>
+        <option value="1646">Player 46</option>
+        <option value="1647">Player 47</option>
+        <option value="1648">Player 48</option>
+        <option value="1649">Player 49</option>
+        <option value="1650">Player 50</option>
+        <option value="1651">Player 51</option>
+        <option value="1652">Player 52</option>
+        <option value="1653">Player 53</option>
+        <option value="1654">Player 54</option>
+        <option value="1655">Player 55</option>
+        <option value="1656">Player 56</option>
+        <option value="1657">Player 57</option>
+        <option value="1658">Player 58</option>
+        <option value="1659">Player 59</option>
+        <option value="1660">Player 60</option>
+        <option value="1661">Player 61</option>
+        <option value="1662">Player 62</option>
+        <option value="1663">Player 63</option>
+        </select>
+      </p>
       <p><button id="gamestart" class="button">Start Game</button></p>
       <p><button id="gameend" class="button">End Game</button></p>
       <p><button id="syncscores" class="button">Sync Scores</button></p>
@@ -958,6 +1036,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   <div class="content">
     <div class="card">
       <p><button id="initializeotaupdate" class="button">Enable OTA</button></p>
+      <p><button id="resetcontrollers" class="button">Reset Controllers</button></p>
     </div>
   </div>
   
@@ -1175,6 +1254,7 @@ if (!!window.EventSource) {
   function initButton() {
     document.getElementById('initializejedge').addEventListener('click', toggle15);
     document.getElementById('initializeotaupdate').addEventListener('click', toggle15D);
+    document.getElementById('resetcontrollers').addEventListener('click', toggle15B);
     document.getElementById('presetgamemodesid').addEventListener('change', handleGMode, false);
     document.getElementById('primaryid').addEventListener('change', handleprimary, false);
     document.getElementById('secondaryid').addEventListener('change', handlesecondary, false);
@@ -1191,6 +1271,8 @@ if (!!window.EventSource) {
     document.getElementById('gamestart').addEventListener('click', toggle14s);
     document.getElementById('gameend').addEventListener('click', toggle14e);
     document.getElementById('syncscores').addEventListener('click', toggle9);
+    document.getElementById('playerselectorid').addEventListener('change', handleplayerselector, false);
+    
   }
   function toggle9(){
     websocket.send('toggle9');
@@ -1200,6 +1282,10 @@ if (!!window.EventSource) {
   }
   function toggle14e(){
     websocket.send('toggle14e');
+  }
+  function handleplayerselector() {
+    var xn = document.getElementById("playerselectorid").value;
+    websocket.send(xn);
   }
   function handleprimary() {
     var xa = document.getElementById("primaryid").value;
@@ -1259,6 +1345,9 @@ if (!!window.EventSource) {
   function toggle15D(){
     websocket.send('toggle15D');
   }
+  function toggle15B(){
+    websocket.send('toggle15B');
+  }
 
 
 </script>
@@ -1279,8 +1368,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     data[len] = 0;
     if (strcmp((char*)data, "toggle9") == 0) { // score sync
       Menu[9] = 901;
-      //WebSocketData = Menu[9];
-      //notifyClients();
+      ledState = !ledState;
+      notifyClients();
       Serial.println(" menu = " + String(Menu[9]));
       datapacket2 = 901;
       datapacket1 = 99;
@@ -1292,8 +1381,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     }
     if (strcmp((char*)data, "toggle14s") == 0) { // game start
       Menu[14] = 1401;
-      //WebSocketData = Menu[14];
-      //notifyClients();
+      ledState = !ledState;
+      notifyClients();
       Serial.println("menu = " + String(Menu[14]));
       datapacket2 = Menu[14];
       datapacket1 = 99;
@@ -1301,8 +1390,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     }
     if (strcmp((char*)data, "toggle14e") == 0) { // game end
       Menu[14] = 1400;
-      //WebSocketData = Menu[14];
-      //notifyClients();
+      ledState = !ledState;
+      notifyClients();
       Serial.println("menu = " + String(Menu[14]));
       datapacket2 = Menu[14];
       datapacket1 = 99;
@@ -1981,6 +2070,490 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       Menu[0] = 1305;
       PrimaryMenu();
     }
+    
+    if (strcmp((char*)data, "1600") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1600;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1601") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1601;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1602") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1602;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1603") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1603;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1604") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1604;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1605") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1605;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1606") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1606;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1607") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1607;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1608") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1608;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1609") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1609;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1610") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1610;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1611") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1611;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1612") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1612;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1613") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1613;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1614") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1614;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1615") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1615;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1616") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1616;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1617") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1617;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1618") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1618;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1619") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1619;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1620") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1620;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1621") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1621;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1622") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1622;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1623") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1623;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1624") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1624;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1625") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1625;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1626") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1626;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1627") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1627;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1628") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1628;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1629") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1629;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1630") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1630;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1631") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1631;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1632") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1632;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1633") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1633;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1634") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1634;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1635") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1635;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1636") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1636;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1637") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1637;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1638") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1638;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1639") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1639;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1640") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1640;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1641") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1641;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1642") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1642;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1643") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1643;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1644") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1644;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1645") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1645;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1646") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1646;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1647") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1647;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1648") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1648;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1649") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1649;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1650") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1650;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1651") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1651;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1652") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1652;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1653") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1653;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1654") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1654;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1655") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1655;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1656") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1656;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1657") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1657;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1658") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1658;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1659") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1659;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1660") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1660;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1661") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1661;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1662") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1662;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1663") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1663;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1664") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1664;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1665") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1665;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1666") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1666;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1667") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1667;
+      PrimaryMenu();
+    }
+
+    if (strcmp((char*)data, "1668") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1668;
+      PrimaryMenu();
+    }
+
     if (strcmp((char*)data, "1700") == 0) {
       ledState = !ledState;
       notifyClients();
@@ -2002,7 +2575,18 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     if (strcmp((char*)data, "toggle15") == 0) { // initialize jedge
       Menu[15] = 1501;
       WebSocketData = Menu[15];
-      //notifyClients();
+      ledState = !ledState;
+      notifyClients();
+      Serial.println("menu = " + String(Menu[15]));
+      datapacket2 = Menu[15];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+    }
+    if (strcmp((char*)data, "toggle15B") == 0) { // auto update
+      Menu[15] = 1502;
+      WebSocketData = Menu[15];
+      ledState = !ledState;
+      notifyClients();
       Serial.println("menu = " + String(Menu[15]));
       datapacket2 = Menu[15];
       datapacket1 = 99;
@@ -2011,7 +2595,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     if (strcmp((char*)data, "toggle15D") == 0) { // auto update
       Menu[15] = 1505;
       WebSocketData = Menu[15];
-      //notifyClients();
+      ledState = !ledState;
+      notifyClients();
       Serial.println("menu = " + String(Menu[15]));
       datapacket2 = Menu[15];
       datapacket1 = 99;
