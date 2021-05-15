@@ -107,6 +107,9 @@
  * updated 05/01/2021 tweaked a bit more on melee disarm function                   
  *                    finished up main settings for infection mode.
  * updated 05/12/2021 added some jbox espnow actions in                   
+ * updated 05/15/2021 added in a dead but not out timer for battle royale
+ *                    added in perk selections, finally, for weapon 5 right button
+ *                    
  *                    
  *                    
  */
@@ -3540,6 +3543,23 @@ void ProcessIncomingCommands() {
          Serial.println("starting game");
          if (SetTeam == 100) {
            SetTeam=Team;
+         }
+       }
+     }
+     if (b > 9) { // this is a game winning end game... you might be a winner
+       if (INGAME){
+         GAMEOVER=true; 
+         Serial.println("ending game");
+         datapacket2 = 1410 + b;
+         datapacket1 = 99;
+         BROADCASTESPNOW = true;
+         int winnercheck = b - 10;
+         if (winnercheck == SetTeam) { // your team won
+          delay(3000);
+          AudioSelection = "VSF";
+          AUDIO=true;
+          StringSender = "$HLED,4,2,,,10,100,*";
+          STRINGSENDER = true;
          }
        }
      }
