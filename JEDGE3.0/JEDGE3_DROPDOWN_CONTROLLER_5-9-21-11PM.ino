@@ -6,18 +6,12 @@
 #include <esp_wifi.h> // needed for resetting the mac address
 #include <Arduino_JSON.h>
 
-//******************* IMPORTANT *********************
-//******************* IMPORTANT *********************
-//*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
 int GunID = 99; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
 int GunGeneration = 2; // change to gen 1, 2, 3
 int TaggersOwned = 64; // how many taggers do you own or will play?
-//******************* IMPORTANT *********************
-//******************* IMPORTANT *********************
-
 
 // Replace with your network credentials
-const char* ssid = "GUN#99";
+const char* ssid = "JEDGECONTROLLER";
 const char* password = "123456789";
 
 int WebSocketData;
@@ -782,6 +776,19 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="1663">Player 63</option>
         </select>
       </p>
+      <h2>Player Perks</h2>
+      <p><select name="playerperk" id="playerperkid">
+        <option value="1800">None</option>
+        <option value="1801">Medic Close Range</option>
+        <option value="1802">Add Sheilds Close Range</option>
+        <option value="1803">Restore Armor Close Range</option>
+        <option value="1804">Tear Gas</option>
+        <option value="1805">Medic At Range</option>
+        <option value="1806">Restore Armor at Range</option>
+        <option value="1807">Add Shileds At Range</option>
+        <option value="1808">Respawn</option>
+        </select>
+      </p>
       <p><button id="gamestart" class="button">Start Game</button></p>
       <p><button id="gameend" class="button">End Game</button></p>
       <p><button id="syncscores" class="button">Sync Scores</button></p>
@@ -1272,6 +1279,7 @@ if (!!window.EventSource) {
     document.getElementById('gameend').addEventListener('click', toggle14e);
     document.getElementById('syncscores').addEventListener('click', toggle9);
     document.getElementById('playerselectorid').addEventListener('change', handleplayerselector, false);
+    document.getElementById('playerperkid').addEventListener('change', handleplayerperk, false);
     
   }
   function toggle9(){
@@ -1282,6 +1290,10 @@ if (!!window.EventSource) {
   }
   function toggle14e(){
     websocket.send('toggle14e');
+  }
+  function handleplayerperk() {
+    var xo = document.getElementById("playerperkid").value;
+    websocket.send(xo);
   }
   function handleplayerselector() {
     var xn = document.getElementById("playerselectorid").value;
@@ -2553,7 +2565,6 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       Menu[0] = 1668;
       PrimaryMenu();
     }
-
     if (strcmp((char*)data, "1700") == 0) {
       ledState = !ledState;
       notifyClients();
@@ -2570,6 +2581,60 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 1702;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "1800") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1800;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "1801") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1801;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "1802") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1802;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "1803") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1803;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "1804") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1804;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "1805") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1805;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "1806") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1806;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "1807") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1807;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "1808") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1808;
       PrimaryMenu();
     }
     if (strcmp((char*)data, "toggle15") == 0) { // initialize jedge
