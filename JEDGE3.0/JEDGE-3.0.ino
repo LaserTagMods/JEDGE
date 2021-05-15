@@ -132,7 +132,7 @@ int sample[5];
 #define SERIAL1_TXPIN 17 // TO BRX RX and BLUETOOTH TX
 bool ESPTimeout = true; // if true, this enables automatic deep sleep of esp32 device if wifi or blynk not available on boot
 long TimeOutCurrentMillis = 0;
-long TimeOutInterval = 240000;
+long TimeOutInterval = 300000;
 int BaudRate = 57600; // 115200 is for GEN2/3, 57600 is for GEN1, this is set automatically based upon user input
 bool RUNWEBSERVER = true; // this enables the esp to act as a web server with an access point to connect to
 bool FAKESCORE = false;
@@ -236,6 +236,8 @@ int CurrentColor = 99; // default, change value from 99 to execute tagger and he
 bool VOLUMEADJUST=false; // trigger for audio adjustment
 bool RESPAWN = false; // trigger to enable auto respawn when killed in game
 bool MANUALRESPAWN = false; // trigger to enable manual respawn from base stations when killed
+long RespawnStartTimer = 0; // used for dead but not out scenario for battle royale
+int DeadButNotOutTimer = 45000; // used as the maximum time for allowing a respawn 
 bool PENDINGRESPAWNIR = false; // trigger to check for IR respawn signals
 bool GAMEOVER = false; // used to trigger game over and boot a gun out of play mode
 bool TAGGERUPDATE = false; // used to trigger sending data to ESP8266 used for BLE core
@@ -2871,7 +2873,7 @@ void ProcessIncomingCommands() {
           Serial.println("Friendly Fire On");
           Serial.println("Game mode set to Defaults");
           AudioSelection="VA5Z";
-          SetSlotC = 0;
+          SetSlotD = 0;
         }
         if (b==2) { // 5 min F4A AR + ShotGun
           GameMode=2;
@@ -2910,7 +2912,7 @@ void ProcessIncomingCommands() {
           Serial.println("Friendly Fire On");
           Serial.println("Game mode set to 5Min F4A AR + Shotguns"); 
           AudioSelection="VA8I";
-          SetSlotC = 0;
+          SetSlotD = 0;
         }
         if (b==3) { // 10Min F4A Rndm Weap
           GameMode=3; 
@@ -2949,7 +2951,7 @@ void ProcessIncomingCommands() {
           Serial.println("Friendly Fire On");
           Serial.println("Game mode set to 10 Min F4A Rndm Weapon");
           AudioSelection="VA8I";
-          SetSlotC = 0;
+          SetSlotD = 0;
         }
         if (b==4) { // Battle Royal (SwapBRX)
           GameMode=4;
@@ -2965,12 +2967,13 @@ void ProcessIncomingCommands() {
            * Gender - Male
            * Friendly Fire - On
            * integrate IR protocol for random weapon swap...
+           * integrate dead but not out 45 second timer
            */
           SetSlotA = 20; // set weapon slot 0 as pistol
           Serial.println("Weapon slot 0 set to PISTOL");
           SetSlotB = 1; // set weapon slot 1 as uarmed
           Serial.println("Weapon slot 1 set to unarmed");
-          SetSlotC = 1; // set respawn station as weapon slot 3
+          SetSlotD = 8; // set respawn station as weapon slot 3
           Serial.println("Weapons Slot 3 set as respawn station");
           SetLives = 32000; // set lives to unlimited
           Serial.println("Lives is set to Unlimited");
@@ -3028,7 +3031,7 @@ void ProcessIncomingCommands() {
           Serial.println("Game mode set to Capture the Flag");
           AudioSelection="VA8P";
           AUDIO=true;
-          SetSlotC = 0;
+          SetSlotD = 0;
         }
         if (b==6) { // Own the Zone
           GameMode=6; 
@@ -3067,7 +3070,7 @@ void ProcessIncomingCommands() {
           AudioSelection="VA93";
           AUDIO=true;
           //vTaskDelay(3000);
-          SetSlotC = 0;
+          SetSlotD = 0;
           
         }
         if (b==7) { // Survival/Infection
@@ -3107,7 +3110,7 @@ void ProcessIncomingCommands() {
           AudioSelection="VA64";
           AUDIO=true;
           //vTaskDelay(3000);
-          SetSlotC = 0;
+          SetSlotD = 0;
         }
         if (b==8) { // Assimilation
           /*
@@ -3145,7 +3148,7 @@ void ProcessIncomingCommands() {
           Serial.println("Gender set to Male");
           SetFF=0; // friendly fire set to off
           Serial.println("Friendly Fire Off");
-          SetSlotC = 0;
+          SetSlotD = 0;
         }
         if (b==9) { // Gun Game
           GameMode=9;
@@ -3184,7 +3187,7 @@ void ProcessIncomingCommands() {
           Serial.println("Friendly Fire On");
           Serial.println("Game mode set to GunGame");;
           AudioSelection="VA9T";
-          SetSlotC = 0;
+          SetSlotD = 0;
         }
         if (b==10) { // team death match with energy weapons
           GameMode=10; 
@@ -3222,7 +3225,7 @@ void ProcessIncomingCommands() {
           Serial.println("Game mode set to Death Match Energy Weapons");
           AudioSelection="VA26";
           AUDIO=true;
-          SetSlotC = 0;
+          SetSlotD = 0;
         }
         if (b==11) { // Kids Mode
           GameMode=11; 
@@ -3262,7 +3265,7 @@ void ProcessIncomingCommands() {
           Serial.println("Friendly Fire On");
           Serial.println("Game mode set to Kids Mode");
           AudioSelection="VA5Z";
-          SetSlotC = 0;
+          SetSlotD = 0;
         }
         AUDIO=true;
         if (ChangeMyColor > 8) {
@@ -3637,6 +3640,13 @@ void ProcessIncomingCommands() {
       int b = incomingData2 - 1700;
       if (!INGAME) {
         Melee = b;
+      } 
+    }
+    if (incomingData2 < 1900 && incomingData2 > 1799) { // Melee Use
+      int b = incomingData2 - 1800;
+      if (!INGAME) {
+        SetSlotD = b;
+        Serial.println("Perk Changed");
       } 
     }
     if (incomingData2 == 31100) { // Zone Base Captured
@@ -4721,10 +4731,6 @@ void weaponsettingsC() {
     Serial.println("Weapon 3 set to Unarmed"); 
     sendString("$WEAP,3,*"); // Set weapon 3 as unarmed
   }
-  if(SetSlotC == 1){
-    Serial.println("Weapon 3 set to Respawn"); 
-    sendString("$WEAP,3,1,90,15,0,6,100,,,,,,,,1000,100,1,0,0,10,15,100,100,,0,0,,,,,,,,,,,,,,1,0,20,,*"); // Set weapon 3 as respawn
-  }
   if(SetSlotD == 0){
     Serial.println("Weapon 5 set to Unarmed"); 
     sendString("$WEAP,5,*"); // Set weapon 5 as unarmed
@@ -4743,7 +4749,7 @@ void weaponsettingsC() {
   }
   if(SetSlotD == 4) {
     Serial.println("Weapon 5 set to Tear Gas");
-    sendString("$WEAP,5,2,100,11,1,1,0,,,,,,1,80,1400,50,10,0,0,10,11,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,10,9999999,75,30,*");
+    sendString("$WEAP,5,0,100,11,1,1,0,,,,,,1,80,1400,50,10,0,0,10,11,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,10,9999999,75,30,*");
   }
   if(SetSlotD == 5) {
     Serial.println("Weapon 5 set to Medic at Range");
@@ -4756,6 +4762,10 @@ void weaponsettingsC() {
   if(SetSlotD == 7) {
     Serial.println("Weapon 5 set to Sheilds at range");
     sendString("$WEAP,5,2,100,3,0,30,0,,,,,,40,80,1400,50,10,0,0,10,3,100,100,,0,,,H29,,,,,,,,,,,,18,9999999,75,30,*");
+  }
+  if(SetSlotD == 8){
+    Serial.println("Weapon 5 set to Respawn"); 
+    sendString("$WEAP,5,1,90,15,0,6,100,,,,,,,,1000,100,1,0,0,10,15,100,100,,0,0,,,,,,,,,,,,,,1,0,20,,*"); // Set weapon 3 as respawn
   }
 }
 //****************************************************************************************
@@ -4788,9 +4798,9 @@ void gameconfigurator() {
   sendString("$SIR,0,0,,1,0,0,1,,*"); // standard weapon, damages shields then armor then HP
   sendString("$SIR,0,1,,36,0,0,1,,*"); // force rifle, sniper rifle ?pass through damage?
   sendString("$SIR,0,3,,37,0,0,1,,*"); // bolt rifle, burst rifle, AMR
-  sendString("$SIR,1,0,,10,0,0,1,,*"); // adds HP with this function
-  sendString("$SIR,2,1,VA8C,11,0,0,1,,*"); // adds shields
-  sendString("$SIR,3,0,VA16,13,0,0,1,,*"); // adds armor
+  sendString("$SIR,1,0,H29,10,0,0,1,,*"); // adds HP with this function********
+  sendString("$SIR,2,1,VA8C,11,0,0,1,,*"); // adds shields*******
+  sendString("$SIR,3,0,VA16,13,0,0,1,,*"); // adds armor*********
   sendString("$SIR,6,0,H02,1,0,90,1,40,*"); // rail gun
   sendString("$SIR,8,0,,38,0,0,1,,*"); // charge rifle
   sendString("$SIR,9,3,,24,10,0,,,*"); // energy launcher
@@ -4808,8 +4818,8 @@ void gameconfigurator() {
   sendString("$BMAP,0,0,,,,,*"); // sets the trigger on tagger to weapon 0
   sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
   sendString("$BMAP,2,97,,,,,*"); // sets the reload handle as the reload button
-  sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5
-  sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4
+  sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5****
+  sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
   sendString("$BMAP,5,3,,,,,*"); // Sets the right button as weapon 3, using for perks/respawns etc. 
   sendString("$BMAP,8,4,,,,,*"); // sets the gyro as weapon 4
   Serial.println("Finished Game Configuration set up");
@@ -4997,7 +5007,7 @@ void respawnplayer() {
 // or player signal to respawn them... a lot to think about still on this and im using auto respawn 
 // for now untill this is further thought out and developed
 void ManualRespawnMode() {
-  delay(4000);
+  delay(4000); // delay added to allow sound to finish and lights process as well
   sendString("$VOL,0,0,*"); // adjust volume to default
   sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,,,,,,,,,,,,,,,,,*");
   sendString("$STOP,*"); // this is essentially ending the game for player... need to rerun configurator or use a different command
@@ -5009,6 +5019,7 @@ void ManualRespawnMode() {
   //AUDIO1 = true;
   PENDINGRESPAWNIR = true;
   MANUALRESPAWN = false;
+  RespawnStartTimer = millis();
 }
 //****************************************************************************
 void Audio() {
@@ -5096,6 +5107,15 @@ void MainGame() {
     }
   }
   if (!INGAME) {
+    if (PENDINGRESPAWNIR) {
+      if (GameMode == 4) {
+        int RespawnTimeCheck = millis() - RespawnStartTimer;
+        if (RespawnTimeCheck > DeadButNotOutTimer) {
+          GAMEOVER = true;
+          PENDINGRESPAWNIR = false;
+        }
+      }
+    }
     if (settingsallowed1==3) {
       Serial.println("Team Settings requested"); 
       delay(250);
