@@ -109,7 +109,7 @@
  * updated 05/12/2021 added some jbox espnow actions in                   
  * updated 05/15/2021 added in a dead but not out timer for battle royale
  *                    added in perk selections, finally, for weapon 5 right button
- *                    
+ * updated 05/16.2021 added notifications for when a new leadr captures  domination base                   
  *                    
  *                    
  */
@@ -219,7 +219,7 @@ int AudioPerkTimer = 4000; // used to time the perk announcement
 bool PERK = false; // used to trigger audio perk
 String TerminalInput; // used for sending incoming terminal widget text to Tagger
 bool TERMINALINPUT = false; // used to trigger sending terminal input to tagger
-bool WRITETOTERMINAL = false; // used to write to terminal
+int CurrentDominationLeader = 99;
 
 int lastTaggedPlayer = -1;  // used to capture player id who last shot gun, for kill count attribution
 int lastTaggedTeam = -1;  // used to captures last player team who shot gun, for kill count attribution
@@ -3563,6 +3563,32 @@ void ProcessIncomingCommands() {
          }
        }
      }
+     if (b > 19) { // this is a game winning end game... you might be a winner
+       if (INGAME){
+         Serial.println("change in leaders detected");
+         int leadercheck = b - 20;
+         if (leadercheck != CurrentDominationLeader) { 
+           // you have not received this notification yet
+           CurrentDominationLeader = leadercheck;
+           if (leadercheck == 0) {
+             AudioSelection = "VB17";
+           }
+           if (leadercheck == 1) {
+             AudioSelection = "VB07";
+           }
+           if (leadercheck == 2) {
+             AudioSelection = "VB1J";
+           }
+           if (leadercheck == 3) {
+             AudioSelection = "VB0L";
+           }
+           AUDIO=true;
+           datapacket2 = 1420 + b;
+           datapacket1 = 99;
+           BROADCASTESPNOW = true;
+         }
+       }
+     }
    }
    if (incomingData2 < 1600 && incomingData2 > 1499) { // Misc. Debug
      int b = incomingData2 - 1500;
@@ -4957,6 +4983,7 @@ void gameover() {
   sendString("$CLEAR,*"); // clears out anything stored for game settings
   sendString("$PLAY,VS6,4,6,,,,,*"); // says game over
   Serial.println("Game Over Object Complete");
+  CurrentDominationLeader = 99; // resetting the domination game status
 }
 //******************************************************************************************
 // as the name says... respawn a player!
@@ -5329,7 +5356,6 @@ void ProcessBRXData() {
   Serial.println("We received: " + readStr);   
   Serial.println("We have found " + String(index ) + " tokens from the received data");
   // trouble shooting Gen3 Taggers
-  WRITETOTERMINAL = true;
   TerminalInput = readStr;
   int stringnumber = 0;
   while (stringnumber < index) {
@@ -5351,7 +5377,7 @@ void ProcessBRXData() {
     }
     Serial.println("changed serial data from brx to match gen1/2 data packets");
     //TerminalInput = "Modified Gen3 Data to Match Gen 1/2";
-    //WRITETOTERMINAL = true;
+    
   }
     /* 
      *  Mapping of the BLE buttons pressed
@@ -5883,7 +5909,7 @@ void ProcessBRXData() {
         if (PlayerLives == 0) {
           //GAMEOVER=true;
           TerminalInput = "Lives Depleted"; // storing the string for sending to Tagger, elswhere
-          WRITETOTERMINAL = true;
+          
           delay(3000);
           sendString("$HLOOP,2,1200,*"); // this puts the headset in a loop for flashing
           sendString("$PLAY,VA46,4,6,,,,,*"); // says lives depleted
