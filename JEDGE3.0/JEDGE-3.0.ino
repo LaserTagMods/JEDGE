@@ -220,6 +220,7 @@ bool PERK = false; // used to trigger audio perk
 String TerminalInput; // used for sending incoming terminal widget text to Tagger
 bool TERMINALINPUT = false; // used to trigger sending terminal input to tagger
 int CurrentDominationLeader = 99;
+int ClosingVictory[4];
 
 int lastTaggedPlayer = -1;  // used to capture player id who last shot gun, for kill count attribution
 int lastTaggedTeam = -1;  // used to captures last player team who shot gun, for kill count attribution
@@ -3546,7 +3547,7 @@ void ProcessIncomingCommands() {
          }
        }
      }
-     if (b > 9) { // this is a game winning end game... you might be a winner
+     if (b > 9 && b < 20) { // this is a game winning end game... you might be a winner
        if (INGAME){
          GAMEOVER=true; 
          Serial.println("ending game");
@@ -3563,7 +3564,7 @@ void ProcessIncomingCommands() {
          }
        }
      }
-     if (b > 19) { // this is a game winning end game... you might be a winner
+     if (b > 19 && b < 30) { // this is a game winning end game... you might be a winner
        if (INGAME){
          Serial.println("change in leaders detected");
          int leadercheck = b - 20;
@@ -3584,6 +3585,44 @@ void ProcessIncomingCommands() {
            }
            AUDIO=true;
            datapacket2 = 1420 + b;
+           datapacket1 = 99;
+           BROADCASTESPNOW = true;
+         }
+       }
+     }
+     if (b > 29 && b < 40) { // this is a game winning end game... you might be a winner
+       if (INGAME){
+         int leadercheck = b - 30;
+         Serial.println("change in leaders detected");
+         if (leadercheck == 0 && ClosingVictory[0] == 0) {
+           AudioSelection = "VB13";
+           ClosingVictory[0] = 1;
+           AUDIO=true;
+           datapacket2 = 1430 + b;
+           datapacket1 = 99;
+           BROADCASTESPNOW = true;
+         }
+         if (leadercheck == 1 && ClosingVictory[1] == 0) {
+           AudioSelection = "VB03";
+           ClosingVictory[1] = 1;
+           AUDIO=true;
+           datapacket2 = 1430 + b;
+           datapacket1 = 99;
+           BROADCASTESPNOW = true;
+         }
+         if (leadercheck == 2 && ClosingVictory[2] == 0) {
+           AudioSelection = "VB1F";
+           ClosingVictory[2] = 1;
+           AUDIO=true;
+           datapacket2 = 1430 + b;
+           datapacket1 = 99;
+           BROADCASTESPNOW = true;
+         }
+         if (leadercheck == 3 && ClosingVictory[3] == 0) {
+           AudioSelection = "VB0H";
+           ClosingVictory[3] = 1;
+           AUDIO=true;
+           datapacket2 = 1430 + b;
            datapacket1 = 99;
            BROADCASTESPNOW = true;
          }
@@ -3714,10 +3753,42 @@ void ProcessIncomingCommands() {
       // 31103 - shield boost
       // 31104 - ammo boost
     }
-    if (31530 > incomingData2 > 31500) {
+    if (31300 > incomingData2 > 31199) {
+      // notification of a flag captured
+      Serial.println("a flag was captured");
+      int capture = incomingData2 - 31200;
+      if (capture == SetTeam) {
+        // We captured the flag!
+        AudioSelection1="VA2K"; // setting audio play to notify we captured the flag
+        AUDIO1 = true; // enabling play back of audio
+      }
+      else {
+        // enemey has our flag
+        AudioSelection1="VA2J"; // setting audio play to notify we captured the flag
+        AUDIO1 = true; // enabling play back of audio
+      }
+    }
+    if (31600 > incomingData2 > 31500) {
       SpecialWeapon = incomingData2 - 31500;
       Serial.println("weapon Picked up");
-      SPECIALWEAPONPICKUP = true;
+      if (SpecialWeapon == 99) {
+        AudioSelection1="VA2K"; // setting audio play to notify we captured the flag
+        AUDIO1 = true; // enabling play back of audio
+        HASFLAG = true; // set condition that we have flag to true
+        SpecialWeapon = 0; // loads a new weapon that will deposit flag into base
+        Serial.println("Flag Capture, Gun becomes the flag"); 
+        sendString("$WEAP,1,*");
+        sendString("$WEAP,0,1,90,4,0,90,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*");
+        sendString("$WEAP,4,*");
+        sendString("$WEAP,3,*");
+        sendString("$WEAP,5,*");
+        datapacket2 = 31200 + SetTeam;
+        datapacket1 = 99;
+        BROADCASTESPNOW = true;
+      }
+      else {
+        SPECIALWEAPONPICKUP = true;
+      }
     }
     if (incomingData2 == 32000) { // if true, this is a kill confirmation
       MyKills++; // accumulate one kill count
@@ -4841,6 +4912,7 @@ void gameconfigurator() {
    *  $SIR,13,3,H49,1,0,100,0,60,*  WarHammer               
    *  $SIR,15,0,H29,10,0,0,1,,* Add HP Or Respawns Player
    */
+  sendString("$SIR,4,0,,1,0,0,1,,*"); // standard damgat but is actually the captured flag pole
   sendString("$SIR,0,0,,1,0,0,1,,*"); // standard weapon, damages shields then armor then HP
   sendString("$SIR,0,1,,36,0,0,1,,*"); // force rifle, sniper rifle ?pass through damage?
   sendString("$SIR,0,3,,37,0,0,1,,*"); // bolt rifle, burst rifle, AMR
@@ -4984,6 +5056,10 @@ void gameover() {
   sendString("$PLAY,VS6,4,6,,,,,*"); // says game over
   Serial.println("Game Over Object Complete");
   CurrentDominationLeader = 99; // resetting the domination game status
+  ClosingVictory[0] = 0;
+  ClosingVictory[1] = 0;
+  ClosingVictory[2] = 0;
+  ClosingVictory[3] = 0;
 }
 //******************************************************************************************
 // as the name says... respawn a player!
