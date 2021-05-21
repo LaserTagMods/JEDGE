@@ -110,7 +110,7 @@
  * updated 05/15/2021 added in a dead but not out timer for battle royale
  *                    added in perk selections, finally, for weapon 5 right button
  * updated 05/16.2021 added notifications for when a new leadr captures  domination base                   
- *                    
+ * updated 05/19/2021 added in capture the flag gameplay interactino with jbox                  
  *                    
  */
 
@@ -3564,7 +3564,7 @@ void ProcessIncomingCommands() {
          }
        }
      }
-     if (b > 19 && b < 30) { // this is a game winning end game... you might be a winner
+     if (b > 19 && b < 30) { // this is change in leaders
        if (INGAME){
          Serial.println("change in leaders detected");
          int leadercheck = b - 20;
@@ -3769,6 +3769,8 @@ void ProcessIncomingCommands() {
       }
     }
     if (31600 > incomingData2 > 31500) {
+      AudioSelection = "VA20";
+      AUDIO = true;
       SpecialWeapon = incomingData2 - 31500;
       Serial.println("weapon Picked up");
       if (SpecialWeapon == 99) {
@@ -4845,44 +4847,44 @@ void weaponsettingsB() {
 
 void weaponsettingsC() {
   if(SetSlotC == 0){
-    Serial.println("Weapon 3 set to Unarmed"); 
-    sendString("$WEAP,3,*"); // Set weapon 3 as unarmed
+    Serial.println("Weapon 5 set to Unarmed"); 
+    sendString("$WEAP,5,*"); // Set weapon 3 as unarmed
   }
   if(SetSlotD == 0){
-    Serial.println("Weapon 5 set to Unarmed"); 
-    sendString("$WEAP,5,*"); // Set weapon 5 as unarmed
+    Serial.println("Weapon 3 set to Unarmed"); 
+    sendString("$WEAP,3,*"); // Set weapon 5 as unarmed
   }
   if(SetSlotD == 1) {
-    Serial.println("Weapon 5 set to Medic");
-    sendString("$WEAP,5,1,90,1,0,40,0,,,,,,,,1400,50,10,0,0,10,1,100,100,,0,,,H29,,,,,,,,,,,,10,9999999,20,,*");
+    Serial.println("Weapon 3 set to Medic");
+    sendString("$WEAP,3,1,90,1,0,40,0,,,,,,,,1400,50,10,0,0,10,1,100,100,,0,,,H29,,,,,,,,,,,,10,9999999,20,,*");
   }
   if(SetSlotD == 2) {
-    Serial.println("Weapon 5 set to Sheilds");
-    sendString("$WEAP,5,1,90,2,1,70,0,,,,,,,,1400,50,10,0,0,10,2,100,100,,0,,,H29,,,,,,,,,,,,10,9999999,20,,*");
+    Serial.println("Weapon 3 set to Sheilds");
+    sendString("$WEAP,3,1,90,2,1,70,0,,,,,,,,1400,50,10,0,0,10,2,100,100,,0,,,H29,,,,,,,,,,,,10,9999999,20,,*");
   }
   if(SetSlotD == 3) {
-    Serial.println("Weapon 5 set to Armor");
-    sendString("$WEAP,5,1,90,3,0,70,0,,,,,,,,1400,50,10,0,0,10,3,100,100,,0,,,H29,,,,,,,,,,,,10,9999999,20,,*");
+    Serial.println("Weapon 3 set to Armor");
+    sendString("$WEAP,3,1,90,3,0,70,0,,,,,,,,1400,50,10,0,0,10,3,100,100,,0,,,H29,,,,,,,,,,,,10,9999999,20,,*");
   }
   if(SetSlotD == 4) {
-    Serial.println("Weapon 5 set to Tear Gas");
-    sendString("$WEAP,5,0,100,11,1,1,0,,,,,,1,80,1400,50,10,0,0,10,11,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,10,9999999,75,30,*");
+    Serial.println("Weapon 3 set to Tear Gas");
+    sendString("$WEAP,3,0,100,11,1,1,0,,,,,,1,80,1400,50,10,0,0,10,11,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,10,9999999,75,30,*");
   }
   if(SetSlotD == 5) {
-    Serial.println("Weapon 5 set to Medic at Range");
-    sendString("$WEAP,5,2,100,1,0,20,0,,,,,,20,80,1400,50,10,0,0,10,1,100,100,,0,,,H29,,,,,,,,,,,,18,9999999,75,30,*");
+    Serial.println("Weapon 3 set to Medic at Range");
+    sendString("$WEAP,3,2,100,1,0,20,0,,,,,,20,80,1400,50,10,0,0,10,1,100,100,,0,,,H29,,,,,,,,,,,,18,9999999,75,30,*");
   }
   if(SetSlotD == 6) {
-    Serial.println("Weapon 5 set to Armor at Range");
-    sendString("$WEAP,5,2,100,2,1,30,0,,,,,,40,80,1400,50,10,0,0,10,2,100,100,,0,,,H29,,,,,,,,,,,,18,9999999,75,30,*");
+    Serial.println("Weapon 3 set to Armor at Range");
+    sendString("$WEAP,3,2,100,2,1,30,0,,,,,,40,80,1400,50,10,0,0,10,2,100,100,,0,,,H29,,,,,,,,,,,,18,9999999,75,30,*");
   }
   if(SetSlotD == 7) {
-    Serial.println("Weapon 5 set to Sheilds at range");
-    sendString("$WEAP,5,2,100,3,0,30,0,,,,,,40,80,1400,50,10,0,0,10,3,100,100,,0,,,H29,,,,,,,,,,,,18,9999999,75,30,*");
+    Serial.println("Weapon 3 set to Sheilds at range");
+    sendString("$WEAP,3,2,100,3,0,30,0,,,,,,40,80,1400,50,10,0,0,10,3,100,100,,0,,,H29,,,,,,,,,,,,18,9999999,75,30,*");
   }
   if(SetSlotD == 8){
-    Serial.println("Weapon 5 set to Respawn"); 
-    sendString("$WEAP,5,1,90,15,0,6,100,,,,,,,,1000,100,1,0,0,10,15,100,100,,0,0,,,,,,,,,,,,,,1,0,20,,*"); // Set weapon 3 as respawn
+    Serial.println("Weapon 3 set to Respawn"); 
+    sendString("$WEAP,3,1,90,15,0,6,100,,,,,,,,1000,100,1,0,0,10,15,100,100,,0,0,,,,,,,,,,,,,,1,0,20,,*"); // Set weapon 3 as respawn
   }
 }
 //****************************************************************************************
