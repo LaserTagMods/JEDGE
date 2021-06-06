@@ -111,6 +111,8 @@
  *                    added in perk selections, finally, for weapon 5 right button
  * updated 05/16.2021 added notifications for when a new leadr captures  domination base                   
  * updated 05/19/2021 added in capture the flag gameplay interactino with jbox                  
+ * updated 06/06/2021 added in feature for resent settings from controller so that taggers who received it do not react but those who missed it, do react
+ *                    fixed the battle royale pistol so that it has unlimited ammo instead of limited ammo
  *                    
  */
 
@@ -144,9 +146,9 @@ bool FAKESCORE = false;
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
-int GunID = 1; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+int GunID = 9; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+const char GunName[] = "GUN#9"; // used for OTA id recognition on network and for AP for web server
 int GunGeneration = 2; // change to gen 1, 2, 3
-const char GunName[] = "GUN#1"; // used for OTA id recognition on network and for AP for web server
 const char* password = "123456789"; // Password for web server
 const char* OTAssid = "maxipad"; // network name to update OTA
 const char* OTApassword = "9165047812"; // Network password for OTA
@@ -332,6 +334,7 @@ int incomingData1; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-
 int incomingData2; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
 int incomingData3; // From - device ID
 String incomingData4; // used for score reporting only
+int lastincomingData2 = 0; // used for repeated data sends
 
 // Variable to store if sending data was successful
 String success;
@@ -2557,6 +2560,8 @@ void ProcessIncomingCommands() {
   }
   if (incomingData1 == GunID || incomingData1 == 99 || IncomingTeam == SetTeam) { // data checked out to be intended for this player ID or for all players
     digitalWrite(2, HIGH);
+    if (incomingData2 != lastincomingData2) {
+    lastincomingData2 = incomingData2;
     if (incomingData2 < 100) { // setting primary weapon or slot 0
       int b = incomingData2;
       if (INGAME==false){
@@ -3734,15 +3739,20 @@ void ProcessIncomingCommands() {
         Serial.println("Perk Changed");
       } 
     }
+    
+    // 10000s used for JBOX
+    
     if (incomingData2 == 31100) { // Zone Base Captured
       CompletedObjectives++; // added one point to player objectives
       AudioSelection1="VAR"; // set an announcement "good job team"
       AUDIO1=true; // enabling BLE Audio Announcement Send
       Serial.println("Zone Base Captured");
+      lastincomingData2 = 0;
     }
     if (incomingData2 == 31000) { 
       LOOT = true;    
       Serial.println("Loot box found");
+      lastincomingData2 = 0;
     }
     if (31100 > incomingData2 > 31000) {
       PlayerStatBoost = incomingData2 - 31000;
@@ -3752,9 +3762,11 @@ void ProcessIncomingCommands() {
       // 31102 - armor boost
       // 31103 - shield boost
       // 31104 - ammo boost
+      lastincomingData2 = 0;
     }
     if (31300 > incomingData2 > 31199) {
       // notification of a flag captured
+      lastincomingData2 = 0;
       Serial.println("a flag was captured");
       int capture = incomingData2 - 31200;
       if (capture == SetTeam) {
@@ -3769,6 +3781,7 @@ void ProcessIncomingCommands() {
       }
     }
     if (31600 > incomingData2 > 31500) {
+      lastincomingData2 = 0;
       AudioSelection = "VA20";
       AUDIO = true;
       SpecialWeapon = incomingData2 - 31500;
@@ -3793,6 +3806,7 @@ void ProcessIncomingCommands() {
       }
     }
     if (incomingData2 == 32000) { // if true, this is a kill confirmation
+      lastincomingData2 = 0;
       MyKills++; // accumulate one kill count
       AudioSelection="VN8"; // set audio play for "kill confirmed
       AUDIO=true;
@@ -3916,6 +3930,7 @@ void ProcessIncomingCommands() {
         }
       }
     }
+  }
   }
   digitalWrite(2, LOW);
 }  
@@ -4492,8 +4507,12 @@ void weaponsettingsA() {
         sendString("$WEAP,0,,100,0,0,8,0,,,,,,,,75,850,48,288,2000,0,0,100,100,,0,2,50,Q06,,,,D26,D25,D24,D18,,,,,48,144,75,,*");
       }
       if(SetSlotA == 20) {
-        Serial.println("Weapon 0 set to Pistol"); 
-        sendString("$WEAP,0,,35,0,0,8,0,,,,,,,,225,850,9,27,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,27,20,,*");
+        Serial.println("Weapon 0 set to Pistol");
+        if (GameMode == 4) { // battle royale
+          sendString("$WEAP,0,,35,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,20,,*");
+        } else {
+          sendString("$WEAP,0,,35,0,0,8,0,,,,,,,,225,850,9,27,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,27,20,,*");
+        }
       }
   }
 }
