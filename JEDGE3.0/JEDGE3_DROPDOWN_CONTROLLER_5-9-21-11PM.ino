@@ -1,3 +1,5 @@
+
+
 // Import required libraries
 #include <WiFi.h>
 #include <AsyncTCP.h>
@@ -47,6 +49,10 @@ int PlayerObjectives[64]; // used for score accumilation
 int TeamKills[4]; // used for score accumilation
 int TeamObjectives[4]; // used for score accumilation
 int TeamDeaths[4];
+int Team0[10];
+int Team1[10];
+int Team2[10];
+int Team3[10];
 String ScoreString = "0";
 long ScorePreviousMillis = 0;
 bool UPDATEWEBAPP = false; // used to update json scores to web app
@@ -71,6 +77,7 @@ int datapacket1 = 99; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 1
 int datapacket2 = 32700; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
 int datapacket3 = GunID; // From - device ID
 String datapacket4 = "null"; // used for score reporting only
+int lastdatapacket2 = 0; // used for repeat data send
 
 
 // Define variables to store incoming readings
@@ -150,6 +157,7 @@ void getReadings(){
 }
 
 void ResetReadings() {
+  lastdatapacket2 = datapacket2;
   datapacket1 = 99; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases - 200 - 203 for teams 0-3
   datapacket2 = 32700; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
   datapacket3 = GunID; // From - device ID
@@ -546,6 +554,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   <div class="content">
     <div class="card">
       <p><button id="initializejedge" class="button">Lockout Players</button></p>
+      <p><button id="resendlastsetting" class="button">Resend Setting</button></p>
       <h2>Primary Weapon</h2>
       <p><select name="primary" id="primaryid">
         <option value="3">AMR</option>
@@ -1260,6 +1269,7 @@ if (!!window.EventSource) {
   }
   function initButton() {
     document.getElementById('initializejedge').addEventListener('click', toggle15);
+    document.getElementById('resendlastsetting').addEventListener('click', toggle15A);
     document.getElementById('initializeotaupdate').addEventListener('click', toggle15D);
     document.getElementById('resetcontrollers').addEventListener('click', toggle15B);
     document.getElementById('presetgamemodesid').addEventListener('change', handleGMode, false);
@@ -1353,6 +1363,9 @@ if (!!window.EventSource) {
   }
   function toggle15(){
     websocket.send('toggle15');
+  }
+  function toggle15A(){
+    websocket.send('toggle15A');
   }
   function toggle15D(){
     websocket.send('toggle15D');
@@ -2647,6 +2660,12 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       datapacket1 = 99;
       BROADCASTESPNOW = true;
     }
+    if (strcmp((char*)data, "toggle15A") == 0) { // initialize jedge
+      Serial.println("Sending last setting again");
+      datapacket2 = lastdatapacket2;
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+    }
     if (strcmp((char*)data, "toggle15B") == 0) { // auto update
       Menu[15] = 1502;
       WebSocketData = Menu[15];
@@ -2719,6 +2738,10 @@ void ProcessIncomingCommands() {
       if (b == 2) { // this is an incoming score from a player!
         AccumulateIncomingScores();
       }
+      if (b == 3) { // this is an incoming score from a JBOX!, was 903
+        DominationScores();
+        UPDATEWEBAPP = true;
+      }
     }
   }
   digitalWrite(2, LOW);
@@ -2759,6 +2782,76 @@ void ClearScores() {
     teamcounter++;
   }
   Serial.println("reset all stored scores from previous game, done");
+}
+void DominationScores() {
+    Serial.println(String(millis()));
+    ScoreString = incomingData4; // saves incoming data as a temporary string within this object
+    Serial.println("printing data received: ");
+    Serial.println(ScoreString);
+    char *ptr = strtok((char*)ScoreString.c_str(), ","); // looks for commas as breaks to split up the string
+    int index = 0;
+    while (ptr != NULL)
+    {
+      ScoreTokenStrings[index] = ptr; // saves the individual characters divided by commas as individual strings
+      index++;
+      ptr = strtok(NULL, ",");  // takes a list of delimiters
+    }
+    // received a string that looks like this: 
+    // (Team 0, token 0), (Team 1, token 1), (Team 2, token 2) (Team 3, tokens 3-8) 
+    Serial.println("Score Data Recieved from a tagger:");
+    int jboxcounter = incomingData3 - 100; // gets what base number we are dealing with
+    int count = 0;
+    int Data[4];
+    while (count<4) {
+      Data[count]=ScoreTokenStrings[count].toInt();
+      // Serial.println("Converting String character "+String(count)+" to integer: "+String(Data[count]));
+      count++;
+    }
+    Team0[jboxcounter] = Data[0];
+    Team1[jboxcounter] = Data[1];
+    Team2[jboxcounter] = Data[2];
+    Team3[jboxcounter] = Data[3];
+    
+    int p = 0; // using for data characters 9-72
+    int j = 0; // using for player id status counter
+    Serial.println("Accumulating Team Objective Points...");
+    while (p < 10) {
+      j = j + Team0[p];
+      p++;
+    }
+    if (j > TeamObjectives[0]) {
+      TeamObjectives[0] = j;
+    }
+    j = 0;
+    p = 0;
+    while (p < 10) {
+      j = j + Team1[p];
+      p++;
+    }
+    if (j > TeamObjectives[1]) {
+      TeamObjectives[1] = j;
+    }
+    j = 0;
+    p = 0;
+    while (p < 10) {
+      j = j + Team2[p];
+      p++;
+    }
+    if (j > TeamObjectives[2]) {
+      TeamObjectives[2] = j;
+    }
+    j = 0;
+    p = 0;
+    while (p < 10) {
+      j = j + Team3[p];
+      p++;
+    }
+    if (j > TeamObjectives[3]) {
+      TeamObjectives[3] = j;
+    }
+    j = 0;
+    p = 0;
+    Serial.println(String(millis()));
 }
 void AccumulateIncomingScores() {
     //Serial.print("cOMMS loop running on core ");
