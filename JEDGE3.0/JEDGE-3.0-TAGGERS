@@ -113,6 +113,8 @@
  * updated 05/19/2021 added in capture the flag gameplay interactino with jbox                  
  * updated 06/06/2021 added in feature for resent settings from controller so that taggers who received it do not react but those who missed it, do react
  *                    fixed the battle royale pistol so that it has unlimited ammo instead of limited ammo
+ * updated 06/07/2021 added in forwarding of kill confirmations to other players. unique kill confirmations to be forwarded once and then reset after 4 seconds pass to alow forwarding of the sae one again, later.
+ *                    added hidden menu unlock ability
  *                    
  */
 
@@ -278,6 +280,7 @@ bool INITJEDGE = false;
 bool STRINGSENDER = false;
 String StringSender = "Null";
 bool DISARMED = false;
+bool UNLOCKHIDDENMENU = false;
 
 long startScan = 0; // part of BLE enabling
 
@@ -335,6 +338,10 @@ int incomingData2; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different 
 int incomingData3; // From - device ID
 String incomingData4; // used for score reporting only
 int lastincomingData2 = 0; // used for repeated data sends
+int lastkillconfirmationorigin = 9999;
+int lastkillconfirmationdestination = 9999;
+long killconfirmationresettimestamp = 0;
+bool KILLCONFIRMATIONRESETNEEDED = false;
 
 // Variable to store if sending data was successful
 String success;
@@ -3636,6 +3643,10 @@ void ProcessIncomingCommands() {
    }
    if (incomingData2 < 1600 && incomingData2 > 1499) { // Misc. Debug
      int b = incomingData2 - 1500;
+     if (b==0) {
+      Serial.println("unlocking all hidden menu items");
+      UNLOCKHIDDENMENU = true;
+     }
      if (b==1) {
        INITJEDGE = true;
        //InitializeJEDGE();
@@ -3931,6 +3942,22 @@ void ProcessIncomingCommands() {
       }
     }
   }
+  }else {
+    if (incomingData2 == 32000) { // received a kill confirmation not intended for this tagger
+      if (incomingData3 != lastkillconfirmationorigin) { // This is not the last NA killconfirmation received from the last player that sent one
+        if (incomingData1 != lastkillconfirmationdestination) { // this is not the last NA killconfirmation destination
+          // likely this is a new kill confirmation, ok to forward on to others
+          datapacket1 = incomingData1;
+          datapacket2 = incomingData2;
+          datapacket3 = incomingData3;
+          BROADCASTESPNOW = true;
+          lastkillconfirmationorigin = incomingData3;
+          lastkillconfirmationdestination = incomingData1;
+          killconfirmationresettimestamp = millis();
+          KILLCONFIRMATIONRESETNEEDED = true;
+        }
+      }
+    }
   }
   digitalWrite(2, LOW);
 }  
@@ -5206,6 +5233,16 @@ void MainGame() {
     INITJEDGE = false;
     InitializeJEDGE();
   }
+  if (UNLOCKHIDDENMENU) {
+    UNLOCKHIDDENMENU = false;
+    int dlccounter = 0;
+    while (dlccounter < 12) {
+      sendString("$DLC,"+String(dlccounter)+",1,*");
+      dlccounter++;
+      delay(150);
+    }
+    sendString("$PLAY,VA7,4,6,,,,,*");
+  }
   if (ChangeMyColor != CurrentColor) { // need to change colors
     ChangeColors();
   }
@@ -5298,6 +5335,14 @@ void MainGame() {
   if (INGAME) {
     long ActualGameTime = millis() - GameStartTime;
     long GameTimeRemaining = GameTimer - ActualGameTime;
+    if (KILLCONFIRMATIONRESETNEEDED) { // recently received and forwarded on a kill confirmation to another player
+      if (ActualGameTime - killconfirmationresettimestamp > 4000) { // checking if 4 seconds have past
+        // resetting kill confirmation forwarding variables
+        KILLCONFIRMATIONRESETNEEDED = false;
+        lastkillconfirmationorigin = 9999;
+        lastkillconfirmationdestination = 9999;
+      }
+    }
     if (SELECTCONFIRM) {
       Serial.println("SELECTCONFIRM = TRUE");
       if(millis() - SelectButtonTimer > 1500) {
