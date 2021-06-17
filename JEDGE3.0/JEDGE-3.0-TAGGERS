@@ -2867,7 +2867,7 @@ void weaponsettingsA() {
     }
     if(SetSlotA == 20) {
       Serial.println("Weapon 0 set to Pistol"); 
-      sendString("$WEAP,0,,35,0,0,8,0,,,,,,,,225,850,9,27,400,10,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,27,20,,*");
+      sendString("$WEAP,0,,60,0,0,8,0,,,,,,,,225,850,9,27,400,10,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,27,40,,*");
     }
   }
   if (UNLIMITEDAMMO==2) { // unlimited mags
@@ -2949,7 +2949,7 @@ void weaponsettingsA() {
     }
     if(SetSlotA == 20) {
       Serial.println("Weapon 0 set to Pistol"); 
-      sendString("$WEAP,0,,35,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,20,,*");
+      sendString("$WEAP,0,,60,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,40,,*");
     }
   }
   if (UNLIMITEDAMMO==1) { // limited mags
@@ -3032,9 +3032,9 @@ void weaponsettingsA() {
       if(SetSlotA == 20) {
         Serial.println("Weapon 0 set to Pistol");
         if (GameMode == 4) { // battle royale
-          sendString("$WEAP,0,,35,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,20,,*");
+          sendString("$WEAP,0,,60,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,40,,*");
         } else {
-          sendString("$WEAP,0,,35,0,0,8,0,,,,,,,,225,850,9,27,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,27,20,,*");
+          sendString("$WEAP,0,,60,0,0,8,0,,,,,,,,225,850,9,27,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,27,40,,*");
         }
       }
   }
@@ -3053,7 +3053,7 @@ void LoadSpecialWeapon() {
     }
   if(SpecialWeapon == 3) {
     Serial.println("Weapon 1 set to Assault Rifle");
-    sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,100,850,32,384,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,192,75,,*");
+    sendString("$WEAP,1,,100,0,0,9,0,,,,,,,,100,850,32,384,1400,0,0,80,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,192,75,,*");
     }
   if(SpecialWeapon == 4) {
     Serial.println("Weapon 1 set to Bolt Rifle"); 
@@ -3061,7 +3061,7 @@ void LoadSpecialWeapon() {
     }
   if(SpecialWeapon == 5) {
     Serial.println("Weapon 1 set to BurstRifle");
-    sendString("$WEAP,1,,100,0,3,9,0,,,,,,,,75,850,36,216,1700,0,9,100,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,108,75,,*");
+    sendString("$WEAP,1,,100,0,3,9,0,,,,,,,,75,850,36,216,1700,0,9,90,100,275,0,,,R18,,,,D04,D03,D02,D18,,,,,36,108,75,,*");
     }
   if(SpecialWeapon == 6) {
     Serial.println("Weapon 1 set to ChargeRifle");
@@ -3101,15 +3101,15 @@ void LoadSpecialWeapon() {
     }
   if(SpecialWeapon == 15) {
     Serial.println("Weapon 1 set to Shotgun"); 
-    sendString("$WEAP,1,2,100,0,0,45,0,,,,,,70,80,900,850,6,24,400,2,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,12,75,30,*");
+    sendString("$WEAP,1,2,80,0,0,45,0,,,,,,70,80,900,850,6,24,400,2,7,100,100,,0,,,T01,,,,D01,D28,D27,D18,,,,,6,12,50,30,*");
     }
   if(SpecialWeapon == 16) {
     Serial.println("Weapon 1 set to SMG"); 
-    sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,90,850,72,288,2500,0,0,100,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,144,75,,*");
+    sendString("$WEAP,1,,100,0,0,8,0,,,,,,,,90,850,72,288,2500,0,0,80,100,,5,,,G03,,,,D26,D25,D24,D18,D11,,,,72,144,75,,*");
     }
   if(SpecialWeapon == 17) {
     Serial.println("Weapon 1 set to Sniper Rifle"); 
-    sendString("$WEAP,1,,100,0,1,80,0,,,,,,,,300,850,4,24,1700,0,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,12,75,,*");
+    sendString("$WEAP,1,,100,0,1,115,0,,,,,,,,300,850,4,24,1700,0,7,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,4,12,75,,*");
     }
   if(SpecialWeapon == 18) {
     Serial.println("Weapon 1 set to Stinger"); 
@@ -3942,7 +3942,30 @@ void swapbrx() {
     sendString("$PLAY,VA14,4,6,,,,,*");
   }
   // need to randomize the weapon pick up
-  SpecialWeapon = random(2, totalweapons); // randomizing between all weapons with total weapons count
+  int randomnumber = random(100); // randomizing between all weapons with total weapons count
+  // randomizing: 100% AR:10 BR:25 RL:10 SG:20 SMG:10 SNIPE:10 BURST:15
+  if (randomnumber < 25) { // bolt rifle 25% chance 0-24
+    SpecialWeapon = 4;
+  }
+  if (randomnumber > 24 && randomnumber < 45) { // Shotgun 20% chance 25-45
+    SpecialWeapon = 15;
+  }
+  if (randomnumber > 44 && randomnumber < 60) { // Burst rifle 15% chance
+    SpecialWeapon = 5;
+  }
+  if (randomnumber > 59 && randomnumber < 70) { // Assault Rifle 10%
+    SpecialWeapon = 3;
+  }
+  if (randomnumber > 69 && randomnumber < 80) { // Rocket Launcher 10%
+    SpecialWeapon = 14;
+  }
+  if (randomnumber > 79 && randomnumber < 90) { // Sniper Rifle
+    SpecialWeapon = 17;
+  }
+  if (randomnumber >89 && randomnumber < 100) { // SMG
+    SpecialWeapon = 16;
+  }
+  
   Serial.println("Special Weapon Load Out = " + String(SpecialWeapon));
   // need to add to counter to increase power for pistol
   if (SwapBRXCounter < 100) {
