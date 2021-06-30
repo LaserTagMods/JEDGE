@@ -88,6 +88,7 @@
  * updated 01/12/2021 added terminal integration for sending commands from terminal to push commands to taggers, also added blynking led on esp while awaiting OTA update
  * updated 01/13/2021 put back in the end of game announcements to do count down timers 2 minute warning, one minute and final countdown.
  * updated 01/23/2021 added in the integration of IR for picking up weapons and getting random perks by base activation.
+ * updated 02/15/2021 fixed the stealth option to turn of gun leds in game play
  * updated 04/08/2021 updated for stealth and visual confirmations etc and gen3 specific needs
  * updated 04/08/2021 removed all blynk applications and prioritized interrupt with ESPNOW for applying settings
  *                    removed OTA update for now for simplicity, can add back in later.
@@ -3666,7 +3667,10 @@ void respawnplayer() {
   RESPAWN = false;
   sendString("$HLOOP,0,0,*"); // stops headset flashing
   if (STEALTH){
-      sendString("$GLED,,,,5,,,"); // TURNS OFF SIDE LIGHTS
+      Serial.println("delaying stealth start");
+      delay(2000);
+      sendString("$GLED,,,,5,,,*"); // TURNS OFF SIDE LIGHTS
+      Serial.println("sent command to kill leds");
   }
 }
 //****************************************************************************************
@@ -3780,7 +3784,10 @@ void MainGame() {
     }
     Deaths = 0;
     if (STEALTH){
-      sendString("$GLED,,,,5,,,"); // TURNS OFF SIDE LIGHTS
+      Serial.println("delaying stealth start");
+      delay(2000);
+      sendString("$GLED,,,,5,,,*"); // TURNS OFF SIDE LIGHTS
+      Serial.println("sent command to kill leds");
     }
   }
   if (!INGAME) {
