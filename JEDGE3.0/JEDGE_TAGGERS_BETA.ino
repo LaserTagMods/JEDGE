@@ -117,7 +117,9 @@
  * updated 06/07/2021 added in forwarding of kill confirmations to other players. unique kill confirmations to be forwarded once and then reset after 4 seconds pass to alow forwarding of the sae one again, later.
  *                    added hidden menu unlock ability
  * updated 06/12/2021 added repeat of settings commands from controller to rebroadcast to help to ensure that all taggers get the command sent from controller
- * updated            added in score reporting in game by each tagger by pressing a button                   
+ * updated 07/04/2021 added in score reporting in game by each tagger by pressing a button (left button - melee)               
+ *                    enabled capturing of other taggers score reporting to accumulate score on this device to report accurate score info at end of game on tagger.
+ *                    fixed bug for receiving kill confirmations that are repetitive or back to back so that it works regardless.
  */
 
 //*************************************************************************
@@ -150,8 +152,8 @@ bool FAKESCORE = false;
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
-int GunID = 9; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
-const char GunName[] = "GUN#9"; // used for OTA id recognition on network and for AP for web server
+int GunID = 6; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+const char GunName[] = "GUN#6"; // used for OTA id recognition on network and for AP for web server
 int GunGeneration = 2; // change to gen 1, 2, 3
 const char* password = "123456789"; // Password for web server
 const char* OTAssid = "maxipad"; // network name to update OTA
@@ -1061,7 +1063,7 @@ void ProcessIncomingCommands() {
   }
   if (incomingData1 == GunID || incomingData1 == 99 || IncomingTeam == SetTeam) { // data checked out to be intended for this player ID or for all players
     digitalWrite(2, HIGH);
-   if (incomingData2 != lastincomingData2) {
+   if (incomingData2 != lastincomingData2 || incomingData2 == 32000) {
     lastincomingData2 = incomingData2;
     if (incomingData2 < 100) { // setting primary weapon or slot 0
       int b = incomingData2;
@@ -3741,12 +3743,14 @@ void Audio() {
           if (Deaths == 24) {AudioSelection = "VA0O";}
           if (Deaths == 25) {AudioSelection = "VA0P";}
           AudioDelay = 1500;
+          AudioPreviousMillis = millis();
           AUDIO = true;
         }
         if (AnounceScore == 3) {
           AnounceScore = 0;
           AudioDelay = 1500;
-          AudioSelection1="VA7F"; // "terminated"
+          AudioPreviousMillis = millis();
+          AudioSelection="VA7F"; // "Fatality"
           AUDIO = true;
         }
       }
@@ -3757,8 +3761,9 @@ void Audio() {
     }
     if (AnounceScore == 1) {
       AnounceScore = 2;
+      AudioPreviousMillis = millis();
       AudioDelay = 1500;
-      AudioSelection1="V19"; // "terminated"
+      AudioSelection="V19"; // "terminated"
       AUDIO = true;
     } 
   }
