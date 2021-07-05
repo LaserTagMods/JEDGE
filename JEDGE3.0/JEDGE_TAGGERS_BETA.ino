@@ -152,8 +152,8 @@ bool FAKESCORE = false;
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
-int GunID = 6; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
-const char GunName[] = "GUN#6"; // used for OTA id recognition on network and for AP for web server
+int GunID = 4; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+const char GunName[] = "GUN#4"; // used for OTA id recognition on network and for AP for web server
 int GunGeneration = 2; // change to gen 1, 2, 3
 const char* password = "123456789"; // Password for web server
 const char* OTAssid = "maxipad"; // network name to update OTA
@@ -3615,6 +3615,9 @@ void gameover() {
   sendString("$STOP,*"); // stops everything going on
   sendString("$CLEAR,*"); // clears out anything stored for game settings
   sendString("$PLAY,VS6,4,6,,,,,*"); // says game over
+  AudioDelay = 1500;
+  AudioSelection="VAP"; // "terminated"
+  AUDIO = true;
   Serial.println("Game Over Object Complete");
   CurrentDominationLeader = 99; // resetting the domination game status
   ClosingVictory[0] = 0;
@@ -3763,7 +3766,7 @@ void Audio() {
       AnounceScore = 2;
       AudioPreviousMillis = millis();
       AudioDelay = 1500;
-      AudioSelection="V19"; // "terminated"
+      AudioSelection="VNA"; // "Kill Confirmed"
       AUDIO = true;
     } 
   }
