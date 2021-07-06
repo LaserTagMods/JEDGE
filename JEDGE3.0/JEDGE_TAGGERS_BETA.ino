@@ -152,8 +152,8 @@ bool FAKESCORE = false;
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
-int GunID = 4; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
-const char GunName[] = "GUN#4"; // used for OTA id recognition on network and for AP for web server
+int GunID = 9; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+const char GunName[] = "GUN#9"; // used for OTA id recognition on network and for AP for web server
 int GunGeneration = 2; // change to gen 1, 2, 3
 const char* password = "123456789"; // Password for web server
 const char* OTAssid = "maxipad"; // network name to update OTA
@@ -2484,6 +2484,13 @@ void InitializeJEDGE() {
   Serial.println("*****************************************************");
   Serial.println();
   Serial.println("Waiting for BRX to Boot...");
+  sendString("************************************");
+  sendString("************Initializing JEDGE******");
+  sendString("************************************");
+  sendString("....Hacking all BRX Factory Defaults...");
+  sendString("...");
+  sendString("...");
+  sendString("All Systems Unencrypted Successfully, Tagger Override Complete");
   /*
   int forfun = 5;
   while (forfun > 0) { 
@@ -2505,6 +2512,7 @@ void InitializeJEDGE() {
   sendString("$PLAY,VA20,4,6,,,,,*"); // says "connection established"
   sendString("$HLED,0,0,,,10,,*"); // test for gen3
   sendString("$GLED,0,0,0,0,10,,*"); // test for gen3
+  sendString("Tagger now controlled by JEDGE, Awaiting JEDGE Controller Commands, JEDGE Rocks");
 }
 //**********************************************************************************************
 
@@ -3906,7 +3914,7 @@ void MainGame() {
       }
     }
     if (LASTKILLEDPLAYERRESETNEEDED) { // recently received a kill confirmation
-      if (ActualGameTime - lastkilledplayertimestamp > 4000) {
+      if (ActualGameTime - lastkilledplayertimestamp > 1000) {
         LASTKILLEDPLAYERRESETNEEDED = false;
         lastkilledplayer = 9999;
       }
