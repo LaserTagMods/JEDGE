@@ -240,6 +240,7 @@ Some Libraries you will need:
 Async and Json libraries: I followed this tutorial and the sections at the top of the tutorial for Async and Json: https://randomnerdtutorials.com/esp32-esp-now-wi-fi-web-server/
 OTA update libraries and know how:  I followed this tutorial: https://lastminuteengineers.com/esp32-ota-updates-arduino-ide/
 Tip: when installing the JSON resources, you can return in the JSON library references to keep both the 8266, esp32 boards always available from the dropdown board selections
+Be sure to download the cert.h library from my github, this is needed for the ino to compile correctly
 
 My boards Purchased:
 ----------------------------------
@@ -273,23 +274,15 @@ I recommend testing one tagger out before proceeding the the next one to make su
 
 OTA :
 ----------------------------------
-If you are updating to a new configurator firmware version/release and are already running an OTA version:
 
-Before beginning, make sure your running Python on your computer:
-  For Python installation to enable OTA update from your Arduino IDE, follow Step #1: https://lastminuteengineers.com/esp8266-ota-updates-arduino-ide/
 
-1. Pressing the OTA button causes both the esp32 to stop listening to ESPNOW    this will ensure that your esp32 is only listening to the OTA Python uploading software
-2. Connect your computer to an available LAN port on your router. This ensures that you are able to see the ESP32s.
-   This is not an requirement per say as Ive been able to update firmware OTA without being connected to the LAN, but it is buggy and troublesome.
-   If not using LAN you may have to close your arduino IDE out completely and re-open it and possibly restart your computer in order to view the esp32 ports
-3. Under tools in the Arduino IDE, you will now see the serial numbers listed for all the taggers that are sitting in OTA UPDATE Mode. 
-   Also note that they are displayed by the tagger ID number as well. This is so you can identify each tagger and update them one by one
-   IF they are not listed, restart your computer, if not fixed, then have you installed python on your PC? Follow these online tutorial above.
-4. Now that you have selected the correct port for the tagger that you want to update, just press the upload button.
-Here is a good reference as well if you want to learn more: https://randomnerdtutorials.com/esp8266-ota-updates-with-arduino-ide-over-the-air/
-Tip: Also, if your having a hard time getting the esp32s to respond to arduino IDE OTA, it could be the router firewall... Ive had a tough time with some routers 
-and a cake walk with others... I recommend opening your firewall settings and allowing arduino and espota.py applications through the firewall, or just disable 
-The firewall while you update the taggers.
+Before beginning, make sure you updated the correct wifi credentials for your wifi network that is connected to the internet. look for the following: const char* OTAssid = "yourwifinetwork"; // network name to update OTA
+const char* OTApassword = "password"; // Network password for OTA
+
+1. Pressing the OTA button causes both the esp32 to stop listening to ESPNOW    this will ensure that your esp32 is running the update program, just wait for it...
+
+2. If your running the most up to date firmware, your tagger will announce "good to go" if it updates, it will announce "upgrade complete" If it sits idle for a long time and does nothing at all, mayb 5 minutes...
+   you should press the initialize jedge button on the controller and see what happens. if nothing happens, it may have errored. try resetting the tagger and repeat the process.
 
 Configurator install:  
 ----------------------------------  
