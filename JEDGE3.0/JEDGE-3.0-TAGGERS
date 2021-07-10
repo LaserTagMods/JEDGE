@@ -165,8 +165,8 @@ int GunID = 3; // this is the gun or player ID, each esp32 needs a different one
 const char GunName[] = "GUN#3"; // used for OTA id recognition on network and for AP for web server
 int GunGeneration = 2; // change to gen 1, 2, 3
 const char* password = "123456789"; // Password for web server
-const char* OTAssid = "maxipad"; // network name to update OTA
-const char* OTApassword = "9165047812"; // Network password for OTA
+const char* OTAssid = "your wifi network name"; // network name to update OTA
+const char* OTApassword = "your wifi password"; // Network password for OTA
 int TaggersOwned = 64; // how many taggers do you own or will play?
 bool ACTASHOST = false; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
 String FirmwareVer = {"3.25"};
@@ -193,7 +193,7 @@ int updatenotification;
 
 //unsigned long previousMillis = 0; // will store last time LED was updated
 unsigned long previousMillis_2 = 0;
-const long otainterval = 10000;
+const long otainterval = 1000;
 const long mini_interval = 1000;
 
 
