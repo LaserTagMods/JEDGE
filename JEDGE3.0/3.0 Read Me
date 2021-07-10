@@ -32,6 +32,23 @@ a.	This locks out players abilities to press buttons and mess with things
 10.	After a game is over, Press “Sync Scores” once players are gathered together again.
 11.	Scroll down to the Team totals report, game highlights and individual player scores to review and share the scoring information. (syncing scores will take about ten seconds or so)
 
+Player ID Initial Setup:
+  For each new ESP32 being used, you need to do an initial set up to make sure you have a unique player ID for each modded tagger with JEDGE
+  This is a permanent number that will not be changed no matter what you do for auto updates etc, and will never change unless you perform this process again.
+  Process:
+    1. Turn on one tagger. ONLY ONE AT A TIME!!!
+    2. Turn on the controller device
+    3. Connect to the controller device's wifi network
+    4. Navigate to 192.168.4.1
+    5. Scroll all the way to the bottom and select a player ID to assign to this tagger.
+    6. Tagger should announce "good to go" and lights change. This tagger is now the player ID selected. I recommend labeling it.
+    7. Turn off this tagger
+    8. Repeat steps 1-7 for each modded tagger.
+    
+    Again, this is a one time set up. This is essential if you plan on updating your tagger in the future so that you can keep your unique tagger player IDs consistent, regardless of updates.
+    
+  
+
 Game Settings Notes:
 ----------------------------------
 Weapon Selections – 
