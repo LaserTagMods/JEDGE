@@ -117,6 +117,11 @@
  * updated 06/07/2021 added in forwarding of kill confirmations to other players. unique kill confirmations to be forwarded once and then reset after 4 seconds pass to alow forwarding of the sae one again, later.
  *                    added hidden menu unlock ability
  * updated 06/12/2021 added repeat of settings commands from controller to rebroadcast to help to ensure that all taggers get the command sent from controller
+ * updated 07/04/2021 added in score reporting in game by each tagger by pressing a button (left button - melee)               
+ *                    enabled capturing of other taggers score reporting to accumulate score on this device to report accurate score info at end of game on tagger.
+ *                    fixed bug for receiving kill confirmations that are repetitive or back to back so that it works regardless.
+ * updated 07/10/2021 Added in web based updating and tagger ID reasignment                   
+ * 
  *                    
  */
 
@@ -129,19 +134,25 @@
 #include <esp_wifi.h> // needed for resetting the mac address
 #include <AsyncTCP.h> // used for web server
 #include <ESPAsyncWebServer.h> // used for web server
-#include <ESPmDNS.h> // needed for OTA updates
-#include <WiFiUdp.h> // needed for OTA updates
-#include <ArduinoOTA.h> // needed for OTA updates
-#include <Arduino_JSON.h>
+#include <HTTPClient.h> // to update via http
+#include <HTTPUpdate.h> // to update via http
+#include <WiFiClientSecure.h> // security access to github
+#include "cert.h" // used for github security
+#include <Arduino_JSON.h> // needed for auto updates on web server
+#include <EEPROM.h> // used for storing data even after reset, in flash/eeprom memory
 //****************************************************************
 
 int sample[5];
+
+// define the number of bytes I'm using/accessing for eeprom
+#define EEPROM_SIZE 3 // use 0 for OTA and 1 for Tagger ID
+// if eeprom 0 is 1, it is OTA mode, if 0, regular mode.
 
 #define SERIAL1_RXPIN 16 // TO BRX TX and BLUETOOTH RX
 #define SERIAL1_TXPIN 17 // TO BRX RX and BLUETOOTH TX
 bool ESPTimeout = true; // if true, this enables automatic deep sleep of esp32 device if wifi or blynk not available on boot
 long TimeOutCurrentMillis = 0;
-long TimeOutInterval = 300000;
+long TimeOutInterval = 480000;
 int BaudRate = 57600; // 115200 is for GEN2/3, 57600 is for GEN1, this is set automatically based upon user input
 bool RUNWEBSERVER = true; // this enables the esp to act as a web server with an access point to connect to
 bool FAKESCORE = false;
@@ -150,18 +161,42 @@ bool FAKESCORE = false;
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //*********** YOU NEED TO CHANGE INFO IN HERE FOR EACH GUN!!!!!!***********
-int GunID = 9; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
-const char GunName[] = "GUN#9"; // used for OTA id recognition on network and for AP for web server
+int GunID = 3; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+const char GunName[] = "GUN#3"; // used for OTA id recognition on network and for AP for web server
 int GunGeneration = 2; // change to gen 1, 2, 3
 const char* password = "123456789"; // Password for web server
 const char* OTAssid = "maxipad"; // network name to update OTA
 const char* OTApassword = "9165047812"; // Network password for OTA
 int TaggersOwned = 64; // how many taggers do you own or will play?
 bool ACTASHOST = false; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
+String FirmwareVer = {"3.25"};
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //****************************************************************
+
+// OTA variables
+
+#define URL_fw_Version "https://raw.githubusercontent.com/LaserTagMods/autoupdate/main/bin_version.txt"
+#define URL_fw_Bin "https://raw.githubusercontent.com/LaserTagMods/autoupdate/main/fw.bin"
+
+//#define URL_fw_Version "http://cade-make.000webhostapp.com/version.txt"
+//#define URL_fw_Bin "http://cade-make.000webhostapp.com/firmware.bin"
+
+bool OTAMODE = false;
+
+void connect_wifi();
+void firmwareUpdate();
+int FirmwareVersionCheck();
+bool UPTODATE = false;
+int updatenotification;
+
+//unsigned long previousMillis = 0; // will store last time LED was updated
+unsigned long previousMillis_2 = 0;
+const long otainterval = 10000;
+const long mini_interval = 1000;
+
+
 
 // definitions for analyzing incoming brx serial data
 String readStr; // the incoming data is stored as this string
@@ -219,6 +254,7 @@ bool OutofAmmoB = false; // trigger for auto respawn of ammo weapon slot 1
 String AudioSelection; // used to play stored audio files with tagger FOR SERIAL CORE
 String AudioSelection1; // used to play stored audio files with tagger FOR BLE CORE
 int AudioDelay = 0; // used to delay an audio playback
+int AnounceScore = 99; // used for button activated score announcement
 long AudioPreviousMillis = 0;
 String AudioPerk; // used to play stored audio files with tagger FOR BLE CORE
 int AudioPerkTimer = 4000; // used to time the perk announcement
@@ -1043,6 +1079,14 @@ void AccumulateIncomingScores() {
 void ProcessIncomingCommands() {
   //Serial.print("cOMMS loop running on core ");
   //Serial.println(xPortGetCoreID());
+  if (incomingData2 == 902) {
+    // this is a score report from another tagger, lets get our own score up to date. 
+    // tokens 9-72 are player kills to each player being reported to the controller
+    // we will capture this data as well and see how many kills this tagger got and 
+    // determine a winner.
+    AccumulateIncomingScores();
+    MyKills = PlayerKills[GunID];
+  }
   if (ESPTimeout) {
     ESPTimeout = false;
   }
@@ -1052,7 +1096,7 @@ void ProcessIncomingCommands() {
   }
   if (incomingData1 == GunID || incomingData1 == 99 || IncomingTeam == SetTeam) { // data checked out to be intended for this player ID or for all players
     digitalWrite(2, HIGH);
-   if (incomingData2 != lastincomingData2) {
+   if (incomingData2 != lastincomingData2 || incomingData2 == 32000) {
     lastincomingData2 = incomingData2;
     if (incomingData2 < 100) { // setting primary weapon or slot 0
       int b = incomingData2;
@@ -2175,17 +2219,21 @@ void ProcessIncomingCommands() {
         }
      }
      if (b==5) { //1505
-       Serial.println("OTA Update Mode");
-       INITIALIZEOTA = true;
        StringSender = "$HLOOP,2,1200,*";
        STRINGSENDER = true;
-       AudioSelection="VA3L";
+       AudioSelection="VGK";
        AUDIO=true;  
        if (ChangeMyColor > 8) {
-          ChangeMyColor = 4; // triggers a gun/tagger color change
-        } else { 
-          ChangeMyColor++;
-        }
+         ChangeMyColor = 4; // triggers a gun/tagger color change
+       } else { 
+        ChangeMyColor++;
+       }
+       Serial.println("OTA Update Mode");
+       EEPROM.write(1, 1);
+       EEPROM.commit();
+       //INITIALIZEOTA = true;
+       
+       
      }
    }
    if (incomingData2 < 1700 && incomingData2 > 1599) { // Player-Team Selector
@@ -2222,6 +2270,17 @@ void ProcessIncomingCommands() {
       }
      }
     }
+    if (incomingData2 < 2000 && incomingData2 > 1899) { // Player ID Assigner
+      int b = incomingData2 - 1900;
+      GunID = b;
+      EEPROM.write(2, b);
+      EEPROM.commit();
+      Serial.print("Gun ID changed to: ");
+      Serial.println(GunID);
+      ChangeMyColor = 9; // triggers a gun/tagger color change
+      AudioSelection1="VAO"; // set an announcement "good job team"
+      AUDIO1=true; // enabling BLE Audio Announcement Send
+    }
     if (incomingData2 < 1800 && incomingData2 > 1699) { // Melee Use
       int b = incomingData2 - 1700;
       if (!INGAME) {
@@ -2239,10 +2298,14 @@ void ProcessIncomingCommands() {
     // 10000s used for JBOX
     
     if (incomingData2 == 31100) { // Zone Base Captured
-      CompletedObjectives++; // added one point to player objectives
-      AudioSelection1="VAR"; // set an announcement "good job team"
-      AUDIO1=true; // enabling BLE Audio Announcement Send
-      Serial.println("Zone Base Captured");
+      if (incomingData3 == SetTeam) { // check to see if friendly zone
+        CompletedObjectives++; // added one point to player objectives
+        AudioSelection1="VAR"; // set an announcement "good job team"
+        AUDIO1=true; // enabling BLE Audio Announcement Send
+        Serial.println("Zone Base Captured");
+      } else {
+        // add in action that indicates no acce?
+      }
       lastincomingData2 = 0;
     }
     if (incomingData2 == 31000) { 
@@ -2310,6 +2373,7 @@ void ProcessIncomingCommands() {
         LASTKILLEDPLAYERRESETNEEDED = true;
         lastkilledplayertimestamp = millis();
         MyKills++; // accumulate one kill count
+        AnounceScore = 0;
         AudioSelection="VN8"; // set audio play for "kill confirmed
         AUDIO=true;
         AudioDelay = 2000;
@@ -2468,6 +2532,13 @@ void InitializeJEDGE() {
   Serial.println("*****************************************************");
   Serial.println();
   Serial.println("Waiting for BRX to Boot...");
+  sendString("************************************");
+  sendString("************Initializing JEDGE******");
+  sendString("************************************");
+  sendString("....Hacking all BRX Factory Defaults...");
+  sendString("...");
+  sendString("...");
+  sendString("All Systems Unencrypted Successfully, Tagger Override Complete");
   /*
   int forfun = 5;
   while (forfun > 0) { 
@@ -2489,6 +2560,7 @@ void InitializeJEDGE() {
   sendString("$PLAY,VA20,4,6,,,,,*"); // says "connection established"
   sendString("$HLED,0,0,,,10,,*"); // test for gen3
   sendString("$GLED,0,0,0,0,10,,*"); // test for gen3
+  sendString("Tagger now controlled by JEDGE, Awaiting JEDGE Controller Commands, JEDGE Rocks");
 }
 //**********************************************************************************************
 
@@ -2657,46 +2729,22 @@ void InitOTA() {
   delay(200);
   WiFi.mode(WIFI_STA);
   delay(200);
+  Serial.print("Active firmware version:");
+  Serial.println(FirmwareVer);
+  pinMode(LED_BUILTIN, OUTPUT);
+  Serial.println("Waiting for WiFi");
   WiFi.begin(OTAssid, OTApassword);
-  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.println("Connection Failed! Rebooting...");
-    delay(2000);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
   }
-  Serial.println("connected to OTA Wifi");
-  ArduinoOTA.setHostname(GunName);
-  ArduinoOTA
-    .onStart([]() {
-      String type;
-      if (ArduinoOTA.getCommand() == U_FLASH)
-        type = "sketch";
-      else // U_SPIFFS
-        type = "filesystem";
-
-      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-      Serial.println("Start updating " + type);
-    })
-    .onEnd([]() {
-      Serial.println("\nEnd");
-    })
-    .onProgress([](unsigned int progress, unsigned int total) {
-      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-    })
-    .onError([](ota_error_t error) {
-      Serial.printf("Error[%u]: ", error);
-      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-      else if (error == OTA_END_ERROR) Serial.println("End Failed");
-    });
-
-  ArduinoOTA.begin();
-
-  Serial.println("Ready");
-  Serial.print("IP address: ");
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
   ENABLEOTAUPDATE = true;
-  Serial.println("OTA setup complete");
+  previousMillis = 0;
+  Serial.println("OTA setup complete");  
 }
 
 
@@ -3599,6 +3647,9 @@ void gameover() {
   sendString("$STOP,*"); // stops everything going on
   sendString("$CLEAR,*"); // clears out anything stored for game settings
   sendString("$PLAY,VS6,4,6,,,,,*"); // says game over
+  AudioDelay = 1500;
+  AudioSelection="VAP"; // "terminated"
+  AUDIO = true;
   Serial.println("Game Over Object Complete");
   CurrentDominationLeader = 99; // resetting the domination game status
   ClosingVictory[0] = 0;
@@ -3705,18 +3756,62 @@ void Audio() {
         AUDIO = false;
         AudioSelection  = "NULL";
         AudioDelay = 0; // reset the delay for another application
+        if (AnounceScore == 2) {
+          AnounceScore = 3;
+          if (Deaths < 10) {
+            AudioSelection = "VA0" + String(Deaths);
+          }
+          if (Deaths == 10) {AudioSelection = "VA0A";}
+          if (Deaths == 11) {AudioSelection = "VA0B";}
+          if (Deaths == 12) {AudioSelection = "VA0C";}
+          if (Deaths == 13) {AudioSelection = "VA0D";}
+          if (Deaths == 14) {AudioSelection = "VA0E";}
+          if (Deaths == 15) {AudioSelection = "VA0F";}
+          if (Deaths == 16) {AudioSelection = "VA0G";}
+          if (Deaths == 17) {AudioSelection = "VA0H";}
+          if (Deaths == 18) {AudioSelection = "VA0I";}
+          if (Deaths == 19) {AudioSelection = "VA0J";}
+          if (Deaths == 20) {AudioSelection = "VA0K";}
+          if (Deaths == 21) {AudioSelection = "VA0L";}
+          if (Deaths == 22) {AudioSelection = "VA0M";}
+          if (Deaths == 23) {AudioSelection = "VA0N";}
+          if (Deaths == 24) {AudioSelection = "VA0O";}
+          if (Deaths == 25) {AudioSelection = "VA0P";}
+          AudioDelay = 1500;
+          AudioPreviousMillis = millis();
+          AUDIO = true;
+        }
+        if (AnounceScore == 3) {
+          AnounceScore = 0;
+          AudioDelay = 1500;
+          AudioPreviousMillis = millis();
+          AudioSelection="VA7F"; // "Fatality"
+          AUDIO = true;
+        }
       }
     } else {
       sendString("$PLAY,"+AudioSelection+",4,6,,,,,*");
       AUDIO = false;
       AudioSelection  = "NULL";
     }
+    if (AnounceScore == 1) {
+      AnounceScore = 2;
+      AudioPreviousMillis = millis();
+      AudioDelay = 1500;
+      AudioSelection="VNA"; // "Kill Confirmed"
+      AUDIO = true;
+    }
+    int resetcheck = EEPROM.read(1);
+    if (resetcheck == 1) {
+      delay(1500);
+      ESP.restart();
+    } 
   }
   if (AUDIO1) {
     sendString("$PLAY,"+AudioSelection1+",4,6,,,,,*");
     AUDIO1=false; 
     AudioSelection1 = "NULL";
-    }
+  }
 }
 void ChangeColors() {
   String colorstring = ("$GLED," + String(ChangeMyColor) + "," + String(ChangeMyColor) + "," + String(ChangeMyColor) + ",0,10,,*");
@@ -3773,6 +3868,7 @@ void MainGame() {
     PlayerLives=SetLives; // sets configured lives from settings received
     GameTimer=SetTime; // sets timer from input of esp8266
     MyKills = 0;
+    ClearScores();
     if (GameTimer > 60000) {
       COUNTDOWN1 = true;
       COUNTDOWN2 = false;
@@ -3847,7 +3943,7 @@ void MainGame() {
       }
     }
     if (LASTKILLEDPLAYERRESETNEEDED) { // recently received a kill confirmation
-      if (ActualGameTime - lastkilledplayertimestamp > 4000) {
+      if (ActualGameTime - lastkilledplayertimestamp > 1000) {
         LASTKILLEDPLAYERRESETNEEDED = false;
         lastkilledplayer = 9999;
       }
@@ -4444,6 +4540,35 @@ void ProcessBRXData() {
           }
           }
       }
+      if (tokenStrings[1] == "4") {
+        if (tokenStrings[2] == "1") {
+          Serial.println("left dpad pressed"); // as indicated this is the left button
+          // lets do a score announcement
+          if (AnounceScore == 0) {
+            AnounceScore = 1;            
+            if (MyKills < 10) {
+              AudioSelection = "VA0" + String(MyKills);
+            }
+            if (MyKills == 10) {AudioSelection = "VA0A";}
+            if (MyKills == 11) {AudioSelection = "VA0B";}
+            if (MyKills == 12) {AudioSelection = "VA0C";}
+            if (MyKills == 13) {AudioSelection = "VA0D";}
+            if (MyKills == 14) {AudioSelection = "VA0E";}
+            if (MyKills == 15) {AudioSelection = "VA0F";}
+            if (MyKills == 16) {AudioSelection = "VA0G";}
+            if (MyKills == 17) {AudioSelection = "VA0H";}
+            if (MyKills == 18) {AudioSelection = "VA0I";}
+            if (MyKills == 19) {AudioSelection = "VA0J";}
+            if (MyKills == 20) {AudioSelection = "VA0K";}
+            if (MyKills == 21) {AudioSelection = "VA0L";}
+            if (MyKills == 22) {AudioSelection = "VA0M";}
+            if (MyKills == 23) {AudioSelection = "VA0N";}
+            if (MyKills == 24) {AudioSelection = "VA0O";}
+            if (MyKills == 25) {AudioSelection = "VA0P";}
+            AUDIO = true;            
+          }
+        }
+      }
       // we can do more for left right select but yeah... maybe another time 
     }
     
@@ -4549,6 +4674,7 @@ void ProcessBRXData() {
         TeamKillCount[lastTaggedTeam]++; // adding a point to the team who caused the last kill
         PlayerLives--; // taking our preset lives and subtracting one life then talking about it on the monitor
         Deaths++;
+        AnounceScore = 0;
         //AudioSelection1="KBP"+String(lastTaggedPlayer);
         //AUDIO1=true;
         Serial.println("Lives Remaining = " + String(PlayerLives));
@@ -4690,6 +4816,18 @@ void loop1(void *pvParameters) {
   Serial.println(xPortGetCoreID());   
   //auto control brx start up:
   //InitializeJEDGE();
+  if (updatenotification == 1) { // recently updated
+    EEPROM.write(0, 0);
+    EEPROM.commit();
+    AudioSelection="VA6W";
+    AUDIO=true;
+  }
+  if (updatenotification == 2) { // firmware is up to date already
+    EEPROM.write(0, 0);
+    EEPROM.commit();
+    AudioSelection="VAO";
+    AUDIO=true;
+  }
   while(1) { // starts the forever loop
     // put all the serial activities in here for communication with the brx
     if (Serial1.available()) {
@@ -4754,26 +4892,6 @@ void loop2(void *pvParameters) {
         esp_deep_sleep_start();
       }
     }
-    if (INITIALIZEOTA) {
-      INITIALIZEOTA = false;
-      InitOTA();
-      
-    }
-    if (ENABLEOTAUPDATE) {
-      ArduinoOTA.handle();
-      if (WiFi.status() == WL_CONNECTED) {
-        // blink the onboard led
-        if (millis() > previousMillis + interval) {
-          previousMillis = millis();
-          if (ledState == LOW) {
-            ledState = HIGH; 
-          } else {
-            ledState = LOW;
-          } 
-          digitalWrite(led, ledState);  
-        }
-      }
-    }
     if (SCORESYNC) {
       unsigned long ScoreCurrentMillis = millis();
       if (ScoreCurrentMillis - ScorePreviousMillis > 200) {
@@ -4819,11 +4937,39 @@ void loop2(void *pvParameters) {
 //*************************************** SET UP *******************************************
 //******************************************************************************************
 void setup() {
+  //***********************************************************************
   Serial.begin(115200); // set serial monitor to match this baud rate
   Serial.println("Initializing serial output settings, Tagger Generation set to Gen: " + String(GunGeneration));
+  //***********************************************************************
+  // initialize EEPROM
+  EEPROM.begin(EEPROM_SIZE);
+  int bootstatus = EEPROM.read(1);
+  updatenotification = EEPROM.read(0);
+  GunID = EEPROM.read(2);
+  Serial.print("GunID = ");
+  Serial.println(GunID);
+  Serial.print("Boot Status = ");
+  Serial.println(bootstatus);
+  delay(10);
+  if (bootstatus == 1){ // indicates we are in ota mode
+    OTAMODE = true;
+  }
+  
+  if (OTAMODE) {  
+  Serial.print("Active firmware version:");
+  Serial.println(FirmwareVer);
+  pinMode(LED_BUILTIN, OUTPUT);
+  connect_wifi();
+  EEPROM.write(1, 0);
+  EEPROM.commit();
+  bootstatus = EEPROM.read(0);
+  Serial.print("Boot Status = ");
+  Serial.println(bootstatus);
+  } else {
   if (GunGeneration > 1) {
     BaudRate = 115200;
   }
+  
   Serial.println("Serial Buad Rate set for: " + String(BaudRate));
   Serial1.begin(BaudRate, SERIAL_8N1, SERIAL1_RXPIN, SERIAL1_TXPIN); // setting up the serial pins for sending data to BRX
   pinMode(led, OUTPUT);
@@ -4858,10 +5004,117 @@ void setup() {
   Serial.println(xPortGetCoreID());
   xTaskCreatePinnedToCore(loop1, "loop1", 4096, NULL, 1, NULL, 0);
   xTaskCreatePinnedToCore(loop2, "loop2", 4096, NULL, 1, NULL, 1);
+  }
 } // End of setup.
 // **********************
 // ****  EMPTY LOOP  ****
 // **********************
 void loop() {
-  //empty loop
+  if (OTAMODE) {
+     static int num=0;
+    unsigned long currentMillis = millis();
+    if ((currentMillis - previousMillis) >= otainterval) {
+      // save the last time you blinked the LED
+      previousMillis = currentMillis;
+      if (FirmwareVersionCheck()) {
+        firmwareUpdate();
+      }
+    }
+    if (UPTODATE) {
+      EEPROM.write(1, 0); // in case not already the case, clearing out eeprom state so it doesnt try to upgrade anymore
+      EEPROM.write(0, 2); // set up device to provide notification that there is no update available
+      EEPROM.commit(); // saves the eeprom state
+      ESP.restart(); // we confirmed there is no update available, just reset and get ready to play 
+    }
+  }
+}
+
+void connect_wifi() {
+  Serial.println("Waiting for WiFi");
+  WiFi.begin(OTAssid, OTApassword);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void firmwareUpdate(void) {
+  WiFiClientSecure client;
+  client.setCACert(rootCACertificate);
+  httpUpdate.setLedPin(LED_BUILTIN, LOW);
+  t_httpUpdate_return ret = httpUpdate.update(client, URL_fw_Bin);
+
+  switch (ret) {
+  case HTTP_UPDATE_FAILED:
+    Serial.printf("HTTP_UPDATE_FAILD Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+    break;
+
+  case HTTP_UPDATE_NO_UPDATES:
+    Serial.println("HTTP_UPDATE_NO_UPDATES");
+    break;
+
+  case HTTP_UPDATE_OK:
+    Serial.println("HTTP_UPDATE_OK");
+    break;
+  }
+}
+int FirmwareVersionCheck(void) {
+  String payload;
+  int httpCode;
+  String fwurl = "";
+  fwurl += URL_fw_Version;
+  fwurl += "?";
+  fwurl += String(rand());
+  Serial.println(fwurl);
+  WiFiClientSecure * client = new WiFiClientSecure;
+
+  if (client) 
+  {
+    client -> setCACert(rootCACertificate);
+
+    // Add a scoping block for HTTPClient https to make sure it is destroyed before WiFiClientSecure *client is 
+    HTTPClient https;
+
+    if (https.begin( * client, fwurl)) 
+    { // HTTPS      
+      Serial.print("[HTTPS] GET...\n");
+      // start connection and send HTTP header
+      delay(100);
+      httpCode = https.GET();
+      delay(100);
+      if (httpCode == HTTP_CODE_OK) // if version received
+      {
+        payload = https.getString(); // save received version
+      } else {
+        Serial.print("error in downloading version file:");
+        Serial.println(httpCode);
+      }
+      https.end();
+    }
+    delete client;
+  }
+      
+  if (httpCode == HTTP_CODE_OK) // if version received
+  {
+    payload.trim();
+    if (payload.equals(FirmwareVer)) {
+      UPTODATE = true;
+      Serial.printf("\nDevice already on latest firmware version:%s\n", FirmwareVer);
+      return 0;} 
+    else 
+    {
+      EEPROM.write(0, 1); // set up for upgrade confirmation
+      EEPROM.commit(); // store data
+      Serial.println(payload);
+      Serial.println("New firmware detected");
+      
+      return 1;
+    }
+  } 
+  return 0;  
 }
