@@ -121,6 +121,9 @@
  *                    enabled capturing of other taggers score reporting to accumulate score on this device to report accurate score info at end of game on tagger.
  *                    fixed bug for receiving kill confirmations that are repetitive or back to back so that it works regardless.
  * updated 07/10/2021 Added in web based updating and tagger ID reasignment                   
+ * updated 07/11/2021 Added in data packet 5 for espnow to request and receive wifi credentials from controller
+ * updated 07/12/2021 removed packet 5 and went with strings for web connection and added in gun gen selector for eeprom
+ * 
  * 
  *                    
  */
@@ -145,7 +148,7 @@
 int sample[5];
 
 // define the number of bytes I'm using/accessing for eeprom
-#define EEPROM_SIZE 3 // use 0 for OTA and 1 for Tagger ID
+#define EEPROM_SIZE 4 // use 0 for OTA and 1 for Tagger ID
 // if eeprom 0 is 1, it is OTA mode, if 0, regular mode.
 
 #define SERIAL1_RXPIN 16 // TO BRX TX and BLUETOOTH RX
@@ -165,11 +168,11 @@ int GunID = 3; // this is the gun or player ID, each esp32 needs a different one
 const char GunName[] = "GUN#3"; // used for OTA id recognition on network and for AP for web server
 int GunGeneration = 2; // change to gen 1, 2, 3
 const char* password = "123456789"; // Password for web server
-const char* OTAssid = "your wifi network name"; // network name to update OTA
-const char* OTApassword = "your wifi password"; // Network password for OTA
+String OTAssid = "dontchangeme"; // network name to update OTA
+String OTApassword = "dontchangeme"; // Network password for OTA
 int TaggersOwned = 64; // how many taggers do you own or will play?
 bool ACTASHOST = false; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
-String FirmwareVer = {"3.25"};
+String FirmwareVer = {"3.26"};
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -375,6 +378,7 @@ int incomingData1; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-
 int incomingData2; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
 int incomingData3; // From - device ID
 String incomingData4; // used for score reporting only
+
 int lastincomingData2 = 0; // used for repeated data sends
 int lastkillconfirmationorigin = 9999;
 int lastkillconfirmationdestination = 9999;
@@ -434,7 +438,6 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   incomingData1 = incomingReadings.DP1; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases - 200 - 203 for teams 0-3
   incomingData2 = incomingReadings.DP2; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
   incomingData3 = incomingReadings.DP3; // From
-  //incomingData4 = incomingReadings.DP4; // From
   Serial.println("DP1: " + String(incomingData1)); // INTENDED RECIPIENT
   Serial.println("DP2: " + String(incomingData2)); // FUNCTION/COMMAN
   Serial.println("DP3: " + String(incomingData3)); // From - device ID
@@ -1086,6 +1089,22 @@ void ProcessIncomingCommands() {
     // determine a winner.
     AccumulateIncomingScores();
     MyKills = PlayerKills[GunID];
+  }
+  if (incomingData2 == 904) { // this is a wifi credential
+    Serial.println("received SSID from controller");
+    OTAssid = incomingData4;
+    Serial.print("OTApassword = ");
+    Serial.println(OTApassword);
+    Serial.print("OTAssid = ");
+    Serial.println(OTAssid);
+  }
+  if (incomingData2 == 905) { // this is a wifi credential
+    Serial.println("received Wifi Password from controller");
+    OTApassword = incomingData4;
+    Serial.print("OTApassword = ");
+    Serial.println(OTApassword);
+    Serial.print("OTAssid = ");
+    Serial.println(OTAssid);
   }
   if (ESPTimeout) {
     ESPTimeout = false;
@@ -2272,6 +2291,7 @@ void ProcessIncomingCommands() {
     }
     if (incomingData2 < 2000 && incomingData2 > 1899) { // Player ID Assigner
       int b = incomingData2 - 1900;
+      if (b < 70) {
       GunID = b;
       EEPROM.write(2, b);
       EEPROM.commit();
@@ -2280,6 +2300,18 @@ void ProcessIncomingCommands() {
       ChangeMyColor = 9; // triggers a gun/tagger color change
       AudioSelection1="VAO"; // set an announcement "good job team"
       AUDIO1=true; // enabling BLE Audio Announcement Send
+      }
+      if (b > 70 && b < 74) {
+      b = b - 70;
+      GunGeneration = b;
+      EEPROM.write(3, b);
+      EEPROM.commit();
+      Serial.print("Gun Gen changed to: ");
+      Serial.println(GunGeneration);
+      ChangeMyColor = 9; // triggers a gun/tagger color change
+      AudioSelection1="VAO"; // set an announcement "good job team"
+      AUDIO1=true; // enabling BLE Audio Announcement Send
+      }
     }
     if (incomingData2 < 1800 && incomingData2 > 1699) { // Melee Use
       int b = incomingData2 - 1700;
@@ -2733,7 +2765,7 @@ void InitOTA() {
   Serial.println(FirmwareVer);
   pinMode(LED_BUILTIN, OUTPUT);
   Serial.println("Waiting for WiFi");
-  WiFi.begin(OTAssid, OTApassword);
+  WiFi.begin(OTAssid.c_str(), OTApassword.c_str());
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -4808,6 +4840,96 @@ void AccumulateIncomingScores1() {
     Serial.println(String(millis()));
     //UpdateWebApp();
 }
+
+void connect_wifi() {
+  Serial.println("Waiting for WiFi");
+  WiFi.begin(OTAssid.c_str(), OTApassword.c_str());
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void firmwareUpdate(void) {
+  WiFiClientSecure client;
+  client.setCACert(rootCACertificate);
+  httpUpdate.setLedPin(LED_BUILTIN, LOW);
+  t_httpUpdate_return ret = httpUpdate.update(client, URL_fw_Bin);
+
+  switch (ret) {
+  case HTTP_UPDATE_FAILED:
+    Serial.printf("HTTP_UPDATE_FAILD Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+    break;
+
+  case HTTP_UPDATE_NO_UPDATES:
+    Serial.println("HTTP_UPDATE_NO_UPDATES");
+    break;
+
+  case HTTP_UPDATE_OK:
+    Serial.println("HTTP_UPDATE_OK");
+    break;
+  }
+}
+int FirmwareVersionCheck(void) {
+  String payload;
+  int httpCode;
+  String fwurl = "";
+  fwurl += URL_fw_Version;
+  fwurl += "?";
+  fwurl += String(rand());
+  Serial.println(fwurl);
+  WiFiClientSecure * client = new WiFiClientSecure;
+
+  if (client) 
+  {
+    client -> setCACert(rootCACertificate);
+
+    // Add a scoping block for HTTPClient https to make sure it is destroyed before WiFiClientSecure *client is 
+    HTTPClient https;
+
+    if (https.begin( * client, fwurl)) 
+    { // HTTPS      
+      Serial.print("[HTTPS] GET...\n");
+      // start connection and send HTTP header
+      delay(100);
+      httpCode = https.GET();
+      delay(100);
+      if (httpCode == HTTP_CODE_OK) // if version received
+      {
+        payload = https.getString(); // save received version
+      } else {
+        Serial.print("error in downloading version file:");
+        Serial.println(httpCode);
+      }
+      https.end();
+    }
+    delete client;
+  }
+      
+  if (httpCode == HTTP_CODE_OK) // if version received
+  {
+    payload.trim();
+    if (payload.equals(FirmwareVer)) {
+      UPTODATE = true;
+      Serial.printf("\nDevice already on latest firmware version:%s\n", FirmwareVer);
+      return 0;} 
+    else 
+    {
+      EEPROM.write(0, 1); // set up for upgrade confirmation
+      EEPROM.commit(); // store data
+      Serial.println(payload);
+      Serial.println("New firmware detected");
+      
+      return 1;
+    }
+  } 
+  return 0;  
+}
 //******************************************************************************************
 // ***********************************  DIRTY LOOP  ****************************************
 // *****************************************************************************************
@@ -4946,30 +5068,56 @@ void setup() {
   int bootstatus = EEPROM.read(1);
   updatenotification = EEPROM.read(0);
   GunID = EEPROM.read(2);
+  GunGeneration = EEPROM.read(3);
   Serial.print("GunID = ");
   Serial.println(GunID);
+  Serial.print("GunGeneration = ");
+  Serial.println(GunGeneration);
   Serial.print("Boot Status = ");
   Serial.println(bootstatus);
   delay(10);
   if (bootstatus == 1){ // indicates we are in ota mode
     OTAMODE = true;
   }
-  
+  //*********** OTA MODE ************************
   if (OTAMODE) {  
   Serial.print("Active firmware version:");
   Serial.println(FirmwareVer);
   pinMode(LED_BUILTIN, OUTPUT);
-  connect_wifi();
-  EEPROM.write(1, 0);
-  EEPROM.commit();
+  
   bootstatus = EEPROM.read(0);
   Serial.print("Boot Status = ");
   Serial.println(bootstatus);
+
+  InitAP();
+  Serial.print("ESP Board MAC Address:  ");
+  Serial.println(WiFi.macAddress());
+  Serial.println("Starting ESPNOW");
+  IntializeESPNOW();
+  delay(1000);
+
+  datapacket1 = 9999;
+  getReadings();
+  BroadcastData(); // sending data via ESPNOW
+  Serial.println("Sent Data Via ESPNOW");
+  ResetReadings();
+
+  while (OTApassword == "dontchangeme") {
+    vTaskDelay(1);
+  }
+  delay(2000);
+  Serial.println("wifi credentials");
+  Serial.println(OTAssid);
+  Serial.println(OTApassword);
+  
+  connect_wifi();
+  EEPROM.write(1, 0);
+  EEPROM.commit();
   } else {
+  //************** Play Mode*******************
   if (GunGeneration > 1) {
     BaudRate = 115200;
   }
-  
   Serial.println("Serial Buad Rate set for: " + String(BaudRate));
   Serial1.begin(BaudRate, SERIAL_8N1, SERIAL1_RXPIN, SERIAL1_TXPIN); // setting up the serial pins for sending data to BRX
   pinMode(led, OUTPUT);
@@ -5027,94 +5175,4 @@ void loop() {
       ESP.restart(); // we confirmed there is no update available, just reset and get ready to play 
     }
   }
-}
-
-void connect_wifi() {
-  Serial.println("Waiting for WiFi");
-  WiFi.begin(OTAssid, OTApassword);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-}
-
-void firmwareUpdate(void) {
-  WiFiClientSecure client;
-  client.setCACert(rootCACertificate);
-  httpUpdate.setLedPin(LED_BUILTIN, LOW);
-  t_httpUpdate_return ret = httpUpdate.update(client, URL_fw_Bin);
-
-  switch (ret) {
-  case HTTP_UPDATE_FAILED:
-    Serial.printf("HTTP_UPDATE_FAILD Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
-    break;
-
-  case HTTP_UPDATE_NO_UPDATES:
-    Serial.println("HTTP_UPDATE_NO_UPDATES");
-    break;
-
-  case HTTP_UPDATE_OK:
-    Serial.println("HTTP_UPDATE_OK");
-    break;
-  }
-}
-int FirmwareVersionCheck(void) {
-  String payload;
-  int httpCode;
-  String fwurl = "";
-  fwurl += URL_fw_Version;
-  fwurl += "?";
-  fwurl += String(rand());
-  Serial.println(fwurl);
-  WiFiClientSecure * client = new WiFiClientSecure;
-
-  if (client) 
-  {
-    client -> setCACert(rootCACertificate);
-
-    // Add a scoping block for HTTPClient https to make sure it is destroyed before WiFiClientSecure *client is 
-    HTTPClient https;
-
-    if (https.begin( * client, fwurl)) 
-    { // HTTPS      
-      Serial.print("[HTTPS] GET...\n");
-      // start connection and send HTTP header
-      delay(100);
-      httpCode = https.GET();
-      delay(100);
-      if (httpCode == HTTP_CODE_OK) // if version received
-      {
-        payload = https.getString(); // save received version
-      } else {
-        Serial.print("error in downloading version file:");
-        Serial.println(httpCode);
-      }
-      https.end();
-    }
-    delete client;
-  }
-      
-  if (httpCode == HTTP_CODE_OK) // if version received
-  {
-    payload.trim();
-    if (payload.equals(FirmwareVer)) {
-      UPTODATE = true;
-      Serial.printf("\nDevice already on latest firmware version:%s\n", FirmwareVer);
-      return 0;} 
-    else 
-    {
-      EEPROM.write(0, 1); // set up for upgrade confirmation
-      EEPROM.commit(); // store data
-      Serial.println(payload);
-      Serial.println("New firmware detected");
-      
-      return 1;
-    }
-  } 
-  return 0;  
 }
