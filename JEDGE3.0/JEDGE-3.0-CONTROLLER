@@ -21,7 +21,7 @@ int TaggersOwned = 64; // how many taggers do you own or will play?
 const char* ssid = "JEDGECONTROLLER";
 const char* password = "123456789";
 
-// for OTA updates - set to your hone/local WiFi 
+// for OTA updates - set to your home/local WiFi 
 String OTAssid = "changeme";
 String OTApassword = "changeme";
 
