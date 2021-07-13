@@ -1,4 +1,9 @@
-
+/*
+ * updates log
+ * 
+ * 7/11 added in ability to send wifi credentials to tagger for updating.
+ * 7/12 added in ability to assign gun generation to esp32 for flash memory
+ */
 
 // Import required libraries
 #include <WiFi.h>
@@ -15,6 +20,10 @@ int TaggersOwned = 64; // how many taggers do you own or will play?
 // Replace with your network credentials
 const char* ssid = "JEDGECONTROLLER";
 const char* password = "123456789";
+
+// for OTA updates
+String OTAssid = "maxipad";
+String OTApassword = "9165047812";
 
 int WebSocketData;
 bool ledState = 0;
@@ -76,7 +85,8 @@ esp_now_peer_info_t peerInfo;
 int datapacket1 = 99; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases - 200 - 203 for teams 0-3
 int datapacket2 = 32700; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
 int datapacket3 = GunID; // From - device ID
-String datapacket4 = "null"; // used for score reporting only
+String datapacket4 = "X"; // used for score reporting only
+
 int lastdatapacket2 = 0; // used for repeat data send
 
 
@@ -132,16 +142,15 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   incomingData1 = incomingReadings.DP1; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases - 200 - 203 for teams 0-3
   incomingData2 = incomingReadings.DP2; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
   incomingData3 = incomingReadings.DP3; // From
-  //incomingData4 = incomingReadings.DP4; // From
+  incomingData4 = String(incomingReadings.DP4);
   Serial.println("DP1: " + String(incomingData1)); // INTENDED RECIPIENT
   Serial.println("DP2: " + String(incomingData2)); // FUNCTION/COMMAN
   Serial.println("DP3: " + String(incomingData3)); // From - device ID
   Serial.print("DP4: "); // used for scoring
   //Serial.println(incomingData4);
-  Serial.write(incomingReadings.DP4);
-  Serial.println();
-  incomingData4 = String(incomingReadings.DP4);
+  Serial.write(incomingReadings.DP4);  
   Serial.println(incomingData4);
+  //Serial.println;
   ProcessIncomingCommands();
   //Serial.print("cOMMS loop running on core ");
   //Serial.println(xPortGetCoreID());
@@ -161,7 +170,7 @@ void ResetReadings() {
   datapacket1 = 99; // INTENDED RECIPIENT - 99 is all - 0-63 for player id - 100-199 for bases - 200 - 203 for teams 0-3
   datapacket2 = 32700; // FUNCTION/COMMAND - range from 0 to 32,767 - 327 different settings - 99 different options
   datapacket3 = GunID; // From - device ID
-  datapacket4 = "null";
+  datapacket4 = "X";
 }
 
 // object for broadcasting the data packets
@@ -1056,6 +1065,7 @@ const char index_html[] PROGMEM = R"rawliteral(
       <p><button id="taggerunlocks" class="button">Unlock Hidden Menu Options</button></p>
       <h2>Player ID Assignment</h2>
       <p><select name="playerassignment" id="playerassignmentid">
+        <option value="1965">Select Player ID 0</option>
         <option value="1900">Player 0</option>
         <option value="1901">Player 1</option>
         <option value="1902">Player 2</option>
@@ -1120,6 +1130,14 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="1961">Player 61</option>
         <option value="1962">Player 62</option>
         <option value="1963">Player 63</option>
+        </select>
+      </p>
+      <h2>Tagger Gen</h2>
+      <p><select name="genassignment" id="genassignmentid">
+        <option value="1899">Select Gun Generation</option>
+        <option value="1971">Gen 1</option>
+        <option value="1972">Gen 2</option>
+        <option value="1973">Gen 3</option>
         </select>
       </p>
     </div>
@@ -1358,6 +1376,7 @@ if (!!window.EventSource) {
     document.getElementById('gamestart').addEventListener('click', toggle14s);
     document.getElementById('gameend').addEventListener('click', toggle14e);
     document.getElementById('syncscores').addEventListener('click', toggle9);
+    document.getElementById('genassignmentid').addEventListener('change', handlegenassignment, false);
     document.getElementById('playerselectorid').addEventListener('change', handleplayerselector, false);
     document.getElementById('playerperkid').addEventListener('change', handleplayerperk, false);
     document.getElementById('playerassignmentid').addEventListener('change', handleplayerassignment, false);
@@ -1371,6 +1390,10 @@ if (!!window.EventSource) {
   }
   function toggle14e(){
     websocket.send('toggle14e');
+  }
+  function handlegenassignment() {
+    var xq = document.getElementById("genassignmentid").value;
+    websocket.send(xq);
   }
   function handleplayerassignment() {
     var xp = document.getElementById("playerassignmentid").value;
@@ -3112,6 +3135,24 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       Menu[0] = 1963;
       PrimaryMenu();
     }
+    if (strcmp((char*)data, "1971") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1971;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "1972") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1972;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "1973") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 1973;
+      PrimaryMenu();
+    }
     if (strcmp((char*)data, "toggle15") == 0) { // initialize jedge
       Menu[15] = 1501;
       WebSocketData = Menu[15];
@@ -3212,6 +3253,20 @@ void ProcessIncomingCommands() {
         UPDATEWEBAPP = true;
       }
     }
+  }
+  if (incomingData1 == 9999) { // this is a request for wifi credentials
+    datapacket1 = incomingData3;
+    datapacket2 = 904;
+    datapacket4 = OTAssid;
+    getReadings();
+    BroadcastData(); // sending data via ESPNOW
+    Serial.println("Sent Data Via ESPNOW");
+    delay(1000);
+    datapacket2 = 905;
+    datapacket4 = OTApassword;
+    getReadings();
+    BroadcastData(); // sending data via ESPNOW
+    Serial.println("Sent Data Via ESPNOW");
   }
   digitalWrite(2, LOW);
 }
