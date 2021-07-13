@@ -22,8 +22,8 @@ const char* ssid = "JEDGECONTROLLER";
 const char* password = "123456789";
 
 // for OTA updates
-String OTAssid = "maxipad";
-String OTApassword = "9165047812";
+String OTAssid = "changeme";
+String OTApassword = "changeme";
 
 int WebSocketData;
 bool ledState = 0;
