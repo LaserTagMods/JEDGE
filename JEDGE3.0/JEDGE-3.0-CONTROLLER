@@ -17,11 +17,11 @@ int GunID = 99; // this is the gun or player ID, each esp32 needs a different on
 int GunGeneration = 2; // change to gen 1, 2, 3
 int TaggersOwned = 64; // how many taggers do you own or will play?
 
-// Replace with your network credentials
+// network credentials to connect to the controller esp32
 const char* ssid = "JEDGECONTROLLER";
 const char* password = "123456789";
 
-// for OTA updates
+// for OTA updates - set to your hone/local WiFi 
 String OTAssid = "changeme";
 String OTApassword = "changeme";
 
