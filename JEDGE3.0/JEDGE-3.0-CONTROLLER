@@ -11,24 +11,63 @@
 #include <ESPAsyncWebServer.h>
 #include <esp_now.h> // espnow library
 #include <esp_wifi.h> // needed for resetting the mac address
-#include <Arduino_JSON.h>
+#include <Arduino_JSON.h>#include <HTTPClient.h> // to update via http
+#include <HTTPUpdate.h> // to update via http
+#include <WiFiClientSecure.h> // security access to github
+#include "cert.h" // used for github security
 
 int GunID = 99; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
 int GunGeneration = 2; // change to gen 1, 2, 3
 int TaggersOwned = 64; // how many taggers do you own or will play?
 
-// network credentials to connect to the controller esp32
+// Replace with your network credentials
 const char* ssid = "JEDGECONTROLLER";
 const char* password = "123456789";
 
-// for OTA updates - set to your home/local WiFi 
-String OTAssid = "changeme";
-String OTApassword = "changeme";
+// wifi credentials for remote updating over local wifi
+String OTAssid = "dontchangeme"; // network name to update OTA
+String OTApassword = "dontchangeme"; // Network password for OTA
+#define URL_fw_Version "https://raw.githubusercontent.com/LaserTagMods/autoupdate/main/cbin_version.txt"
+#define URL_fw_Bin "https://raw.githubusercontent.com/LaserTagMods/autoupdate/main/controllerfw.bin"
+bool OTAMODE = false;
+void connect_wifi();
+void firmwareUpdate();
+int FirmwareVersionCheck();
+bool UPTODATE = false;
+int updatenotification;
+//unsigned long previousMillis = 0; // will store last time LED was updated
+unsigned long previousMillis_2 = 0;
+const long otainterval = 1000;
+const long mini_interval = 1000;
+String FirmwareVer = {"3.15"};
+
+// text inputs
+const char* PARAM_INPUT_1 = "input1";
+const char* PARAM_INPUT_2 = "input2";
 
 int WebSocketData;
 bool ledState = 0;
 const int ledPin = 2;
 int Menu[25]; // used for menu settings storage
+
+unsigned long currentmilliseconds = 0;
+unsigned long lasttempcheck = 0;
+int tempcheckinterval = 5000;
+int espnowpushinterval = 30000;
+unsigned long lastespnowpush = 0;
+
+// internal temp check
+ #ifdef __cplusplus
+  extern "C" {
+ #endif
+
+  uint8_t temprature_sens_read();
+
+#ifdef __cplusplus
+}
+#endif
+
+uint8_t temprature_sens_read();
 
 int id = 0;
 //int tempteamscore;
@@ -49,6 +88,8 @@ const long interval = 1000;  // interval at which to blink (milliseconds)
 unsigned long ledpreviousMillis = 0;  // will store last time LED was updated
 const long ledinterval = 1500;  // interval at which to blink (milliseconds)
 
+bool DEMOTOGGLE = false;
+bool DEMOMODE = false; // used to run demo mode
 bool SCORESYNC = false; // used for initializing score syncronization
 int ScoreRequestCounter = 0; // counter used for score syncronization
 String ScoreTokenStrings[73]; // used for disecting incoming score string/char
@@ -637,6 +678,13 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="206">25</option>
         </select>
       </p>
+      <h2>Player Health</h2>
+      <p><select name="playerhealth" id="playerhealthid">
+        <option value="210">Standard</option>
+        <option value="211">One Shot Kills</option>
+        <option value="212">Juggernaugh</option>
+        </select>
+      </p>
       <h2>Game Time</h2>
       <p><select name="gametime" id="gametimeid">
         <option value="308">Unlimited</option>
@@ -653,7 +701,8 @@ const char index_html[] PROGMEM = R"rawliteral(
       <p><select name="ambience" id="ambienceid">
         <option value="401">Outdoor Mode</option>
         <option value="402">Indoor Mode</option>
-        <option value="403">Stealth</option>
+        <option value="403">Stealth Indoor</option>
+        <option value="404">Stealth Outdoor</option>
         </select>
       </p>
       <h2>Team Selections</h2>
@@ -1060,9 +1109,6 @@ const char index_html[] PROGMEM = R"rawliteral(
   </div>
   <div class="content">
     <div class="card">
-      <p><button id="initializeotaupdate" class="button">Enable OTA</button></p>
-      <p><button id="resetcontrollers" class="button">Reset Controllers</button></p>
-      <p><button id="taggerunlocks" class="button">Unlock Hidden Menu Options</button></p>
       <h2>Player ID Assignment</h2>
       <p><select name="playerassignment" id="playerassignmentid">
         <option value="1965">Select Player ID 0</option>
@@ -1140,6 +1186,20 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="1973">Gen 3</option>
         </select>
       </p>
+      <form action="/get">
+        wifi ssid: <input type="text" name="input1">
+        <input type="submit" value="Submit">
+      </form><br>
+      <form action="/get">
+        wifi pass: <input type="text" name="input2">
+        <input type="submit" value="Submit">
+      </form><br>
+      <p><button id="initializeotaupdate" class="button">Enable Tagger OTA</button></p>
+      <p><button id="initializecontrollerupdate" class="button">Enable Controller OTA</button></p>
+      <p><button id="resetcontrollers" class="button">Reset Controllers</button></p>
+      <p><button id="rundemo" class="button">Demo Mode</button></p>
+      <p><button id="taggerunlocks" class="button">Unlock Hidden Menu Options</button></p>
+      
     </div>
   </div>
   
@@ -1358,13 +1418,16 @@ if (!!window.EventSource) {
     document.getElementById('initializejedge').addEventListener('click', toggle15);
     document.getElementById('resendlastsetting').addEventListener('click', toggle15A);
     document.getElementById('initializeotaupdate').addEventListener('click', toggle15D);
+    document.getElementById('initializecontrollerupdate').addEventListener('click', toggle15E);
     document.getElementById('resetcontrollers').addEventListener('click', toggle15B);
+    document.getElementById('rundemo').addEventListener('click', toggle15F);
     document.getElementById('taggerunlocks').addEventListener('click', toggle15C);
     document.getElementById('presetgamemodesid').addEventListener('change', handleGMode, false);
     document.getElementById('primaryid').addEventListener('change', handleprimary, false);
     document.getElementById('secondaryid').addEventListener('change', handlesecondary, false);
     document.getElementById('meleesettingid').addEventListener('change', handlemelee, false);
     document.getElementById('playerlivesid').addEventListener('change', handlelives, false);
+    document.getElementById('playerhealthid').addEventListener('change', handlehealth, false);
     document.getElementById('gametimeid').addEventListener('change', handlegametime, false);
     document.getElementById('ambienceid').addEventListener('change', handleambience, false);
     document.getElementById('teamselectionid').addEventListener('change', handleteams, false);
@@ -1427,6 +1490,10 @@ if (!!window.EventSource) {
     var xe = document.getElementById("playerlivesid").value;
     websocket.send(xe);
   }
+  function handlehealth() {
+    var xea = document.getElementById("playerhealthid").value;
+    websocket.send(xea);
+  }
   function handlegametime() {
     var xf = document.getElementById("gametimeid").value;
     websocket.send(xf);
@@ -1467,6 +1534,12 @@ if (!!window.EventSource) {
   }
   function toggle15D(){
     websocket.send('toggle15D');
+  }
+  function toggle15E(){
+    websocket.send('toggle15E');
+  }
+  function toggle15F(){
+    websocket.send('toggle15F');
   }
   function toggle15B(){
     websocket.send('toggle15B');
@@ -1811,6 +1884,24 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       Menu[0] = 207;
       PrimaryMenu();
     }
+    if (strcmp((char*)data, "210") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 210;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "211") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 211;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "212") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 212;
+      PrimaryMenu();
+    }
     if (strcmp((char*)data, "301") == 0) {
       ledState = !ledState;
       notifyClients();
@@ -1875,6 +1966,12 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 403;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "404") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 404;
       PrimaryMenu();
     }
     if (strcmp((char*)data, "501") == 0) {
@@ -3196,6 +3293,25 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       datapacket1 = 99;
       BROADCASTESPNOW = true;
     }
+    if (strcmp((char*)data, "toggle15E") == 0) { // auto update
+      Serial.println("Initializing OTA Update of Controller");
+      delay(2000);
+      connect_wifi();
+      OTAMODE = true;
+    }
+    if (strcmp((char*)data, "toggle15F") == 0) { // auto update
+      Serial.println("Initializing Demo Mode");
+      ledState = !ledState;
+      notifyClients();
+      Menu[6] = 601;
+      WebSocketData = Menu[6];
+      //notifyClients1();
+      Serial.println("preset game mode menu = " + String(Menu[6]));
+      datapacket2 = Menu[6];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+      DEMOMODE = true;
+    }
   }
 }
 
@@ -3446,6 +3562,93 @@ void PrimaryMenu() {
       BROADCASTESPNOW = true;
 }
 
+void connect_wifi() {
+  Serial.println("Waiting for WiFi");
+  WiFi.begin(OTAssid.c_str(), OTApassword.c_str());
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    vTaskDelay(250);
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void firmwareUpdate(void) {
+  WiFiClientSecure client;
+  client.setCACert(rootCACertificate);
+  httpUpdate.setLedPin(LED_BUILTIN, LOW);
+  t_httpUpdate_return ret = httpUpdate.update(client, URL_fw_Bin);
+
+  switch (ret) {
+  case HTTP_UPDATE_FAILED:
+    Serial.printf("HTTP_UPDATE_FAILD Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+    break;
+
+  case HTTP_UPDATE_NO_UPDATES:
+    Serial.println("HTTP_UPDATE_NO_UPDATES");
+    break;
+
+  case HTTP_UPDATE_OK:
+    Serial.println("HTTP_UPDATE_OK");
+    break;
+  }
+}
+int FirmwareVersionCheck(void) {
+  String payload;
+  int httpCode;
+  String fwurl = "";
+  fwurl += URL_fw_Version;
+  fwurl += "?";
+  fwurl += String(rand());
+  Serial.println(fwurl);
+  WiFiClientSecure * client = new WiFiClientSecure;
+
+  if (client) 
+  {
+    client -> setCACert(rootCACertificate);
+
+    // Add a scoping block for HTTPClient https to make sure it is destroyed before WiFiClientSecure *client is 
+    HTTPClient https;
+
+    if (https.begin( * client, fwurl)) 
+    { // HTTPS      
+      Serial.print("[HTTPS] GET...\n");
+      // start connection and send HTTP header
+      delay(100);
+      httpCode = https.GET();
+      delay(100);
+      if (httpCode == HTTP_CODE_OK) // if version received
+      {
+        payload = https.getString(); // save received version
+      } else {
+        Serial.print("error in downloading version file:");
+        Serial.println(httpCode);
+      }
+      https.end();
+    }
+    delete client;
+  }
+      
+  if (httpCode == HTTP_CODE_OK) // if version received
+  {
+    payload.trim();
+    if (payload.equals(FirmwareVer)) {
+      UPTODATE = true;
+      Serial.printf("\nDevice already on latest firmware version:%s\n", FirmwareVer);
+      return 0;} 
+    else 
+    {
+      Serial.println(payload);
+      Serial.println("New firmware detected");
+      
+      return 1;
+    }
+  } 
+  return 0;  
+}
 
 void setup(){
   // Serial port for debugging purposes
@@ -3480,6 +3683,36 @@ void setup(){
     });
     server.addHandler(&events);
 
+  // Send a GET request to <ESP_IP>/get?input1=<inputMessage>
+  server.on("/get", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    String inputMessage;
+    String inputParam;
+    // GET input1 value on <ESP_IP>/get?input1=<inputMessage>
+    if (request->hasParam(PARAM_INPUT_1)) {
+      inputMessage = request->getParam(PARAM_INPUT_1)->value();
+      inputParam = PARAM_INPUT_1;
+      OTAssid = inputMessage;
+    }
+    // GET input2 value on <ESP_IP>/get?input2=<inputMessage>
+    else if (request->hasParam(PARAM_INPUT_2)) {
+      inputMessage = request->getParam(PARAM_INPUT_2)->value();
+      inputParam = PARAM_INPUT_2;
+      OTApassword = inputMessage;
+    }
+    else {
+      inputMessage = "No message sent";
+      inputParam = "none";
+    }
+    Serial.println(inputMessage);
+    Serial.print("OTA SSID = ");
+    Serial.println(OTAssid);
+    Serial.print("OTA Password = ");
+    Serial.println(OTApassword);
+    request->send(200, "text/html", "HTTP GET request sent to your ESP on input field (" 
+                                     + inputParam + ") with value: " + inputMessage +
+                                     "<br><a href=\"/\">Return to Home Page</a>");
+  });
+
   // Start server
   server.begin();
 
@@ -3511,8 +3744,60 @@ void setup(){
 }
 
 void loop() {
+  if (OTAMODE) {
+    static int num=0;
+    unsigned long currentMillis = millis();
+    if ((currentMillis - previousMillis) >= otainterval) {
+      // save the last time you blinked the LED
+      previousMillis = currentMillis;
+      if (FirmwareVersionCheck()) {
+        firmwareUpdate();
+      }
+    }
+    if (UPTODATE) {
+      ESP.restart(); // we confirmed there is no update available, just reset and get ready to play 
+    }
+  } else {
+  if (DEMOMODE) {
+    unsigned long DemoCurrentMillis = millis();
+    if ((DemoCurrentMillis - previousMillis) >= 6000) {
+      previousMillis = DemoCurrentMillis;
+      if (DEMOTOGGLE) {
+        DEMOTOGGLE = false;
+        Menu[14] = 1401;
+        ledState = !ledState;
+        notifyClients();
+        Serial.println("menu = " + String(Menu[14]));
+        datapacket2 = Menu[14];
+        datapacket1 = 99;
+        BROADCASTESPNOW = true;
+      } else {
+        DEMOTOGGLE = true;
+        Menu[14] = 1400;
+        ledState = !ledState;
+        notifyClients();
+        Serial.println("menu = " + String(Menu[14]));
+        datapacket2 = Menu[14];
+        datapacket1 = 99;
+        BROADCASTESPNOW = true;
+      }
+    }
+  }
   ws.cleanupClients();
   digitalWrite(ledPin, ledState);
+  currentmilliseconds = millis();
+  if (currentmilliseconds - lasttempcheck > tempcheckinterval) {
+    lasttempcheck = currentmilliseconds;
+    Serial.print("Temperature: ");
+    // Convert raw temperature in F to Celsius degrees
+    Serial.print((temprature_sens_read() - 32) / 1.8);
+    Serial.println(" C");
+    //delay(1000);
+  }
+  //if (currentmilliseconds - lastespnowpush > espnowpushinterval) {
+    //lastespnowpush = currentmilliseconds;
+    //SCORESYNC = true;
+  //}
   if (BROADCASTESPNOW) {
     BROADCASTESPNOW = false;
     getReadings();
@@ -3548,4 +3833,6 @@ void loop() {
       WebAppUpdaterProcessCounter = 0;
     }
   }
+  }
 }
+// end of loop
