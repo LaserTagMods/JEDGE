@@ -123,7 +123,10 @@
  * updated 07/10/2021 Added in web based updating and tagger ID reasignment                   
  * updated 07/11/2021 Added in data packet 5 for espnow to request and receive wifi credentials from controller
  * updated 07/12/2021 removed packet 5 and went with strings for web connection and added in gun gen selector for eeprom
- * 
+ * updated 07/20/2021 Added callout functions provided by paul for some settings, adjusted kill confirmation callouts but still not 100%
+ *                    Added tagger/headset color changes upon esp32 boot/reboot, for identification of reboot/boot
+ *                    Added in audio confirmations for update processes
+ *                    
  * 
  *                    
  */
@@ -172,7 +175,7 @@ String OTAssid = "dontchangeme"; // network name to update OTA
 String OTApassword = "dontchangeme"; // Network password for OTA
 int TaggersOwned = 64; // how many taggers do you own or will play?
 bool ACTASHOST = false; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
-String FirmwareVer = {"3.26"};
+String FirmwareVer = {"3.30"};
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -215,6 +218,7 @@ int Melee = 0; // default melee to off
 int SetSlotB=1; // this is for weapon slot 1, default is unarmed
 int SLOTB=100; // used when weapon selection is manual
 int SetLives=32000; // used for configuring lives
+int SetHealth = 0; // used for player health settings
 int SetSlotC=0; // this is for weapon slot 3 Respawns Etc.
 int SetSlotD = 0; // this is used for perk IR tag
 int SetTeam=0; // used to configure team player settings, default is 0
@@ -1080,6 +1084,7 @@ void AccumulateIncomingScores() {
     //UpdateWebApp();
 }
 void ProcessIncomingCommands() {
+  ledState = !ledState;
   //Serial.print("cOMMS loop running on core ");
   //Serial.println(xPortGetCoreID());
   if (incomingData2 == 902) {
@@ -1122,7 +1127,7 @@ void ProcessIncomingCommands() {
       if (INGAME==false){
         if (b == 1) {
           settingsallowed=1; 
-          AudioSelection="VA5F";
+          AudioSelection="OP10";
           SetSlotA=100;
           Serial.println("Weapon Slot 0 set to Manual");
         }
@@ -1154,7 +1159,7 @@ void ProcessIncomingCommands() {
       if (INGAME==false){
         if (b==1) {
           settingsallowed=2; 
-          AudioSelection="VA5F"; 
+          AudioSelection="OP11"; 
           SetSlotB=100; 
           Serial.println("Weapon Slot 1 set to Manual");
         }
@@ -1218,6 +1223,21 @@ void ProcessIncomingCommands() {
           SetLives = 1; 
           Serial.println("Lives is set to 1"); 
           AudioSelection="VA01";
+        }
+        if (b == 10) { // Player Health set to Standard
+          Serial.println("Health Set to Standard"); 
+          AudioSelection="VA5Z";
+          SetHealth = 0;
+        }
+        if (b == 11) { // Player Health set to Weak
+          Serial.println("Player Health = weak"); 
+          AudioSelection="OP09";
+          SetHealth = 1;
+        }
+        if (b == 12) { // Player Health set to Jugernaught
+          Serial.println("Health Set to Jugernaugh"); 
+          AudioSelection="VAL";
+          SetHealth = 2;
         }
         AUDIO=true;
         if (ChangeMyColor > 8) {
@@ -1295,7 +1315,13 @@ void ProcessIncomingCommands() {
         }
         if (b==3) {
           SetODMode=1; 
-          Serial.println("Stealth Mode On"); 
+          Serial.println("Stealth Mode On - Indoor"); 
+          AudioSelection="VA60";
+          STEALTH = true;
+        }
+        if (b==3) {
+          SetODMode=0; 
+          Serial.println("Stealth Mode On - Outdoor"); 
           AudioSelection="VA60";
           STEALTH = true;
         }
@@ -1691,7 +1717,7 @@ void ProcessIncomingCommands() {
            */
           GameMode=8; 
           Serial.println("Game mode set to Assimilation");
-          AudioSelection="VA9P";
+          AudioSelection="OP01";
           SetSlotA = 3; // set weapon slot 0 as Assault Rifle
           Serial.println("Weapon slot 0 set to Assault Rifle");
           SetSlotB = 15; // set weapon slot 1 as Shotgun
@@ -1750,7 +1776,7 @@ void ProcessIncomingCommands() {
           SetFF=1; // free for all set to on
           Serial.println("Friendly Fire On");
           Serial.println("Game mode set to GunGame");;
-          AudioSelection="VA9T";
+          AudioSelection="OP06";
           SetSlotD = 0;
         }
         if (b==10) { // team death match with energy weapons
@@ -1965,7 +1991,7 @@ void ProcessIncomingCommands() {
       if (b == 1) {
         Serial.println("Request Recieved to Sync Scoring");
         SyncScores();
-        AudioSelection="VA91";
+        AudioSelection="OP15";
         AUDIO=true;
         if (ChangeMyColor > 8) {
           ChangeMyColor = 4; // triggers a gun/tagger color change
@@ -1983,12 +2009,12 @@ void ProcessIncomingCommands() {
         if (b == 0) {
           SetGNDR=0; 
           Serial.println("Gender set to Male");
-          AudioSelection="V3I";
+          AudioSelection="OP08";
         }
         if (b == 1) {
           SetGNDR=1;
           Serial.println("Gender set to Female");
-          AudioSelection="VBI";
+          AudioSelection="OP03";
         }
         AUDIO=true;
         if (ChangeMyColor > 8) {
@@ -2004,17 +2030,17 @@ void ProcessIncomingCommands() {
         if (b==3) {
           UNLIMITEDAMMO=3; 
           Serial.println("Ammo set to unlimited rounds"); 
-          AudioSelection="VA6V";
+          AudioSelection="OP14";
         }
         if (b==2) {
           UNLIMITEDAMMO=2;
           Serial.println("Ammo set to unlimited magazies"); 
-          AudioSelection="VA6V";
+          AudioSelection="OP13";
         }
         if (b==1) {
           UNLIMITEDAMMO=1; 
           Serial.println("Ammo set to limited"); 
-          AudioSelection="VA14";
+          AudioSelection="OP07";
         }
         AUDIO=true;
         if (ChangeMyColor > 8) {
@@ -2100,6 +2126,8 @@ void ProcessIncomingCommands() {
      }
      if (b==1) {
        if (!INGAME){
+         AudioSelection = "OP04";
+         AUDIO = true;
          GAMESTART=true; 
          Serial.println("starting game");
          if (SetTeam == 100) {
@@ -3643,12 +3671,23 @@ void playersettings() {
   // We really are only messing with Gender and Team though
   // Gender is determined by the audio call outs listed, tokens 9 and on
   // male is default as 0, female is 1
-  // health = 45; armor = 70; shield =70;
-  
+  // Standard health = 45; armor = 70; shield =70;
+  // Weak Health = 8; armor = 0; shield = 0;
+  // jugernaught health = 300; armor = 300; shield = 300;
+  String Health = "null";
+  if (SetHealth == 0) {
+    Health = "45,70,70";
+  }
+  if (SetHealth == 1) {
+    Health = "8,0,0";
+  }
+  if (SetHealth == 2) {
+    Health = "300,300,300";
+  }
   if(SetGNDR == 0) {
-    sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,H44,JAD,V33,V3I,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
+    sendString("$PSET,"+String(GunID)+","+String(SetTeam)+","+String(Health)+",50,,H44,JAD,V33,V3I,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
   } else {
-    sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,H44,JAD,VB3,VBI,VBC,VBG,VBE,VB7,H06,H55,H13,H21,H02,U15,W71,A10,*");
+    sendString("$PSET,"+String(GunID)+","+String(SetTeam)+","+String(Health)+",50,,H44,JAD,VB3,VBI,VBC,VBG,VBE,VB7,H06,H55,H13,H21,H02,U15,W71,A10,*");
   }
   if (GameMode == 7 && Team == 3) { // infected 
     if (Team == 3) {
@@ -3679,7 +3718,7 @@ void gameover() {
   sendString("$STOP,*"); // stops everything going on
   sendString("$CLEAR,*"); // clears out anything stored for game settings
   sendString("$PLAY,VS6,4,6,,,,,*"); // says game over
-  AudioDelay = 1500;
+  AudioDelay = 3500;
   AudioSelection="VAP"; // "terminated"
   AUDIO = true;
   Serial.println("Game Over Object Complete");
@@ -4697,6 +4736,7 @@ void ProcessBRXData() {
         PlayerKillCount[lastTaggedPlayer]++; // adding a point to the last player who killed us
         datapacket1 = lastTaggedPlayer; // setting an identifier for who recieves the tag
         datapacket2 = 32000; // identifier to tell player they got a kill
+        
         if (GameMode == 4) {
           datapacket3 = PreviousSpecialWeapon; // current special weapon equiped
         } else {
@@ -4706,9 +4746,11 @@ void ProcessBRXData() {
         TeamKillCount[lastTaggedTeam]++; // adding a point to the team who caused the last kill
         PlayerLives--; // taking our preset lives and subtracting one life then talking about it on the monitor
         Deaths++;
+        // call audio to announce player's killer
         AnounceScore = 0;
-        //AudioSelection1="KBP"+String(lastTaggedPlayer);
-        //AUDIO1=true;
+        AudioDelay = 1500;
+        AudioSelection="KB"+String(lastTaggedPlayer);
+        AUDIO=true;
         Serial.println("Lives Remaining = " + String(PlayerLives));
         Serial.println("Killed by: " + String(lastTaggedPlayer) + " on team: " + String(lastTaggedTeam));
         Serial.println("Team: " + String(lastTaggedTeam) + "Score: " + String(TeamKillCount[lastTaggedTeam]));
@@ -4988,7 +5030,26 @@ void loop2(void *pvParameters) {
     WiFi.softAPdisconnect (true);
     Serial.println("Device is not intended to act as WebServer / Host. Shutting down AP and WebServer");
   }
+  delay(1000);
+  ChangeMyColor = 0;
+  delay(1000);
+  ChangeMyColor = 1;
+  delay(1000);
+  ChangeMyColor = 2;
+  delay(1000);
+  ChangeMyColor = 3;
+  delay(1000);
+  ChangeMyColor = 4;
+  delay(1000);
+  ChangeMyColor = 5;
+  delay(1000);
+  ChangeMyColor = 6;
+  delay(1000);
+  ChangeMyColor = 7;
+  delay(1000);
+  ChangeMyColor = 8;
   while (1) { // starts the forever loop
+    digitalWrite(ledPin, ledState);
     if (RUNWEBSERVER) {
       ws.cleanupClients();
       static unsigned long lastEventTime = millis();
@@ -5062,6 +5123,13 @@ void setup() {
   //***********************************************************************
   Serial.begin(115200); // set serial monitor to match this baud rate
   Serial.println("Initializing serial output settings, Tagger Generation set to Gen: " + String(GunGeneration));
+
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, LOW);
+  delay(250);
+  digitalWrite(ledPin, HIGH);
+  delay(250);
+  digitalWrite(ledPin, LOW);
   //***********************************************************************
   // initialize EEPROM
   EEPROM.begin(EEPROM_SIZE);
@@ -5074,7 +5142,11 @@ void setup() {
   Serial.print("GunGeneration = ");
   Serial.println(GunGeneration);
   Serial.print("Boot Status = ");
-  Serial.println(bootstatus);
+  Serial.println(bootstatus);if (GunGeneration > 1) {
+    BaudRate = 115200;
+  }
+  Serial.println("Serial Buad Rate set for: " + String(BaudRate));
+  Serial1.begin(BaudRate, SERIAL_8N1, SERIAL1_RXPIN, SERIAL1_TXPIN); // setting up the serial pins for sending data to BRX
   delay(10);
   if (bootstatus == 1){ // indicates we are in ota mode
     OTAMODE = true;
@@ -5111,20 +5183,19 @@ void setup() {
   Serial.println(OTApassword);
   
   connect_wifi();
+
+  delay(1500);
+  sendString("$PLAY,VA8Q,4,6,,,,,*"); // says connection accepted
+  delay(1500);
+  
   EEPROM.write(1, 0);
   EEPROM.commit();
   } else {
   //************** Play Mode*******************
-  if (GunGeneration > 1) {
-    BaudRate = 115200;
-  }
-  Serial.println("Serial Buad Rate set for: " + String(BaudRate));
-  Serial1.begin(BaudRate, SERIAL_8N1, SERIAL1_RXPIN, SERIAL1_TXPIN); // setting up the serial pins for sending data to BRX
   pinMode(led, OUTPUT);
   digitalWrite(led, LOW);
   Serial.print("setup() running on core ");
-  pinMode(ledPin, OUTPUT);
-  digitalWrite(ledPin, LOW);
+  
   if (RUNWEBSERVER) {
     InitAP();
     initWebSocket();
@@ -5159,12 +5230,13 @@ void setup() {
 // **********************
 void loop() {
   if (OTAMODE) {
-     static int num=0;
+    static int num=0;
     unsigned long currentMillis = millis();
     if ((currentMillis - previousMillis) >= otainterval) {
       // save the last time you blinked the LED
       previousMillis = currentMillis;
       if (FirmwareVersionCheck()) {
+        sendString("$PLAY,SW00,4,6,,,,,*"); // starwars trumpets
         firmwareUpdate();
       }
     }
