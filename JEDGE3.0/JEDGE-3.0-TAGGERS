@@ -1487,7 +1487,7 @@ void ProcessIncomingCommands() {
           Serial.println("Lives is set to Unlimited");
           SetTime=300000; // set game time to 5 minutes
           Serial.println("Game time set to 5 minutes");
-          DelayStart=30000; // set delay start to 30 seconds
+          DelayStart=22000; // set delay start to 30 seconds
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
@@ -1526,7 +1526,7 @@ void ProcessIncomingCommands() {
           Serial.println("Lives is set to 10");
           SetTime=600000; // set game time to 10 minutes
           Serial.println("Game time set to 10 minutes");
-          DelayStart=30000; // set delay start to 30 seconds
+          DelayStart=22000; // set delay start to 30 seconds
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
@@ -1569,7 +1569,7 @@ void ProcessIncomingCommands() {
           Serial.println("Lives is set to Unlimited");
           SetTime=2000000000; // set game time to unlimited minutes
           Serial.println("Game time set to unlimited");
-          DelayStart=30000; // set delay start to 30 seconds
+          DelayStart=22000; // set delay start to 30 seconds
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=1; // set ammunitions to limited mags
           Serial.println("Ammo set to limited magazies"); 
@@ -1607,7 +1607,7 @@ void ProcessIncomingCommands() {
           Serial.println("Lives is set to Unlimited");
           SetTime=900000;
           Serial.println("Game time set to 15 minute");
-          DelayStart=30000; // set delay start to 30 seconds
+          DelayStart=22000; // set delay start to 30 seconds
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
@@ -1645,7 +1645,7 @@ void ProcessIncomingCommands() {
           Serial.println("Lives is set to Unlimited");
           SetTime=900000;
           Serial.println("Game time set to 15 minute");
-          DelayStart=30000; // set delay start to 30 seconds
+          DelayStart=22000; // set delay start to 30 seconds
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
@@ -1685,7 +1685,7 @@ void ProcessIncomingCommands() {
           Serial.println("Lives is set to Unlimited");
           SetTime=600000;
           Serial.println("Game time set to 10 minute");
-          DelayStart=30000; // set delay start to 30 seconds
+          DelayStart=22000; // set delay start to 30 seconds
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
@@ -1726,7 +1726,7 @@ void ProcessIncomingCommands() {
           Serial.println("Lives is set to Unlimited");
           SetTime=900000; // set game time to 15 minutes
           Serial.println("Game time set to 15 minutes");
-          DelayStart=30000; // set delay start to 30 seconds
+          DelayStart=22000; // set delay start to 30 seconds
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
@@ -1762,7 +1762,7 @@ void ProcessIncomingCommands() {
           Serial.println("Lives is set to Unlimited");
           SetTime=2000000000; // set game time to unlimited
           Serial.println("Game time set to Unlimited");
-          DelayStart=30000; // set delay start to 30 seconds
+          DelayStart=22000; // set delay start to 30 seconds
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
@@ -1801,7 +1801,7 @@ void ProcessIncomingCommands() {
           Serial.println("Lives is set to Unlimited");
           SetTime=900000;
           Serial.println("Game time set to 15 minute");
-          DelayStart=30000; // set delay start to 30 seconds
+          DelayStart=22000; // set delay start to 30 seconds
           Serial.println("Delay Start Set to 30 seconds"); 
           UNLIMITEDAMMO=2; // set ammunitions to unlimited mags
           Serial.println("Ammo set to unlimited magazies"); 
@@ -1840,7 +1840,7 @@ void ProcessIncomingCommands() {
           Serial.println("Lives is set to Unlimited");
           SetTime=600000;
           Serial.println("Game time set to 10 minute");
-          DelayStart=15000; // set delay start to 15 seconds
+          DelayStart=7000; // set delay start to 15 seconds
           Serial.println("Delay Start Set to 15 seconds");  
           UNLIMITEDAMMO=3; // set ammunitions to unlimited rounds
           Serial.println("Ammo set to unlimited rounds"); 
@@ -1939,27 +1939,27 @@ void ProcessIncomingCommands() {
           AudioSelection="VA4T";
         }
         if (b==2) {
-          DelayStart=15000;
+          DelayStart=7000;
           Serial.println("Delay Start Set to 15 seconds"); 
           AudioSelection="VA2Q";
         }
         if (b==3) {
-          DelayStart=30000; 
+          DelayStart=22000; 
           Serial.println("Delay Start Set to 30 seconds");
           AudioSelection="VA0R";
         }
         if (b==4) {
-          DelayStart=45000; 
+          DelayStart=37000; 
           Serial.println("Delay Start Set to 45 seconds");
           AudioSelection="VA0T";
         }
         if (b==5) {
-          DelayStart=60000;
+          DelayStart=52000;
           Serial.println("Delay Start Set to 60 seconds"); 
           AudioSelection="VA0V";
         }
         if (b==6) {        
-          DelayStart=90000;
+          DelayStart=82000;
           Serial.println("Delay Start Set to 90 seconds");
           AudioSelection="VA0X";
         }
@@ -3547,13 +3547,13 @@ void weaponsettingsC() {
 void gameconfigurator() {
   Serial.println("Running Game Configurator based upon recieved inputs");
   sendString("$CLEAR,*");
-  //sendString("$CLEAR,*");
+  sendString("$CLEAR,*");
   sendString("$START,*");
-  //sendString("$START,*");
-  //SetFFOutdoor();
+  sendString("$START,*");
+  SetFFOutdoor();
   SetFFOutdoor();
   playersettings();
-  //playersettings();
+  playersettings();
   /* SIR commands to configure the incoming hits recognition
    *  $SIR,0,0,,1,0,0,1,,*  Assault Rifle Energy Rifle  Ion Sniper  Laser Cannon  Plasma Sniper Shotgun SMG Stinger Suppressor
    *  $SIR,0,1,,36,0,0,1,,* Force Rifle Sniper Rifle         
@@ -3572,56 +3572,56 @@ void gameconfigurator() {
    *  $SIR,15,0,H29,10,0,0,1,,* Add HP Or Respawns Player
    */
   sendString("$SIR,4,0,,1,0,0,1,,*"); // standard damgat but is actually the captured flag pole
-  //sendString("$SIR,4,0,,1,0,0,1,,*"); // standard damgat but is actually the captured flag pole
-  //sendString("$SIR,0,0,,1,0,0,1,,*"); // standard weapon, damages shields then armor then HP
+  sendString("$SIR,4,0,,1,0,0,1,,*"); // standard damgat but is actually the captured flag pole
+  sendString("$SIR,0,0,,1,0,0,1,,*"); // standard weapon, damages shields then armor then HP
   sendString("$SIR,0,0,,1,0,0,1,,*"); // standard weapon, damages shields then armor then HP
   sendString("$SIR,0,1,,36,0,0,1,,*"); // force rifle, sniper rifle ?pass through damage?
-  //sendString("$SIR,0,1,,36,0,0,1,,*"); // force rifle, sniper rifle ?pass through damage?
-  //sendString("$SIR,0,3,,37,0,0,1,,*"); // bolt rifle, burst rifle, AMR
+  sendString("$SIR,0,1,,36,0,0,1,,*"); // force rifle, sniper rifle ?pass through damage?
+  sendString("$SIR,0,3,,37,0,0,1,,*"); // bolt rifle, burst rifle, AMR
   sendString("$SIR,0,3,,37,0,0,1,,*"); // bolt rifle, burst rifle, AMR
   sendString("$SIR,1,0,H29,10,0,0,1,,*"); // adds HP with this function********
-  //sendString("$SIR,1,0,H29,10,0,0,1,,*"); // adds HP with this function********
-  //sendString("$SIR,2,1,VA8C,11,0,0,1,,*"); // adds shields*******
+  sendString("$SIR,1,0,H29,10,0,0,1,,*"); // adds HP with this function********
+  sendString("$SIR,2,1,VA8C,11,0,0,1,,*"); // adds shields*******
   sendString("$SIR,2,1,VA8C,11,0,0,1,,*"); // adds shields*******
   sendString("$SIR,3,0,VA16,13,0,0,1,,*"); // adds armor*********
-  //sendString("$SIR,3,0,VA16,13,0,0,1,,*"); // adds armor*********
-  //sendString("$SIR,6,0,H02,1,0,90,1,40,*"); // rail gun
+  sendString("$SIR,3,0,VA16,13,0,0,1,,*"); // adds armor*********
+  sendString("$SIR,6,0,H02,1,0,90,1,40,*"); // rail gun
   sendString("$SIR,6,0,H02,1,0,90,1,40,*"); // rail gun
   sendString("$SIR,8,0,,38,0,0,1,,*"); // charge rifle
-  //sendString("$SIR,8,0,,38,0,0,1,,*"); // charge rifle
-  //sendString("$SIR,9,3,,24,10,0,,,*"); // energy launcher
+  sendString("$SIR,8,0,,38,0,0,1,,*"); // charge rifle
+  sendString("$SIR,9,3,,24,10,0,,,*"); // energy launcher
   sendString("$SIR,9,3,,24,10,0,,,*"); // energy launcher
   sendString("$SIR,10,0,X13,1,0,100,2,60,*"); // rocket launcher
-  //sendString("$SIR,10,0,X13,1,0,100,2,60,*"); // rocket launcher
-  //sendString("$SIR,11,0,VA2,28,0,0,1,,*"); // tear gas, out of possible ir recognitions, max = 14
+  sendString("$SIR,10,0,X13,1,0,100,2,60,*"); // rocket launcher
+  sendString("$SIR,11,0,VA2,28,0,0,1,,*"); // tear gas, out of possible ir recognitions, max = 14
   sendString("$SIR,11,0,VA2,28,0,0,1,,*"); // tear gas, out of possible ir recognitions, max = 14
   sendString("$SIR,13,1,H57,1,0,0,1,,*"); // energy blade
-  //sendString("$SIR,13,1,H57,1,0,0,1,,*"); // energy blade
-  //sendString("$SIR,13,0,H50,1,0,0,1,,*"); // rifle bash
+  sendString("$SIR,13,1,H57,1,0,0,1,,*"); // energy blade
+  sendString("$SIR,13,0,H50,1,0,0,1,,*"); // rifle bash
   sendString("$SIR,13,0,H50,1,0,0,1,,*"); // rifle bash
   sendString("$SIR,13,3,H49,1,0,100,0,60,*"); // war hammer
-  //sendString("$SIR,13,3,H49,1,0,100,0,60,*"); // war hammer
-  //sendString("$SIR,1,1,,8,0,100,0,60,*"); // no damage just vibe on impact - use for SWAPBRX, and other game features based upon player ID 0-63
+  sendString("$SIR,13,3,H49,1,0,100,0,60,*"); // war hammer
+  sendString("$SIR,1,1,,8,0,100,0,60,*"); // no damage just vibe on impact - use for SWAPBRX, and other game features based upon player ID 0-63
   // protocol for SWAPBRX: bullet type: 1, power: 1, damage: 1, player: 0, team: 2, critical: 0; just look for bullet, power, player for trigger weapon swap
   //sendString("$SIR,15,1,,50,0,0,1,,*");
   //sendString("$SIR,14,0,,14,0,0,1,,*");
   // The $SIR functions above can be changed to incorporate more in game IR based functions (health boosts, armor, shields) or customized over BLE to support game functions/modes
   //delay(500);
   sendString("$SIR,1,1,,8,0,100,0,60,*"); // no damage just vibe on impact - use for SWAPBRX, and other game features based upon player ID 0-63
-  //sendString("$SIR,1,1,,8,0,100,0,60,*"); // no damage just vibe on impact - use for SWAPBRX, and other game features based upon player ID 0-63
-  //sendString("$BMAP,0,0,,,,,*"); // sets the trigger on tagger to weapon 0
+  sendString("$SIR,1,1,,8,0,100,0,60,*"); // no damage just vibe on impact - use for SWAPBRX, and other game features based upon player ID 0-63
+  sendString("$BMAP,0,0,,,,,*"); // sets the trigger on tagger to weapon 0
   sendString("$BMAP,0,0,,,,,*"); // sets the trigger on tagger to weapon 0
   sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-  //sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-  //sendString("$BMAP,2,97,,,,,*"); // sets the reload handle as the reload button
+  sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+  sendString("$BMAP,2,97,,,,,*"); // sets the reload handle as the reload button
   sendString("$BMAP,2,97,,,,,*"); // sets the reload handle as the reload button
   sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5****
-  //sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5****
-  //sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
+  sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5****
+  sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
   sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
   sendString("$BMAP,5,3,,,,,*"); // Sets the right button as weapon 3, using for perks/respawns etc. 
-  //sendString("$BMAP,5,3,,,,,*"); // Sets the right button as weapon 3, using for perks/respawns etc. 
-  //sendString("$BMAP,8,4,,,,,*"); // sets the gyro as weapon 4
+  sendString("$BMAP,5,3,,,,,*"); // Sets the right button as weapon 3, using for perks/respawns etc. 
+  sendString("$BMAP,8,4,,,,,*"); // sets the gyro as weapon 4
   sendString("$BMAP,8,4,,,,,*"); // sets the gyro as weapon 4
   Serial.println("Finished Game Configuration set up");
 }
@@ -3633,12 +3633,12 @@ void gameconfigurator() {
 void delaystart() {
   Serial.println("Starting Delayed Game Start");
   sendString("$HLED,,6,,,,,*"); // changes headset to end of game
-  //sendString("$HLED,,6,,,,,*"); // changes headset to end of game
+  sendString("$HLED,,6,,,,,*"); // changes headset to end of game
   // this portion creates a hang up in the program to delay until the time is up
   bool RunInitialDelay = true;
   long actualdelay = 0; // used to count the actual delay versus desired delay
   long delaybeginning = millis(); // sets variable as the current time to track when the actual delay started
-  long initialdelay = DelayStart - 3000; // this will be used to track current time in milliseconds and compared to the start of the delay
+  long initialdelay = DelayStart; // this will be used to track current time in milliseconds and compared to the start of the delay
   int audibletrigger = 0; // used as a trigger once we get to 10 seconds left
   if (DelayStart > 10) {
     Serial.println("Delayed Start timer = " + String(DelayStart));
@@ -3659,21 +3659,21 @@ void delaystart() {
   }
   sendString("$PLAY,VA81,4,6,,,,,*"); // plays the .. nevermind
   sendString("$PLAYX,0,*");
-  //sendString("$SPAWN,,*");
+  sendString("$SPAWN,,*");
   sendString("$SPAWN,,*");
   weaponsettingsA();
-  //weaponsettingsA();
-  //weaponsettingsB();
+  weaponsettingsA();
+  weaponsettingsB();
   weaponsettingsB();
   weaponsettingsC();
-  //weaponsettingsC();
+  weaponsettingsC();
   if (Melee == 1) {
     sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
-    //sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
+    sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
   }
   if (Melee == 2) {
     sendString("$WEAP,4,1,90,13,2,1,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
-    //sendString("$WEAP,4,1,90,13,2,1,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
+    sendString("$WEAP,4,1,90,13,2,1,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
   }
   Serial.println("Delayed Start Complete, should be in game play mode now");
   GameStartTime=millis();
