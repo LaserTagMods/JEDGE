@@ -2630,21 +2630,23 @@ void InitializeJEDGE() {
 // to make sure gun understands them all... not sure about all of what does what below...
 void sendString(String value) {
   const char * c_string = value.c_str();
-  Serial.print("sending: ");
+  //Serial.print("sending: ");
   if (GunGeneration == 1) {
     for (int i = 0; i < value.length() / 1; i++) { // creates a for loop
       Serial1.println(c_string[i]); // sends one value at a time to gen1 brx
       delay(5); // this is an added delay needed for the way the brx gen1 receives data (brute force method because i could not match the comm settings exactly)
-      Serial.print(c_string[i]);
+      //Serial.print(c_string[i]);
     }
-    Serial.println();
+    //Serial.println();
+    delay(5);
   }
   if (GunGeneration > 1) {
     int matchingdelay = value.length() * 5; // this just creates a temp value for how long the string is multiplied by 5 milliseconds
     delay(matchingdelay); // now we delay the same amount of time.. this is so if we have gen1 and gen2 brx in the mix, they receive the commands about the same time
     Serial1.println(c_string); // sending the string to brx gen 2
-    Serial.println(c_string);
+    //Serial.println(c_string);
   }
+  delay(5);
 }
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
              void *arg, uint8_t *data, size_t len) {
@@ -3545,9 +3547,13 @@ void weaponsettingsC() {
 void gameconfigurator() {
   Serial.println("Running Game Configurator based upon recieved inputs");
   sendString("$CLEAR,*");
+  //sendString("$CLEAR,*");
   sendString("$START,*");
+  //sendString("$START,*");
+  //SetFFOutdoor();
   SetFFOutdoor();
   playersettings();
+  //playersettings();
   /* SIR commands to configure the incoming hits recognition
    *  $SIR,0,0,,1,0,0,1,,*  Assault Rifle Energy Rifle  Ion Sniper  Laser Cannon  Plasma Sniper Shotgun SMG Stinger Suppressor
    *  $SIR,0,1,,36,0,0,1,,* Force Rifle Sniper Rifle         
@@ -3566,32 +3572,56 @@ void gameconfigurator() {
    *  $SIR,15,0,H29,10,0,0,1,,* Add HP Or Respawns Player
    */
   sendString("$SIR,4,0,,1,0,0,1,,*"); // standard damgat but is actually the captured flag pole
+  //sendString("$SIR,4,0,,1,0,0,1,,*"); // standard damgat but is actually the captured flag pole
+  //sendString("$SIR,0,0,,1,0,0,1,,*"); // standard weapon, damages shields then armor then HP
   sendString("$SIR,0,0,,1,0,0,1,,*"); // standard weapon, damages shields then armor then HP
   sendString("$SIR,0,1,,36,0,0,1,,*"); // force rifle, sniper rifle ?pass through damage?
+  //sendString("$SIR,0,1,,36,0,0,1,,*"); // force rifle, sniper rifle ?pass through damage?
+  //sendString("$SIR,0,3,,37,0,0,1,,*"); // bolt rifle, burst rifle, AMR
   sendString("$SIR,0,3,,37,0,0,1,,*"); // bolt rifle, burst rifle, AMR
   sendString("$SIR,1,0,H29,10,0,0,1,,*"); // adds HP with this function********
+  //sendString("$SIR,1,0,H29,10,0,0,1,,*"); // adds HP with this function********
+  //sendString("$SIR,2,1,VA8C,11,0,0,1,,*"); // adds shields*******
   sendString("$SIR,2,1,VA8C,11,0,0,1,,*"); // adds shields*******
   sendString("$SIR,3,0,VA16,13,0,0,1,,*"); // adds armor*********
+  //sendString("$SIR,3,0,VA16,13,0,0,1,,*"); // adds armor*********
+  //sendString("$SIR,6,0,H02,1,0,90,1,40,*"); // rail gun
   sendString("$SIR,6,0,H02,1,0,90,1,40,*"); // rail gun
   sendString("$SIR,8,0,,38,0,0,1,,*"); // charge rifle
+  //sendString("$SIR,8,0,,38,0,0,1,,*"); // charge rifle
+  //sendString("$SIR,9,3,,24,10,0,,,*"); // energy launcher
   sendString("$SIR,9,3,,24,10,0,,,*"); // energy launcher
   sendString("$SIR,10,0,X13,1,0,100,2,60,*"); // rocket launcher
+  //sendString("$SIR,10,0,X13,1,0,100,2,60,*"); // rocket launcher
+  //sendString("$SIR,11,0,VA2,28,0,0,1,,*"); // tear gas, out of possible ir recognitions, max = 14
   sendString("$SIR,11,0,VA2,28,0,0,1,,*"); // tear gas, out of possible ir recognitions, max = 14
   sendString("$SIR,13,1,H57,1,0,0,1,,*"); // energy blade
+  //sendString("$SIR,13,1,H57,1,0,0,1,,*"); // energy blade
+  //sendString("$SIR,13,0,H50,1,0,0,1,,*"); // rifle bash
   sendString("$SIR,13,0,H50,1,0,0,1,,*"); // rifle bash
   sendString("$SIR,13,3,H49,1,0,100,0,60,*"); // war hammer
-  sendString("$SIR,1,1,,8,0,100,0,60,*"); // no damage just vibe on impact - use for SWAPBRX, and other game features based upon player ID 0-63
+  //sendString("$SIR,13,3,H49,1,0,100,0,60,*"); // war hammer
+  //sendString("$SIR,1,1,,8,0,100,0,60,*"); // no damage just vibe on impact - use for SWAPBRX, and other game features based upon player ID 0-63
   // protocol for SWAPBRX: bullet type: 1, power: 1, damage: 1, player: 0, team: 2, critical: 0; just look for bullet, power, player for trigger weapon swap
   //sendString("$SIR,15,1,,50,0,0,1,,*");
   //sendString("$SIR,14,0,,14,0,0,1,,*");
   // The $SIR functions above can be changed to incorporate more in game IR based functions (health boosts, armor, shields) or customized over BLE to support game functions/modes
   //delay(500);
+  sendString("$SIR,1,1,,8,0,100,0,60,*"); // no damage just vibe on impact - use for SWAPBRX, and other game features based upon player ID 0-63
+  //sendString("$SIR,1,1,,8,0,100,0,60,*"); // no damage just vibe on impact - use for SWAPBRX, and other game features based upon player ID 0-63
+  //sendString("$BMAP,0,0,,,,,*"); // sets the trigger on tagger to weapon 0
   sendString("$BMAP,0,0,,,,,*"); // sets the trigger on tagger to weapon 0
   sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+  //sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+  //sendString("$BMAP,2,97,,,,,*"); // sets the reload handle as the reload button
   sendString("$BMAP,2,97,,,,,*"); // sets the reload handle as the reload button
   sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5****
+  //sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5****
+  //sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
   sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
   sendString("$BMAP,5,3,,,,,*"); // Sets the right button as weapon 3, using for perks/respawns etc. 
+  //sendString("$BMAP,5,3,,,,,*"); // Sets the right button as weapon 3, using for perks/respawns etc. 
+  //sendString("$BMAP,8,4,,,,,*"); // sets the gyro as weapon 4
   sendString("$BMAP,8,4,,,,,*"); // sets the gyro as weapon 4
   Serial.println("Finished Game Configuration set up");
 }
@@ -3603,6 +3633,7 @@ void gameconfigurator() {
 void delaystart() {
   Serial.println("Starting Delayed Game Start");
   sendString("$HLED,,6,,,,,*"); // changes headset to end of game
+  //sendString("$HLED,,6,,,,,*"); // changes headset to end of game
   // this portion creates a hang up in the program to delay until the time is up
   bool RunInitialDelay = true;
   long actualdelay = 0; // used to count the actual delay versus desired delay
@@ -3628,15 +3659,21 @@ void delaystart() {
   }
   sendString("$PLAY,VA81,4,6,,,,,*"); // plays the .. nevermind
   sendString("$PLAYX,0,*");
+  //sendString("$SPAWN,,*");
   sendString("$SPAWN,,*");
   weaponsettingsA();
+  //weaponsettingsA();
+  //weaponsettingsB();
   weaponsettingsB();
   weaponsettingsC();
+  //weaponsettingsC();
   if (Melee == 1) {
     sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
+    //sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
   }
   if (Melee == 2) {
     sendString("$WEAP,4,1,90,13,2,1,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
+    //sendString("$WEAP,4,1,90,13,2,1,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
   }
   Serial.println("Delayed Start Complete, should be in game play mode now");
   GameStartTime=millis();
@@ -3759,38 +3796,40 @@ void respawnplayer() {
   }
   }
   Serial.println("Respawning Player");
-  //sendString("$WEAP,0,*"); // cleared out weapon 0
-  //sendString("$WEAP,1,*"); // cleared out weapon 1
-  //sendString("$WEAP,4,*"); // cleared out melee weapon
-  //sendString("$WEAP,3,*"); // cleared out melee weapon
-  //weaponsettingsA();
-  //weaponsettingsB();
-  //weaponsettingsC();
-  //sendString("$WEAP,4,1,90,13,2,0,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
   int hloopreset = 0;
   while (hloopreset < 10) { // had to add this delay in because of challenges with gen3 taggers
     sendString("$HLOOP,0,0,*"); // stops headset flashing
-    delay(200);
     hloopreset++;
   }
   weaponsettingsA();
+  weaponsettingsA();
   weaponsettingsB();
+  weaponsettingsB();
+  weaponsettingsC();
   weaponsettingsC();
   if (Melee == 1) {
     sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash
+    sendString("$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,0,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,0,20,*"); // this is default melee weapon for rifle bash  
   }
   if (Melee == 2) {
     sendString("$WEAP,4,1,90,13,2,0,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
+    sendString("$WEAP,4,1,90,13,2,0,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,20,,*"); // this is default melee weapon for rifle bash
   }
   sendString("$GLED,,,,5,,,*"); // changes headset to tagged out color
+  sendString("$GLED,,,,5,,,*"); // changes headset to tagged out color
   sendString("$SPAWN,,*"); // respawns player back in game
+  sendString("$SPAWN,,*"); // respawns player back in game
+  sendString("$HLOOP,0,0,*"); // stops headset flashing
   sendString("$HLOOP,0,0,*"); // stops headset flashing
   Serial.println("Player Respawned");
   RESPAWN = false;
   sendString("$HLOOP,0,0,*"); // stops headset flashing
+  sendString("$HLOOP,0,0,*"); // stops headset flashing
   if (STEALTH){
       Serial.println("delaying stealth start");
       delay(2000);
+      sendString("$GLED,,,,5,,,*"); // TURNS OFF SIDE LIGHTS
+      delay(5);
       sendString("$GLED,,,,5,,,*"); // TURNS OFF SIDE LIGHTS
       Serial.println("sent command to kill leds");
   }
@@ -3802,11 +3841,16 @@ void respawnplayer() {
 void ManualRespawnMode() {
   delay(4000); // delay added to allow sound to finish and lights process as well
   sendString("$VOL,0,0,*"); // adjust volume to default
+  sendString("$VOL,0,0,*"); // adjust volume to default
+  sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,,,,,,,,,,,,,,,,,*");
   sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,,,,,,,,,,,,,,,,,*");
   sendString("$STOP,*"); // this is essentially ending the game for player... need to rerun configurator or use a different command
+  sendString("$STOP,*"); // this is essentially ending the game for player... need to rerun configurator or use a different command
+  sendString("$SPAWN,,*"); // this is playing "get some as part of a respawn
   sendString("$SPAWN,,*"); // this is playing "get some as part of a respawn
   sendString("$HLOOP,2,1200,*"); // this puts the headset in a loop for flashing
-  delay(1500);
+  sendString("$HLOOP,2,1200,*"); // this puts the headset in a loop for flashing
+  sendString("$GLED,,,,,,,*"); // changes headset to tagged out color
   sendString("$GLED,,,,,,,*"); // changes headset to tagged out color
   //AudioSelection1 = "VA54"; // audio that says respawn time
   //AUDIO1 = true;
