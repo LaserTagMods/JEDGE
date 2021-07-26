@@ -15,6 +15,12 @@
 #include <HTTPUpdate.h> // to update via http
 #include <WiFiClientSecure.h> // security access to github
 #include "cert.h" // used for github security
+#include <EEPROM.h> // used for storing data even after reset, in flash/eeprom memory
+
+// define the number of bytes I'm using/accessing for eeprom
+#define EEPROM_SIZE 4 // use 0 for OTA and 1 for Tagger ID
+// EEPROM Definitions:
+// EEPROM 0 is used for number of taggers
 
 int GunID = 99; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
 int GunGeneration = 2; // change to gen 1, 2, 3
@@ -682,7 +688,7 @@ const char index_html[] PROGMEM = R"rawliteral(
       <p><select name="playerhealth" id="playerhealthid">
         <option value="210">Standard</option>
         <option value="211">One Shot Kills</option>
-        <option value="212">Juggernaugh</option>
+        <option value="212">Beast Mode</option>
         </select>
       </p>
       <h2>Game Time</h2>
@@ -727,6 +733,8 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="609">Gun Game</option>
         <option value="610">Team Death Match</option>
         <option value="611">Kids Mode</option>
+        <option value="612">Contra</option>
+        <option value="613">StarWars</option>
         </select>
       </p>
       <h2>Respawn Mode</h2>
@@ -1178,6 +1186,75 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="1963">Player 63</option>
         </select>
       </p>
+      <h2>Taggers Owned</h2>
+      <p><select name="playercount" id="playercountid">
+        <option value="2065">Select a Count</option>
+        <option value="2000">0</option>
+        <option value="2001">1</option>
+        <option value="2002">2</option>
+        <option value="2003">3</option>
+        <option value="2004">4</option>
+        <option value="2005">5</option>
+        <option value="2006">6</option>
+        <option value="2007">7</option>
+        <option value="2008">8</option>
+        <option value="2009">9</option>
+        <option value="2010">10</option>
+        <option value="2011">11</option>
+        <option value="2012">12</option>
+        <option value="2013">13</option>
+        <option value="2014">14</option>
+        <option value="2015">15</option>
+        <option value="2016">16</option>
+        <option value="2017">17</option>
+        <option value="2018">18</option>
+        <option value="2020">20</option>
+        <option value="2020">20</option>
+        <option value="2021">21</option>
+        <option value="2022">22</option>
+        <option value="2023">23</option>
+        <option value="2024">24</option>
+        <option value="2025">25</option>
+        <option value="2026">26</option>
+        <option value="2027">27</option>
+        <option value="2028">28</option>
+        <option value="2029">29</option>
+        <option value="2030">30</option>
+        <option value="2031">31</option>
+        <option value="2032">32</option>
+        <option value="2033">33</option>
+        <option value="2034">34</option>
+        <option value="2035">35</option>
+        <option value="2036">36</option>
+        <option value="2037">37</option>
+        <option value="2038">38</option>
+        <option value="2039">39</option>
+        <option value="2040">40</option>
+        <option value="2041">41</option>
+        <option value="2042">42</option>
+        <option value="2043">43</option>
+        <option value="2044">44</option>
+        <option value="2045">45</option>
+        <option value="2046">46</option>
+        <option value="2047">47</option>
+        <option value="2048">48</option>
+        <option value="2049">49</option>
+        <option value="2050">50</option>
+        <option value="2051">51</option>
+        <option value="2052">52</option>
+        <option value="2053">53</option>
+        <option value="2054">54</option>
+        <option value="2055">55</option>
+        <option value="2056">56</option>
+        <option value="2057">57</option>
+        <option value="2058">58</option>
+        <option value="2059">59</option>
+        <option value="2060">60</option>
+        <option value="2061">61</option>
+        <option value="2062">62</option>
+        <option value="2063">63</option>
+        </select>
+      </p>
       <h2>Tagger Gen</h2>
       <p><select name="genassignment" id="genassignmentid">
         <option value="1899">Select Gun Generation</option>
@@ -1407,7 +1484,6 @@ if (!!window.EventSource) {
   }
   function onMessage(event) {
     var state;
-    
   }
   
   function onLoad(event) {
@@ -1443,6 +1519,7 @@ if (!!window.EventSource) {
     document.getElementById('playerselectorid').addEventListener('change', handleplayerselector, false);
     document.getElementById('playerperkid').addEventListener('change', handleplayerperk, false);
     document.getElementById('playerassignmentid').addEventListener('change', handleplayerassignment, false);
+    document.getElementById('playercountid').addEventListener('change', handleplayercount, false);
     
   }
   function toggle9(){
@@ -1461,6 +1538,10 @@ if (!!window.EventSource) {
   function handleplayerassignment() {
     var xp = document.getElementById("playerassignmentid").value;
     websocket.send(xp);
+  }
+  function handleplayercount() {
+    var xr = document.getElementById("playercountid").value;
+    websocket.send(xr);
   }
   function handleplayerperk() {
     var xo = document.getElementById("playerperkid").value;
@@ -2118,6 +2199,28 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       ledState = !ledState;
       notifyClients();
       Menu[6] = 611;
+      WebSocketData = Menu[6];
+      //notifyClients1();
+      Serial.println("preset game mode menu = " + String(Menu[6]));
+      datapacket2 = Menu[6];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+    }
+    if (strcmp((char*)data, "612") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[6] = 612;
+      WebSocketData = Menu[6];
+      //notifyClients1();
+      Serial.println("preset game mode menu = " + String(Menu[6]));
+      datapacket2 = Menu[6];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+    }
+    if (strcmp((char*)data, "613") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[6] = 613;
       WebSocketData = Menu[6];
       //notifyClients1();
       Serial.println("preset game mode menu = " + String(Menu[6]));
@@ -2848,7 +2951,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       Menu[0] = 1808;
       PrimaryMenu();
     }
-        if (strcmp((char*)data, "1900") == 0) {
+    if (strcmp((char*)data, "1900") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 1900;
@@ -3250,6 +3353,455 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       Menu[0] = 1973;
       PrimaryMenu();
     }
+    if (strcmp((char*)data, "2000") == 0) {
+      ledState = !ledState;
+      EEPROM.write(0, 0);
+      TaggersOwned = EEPROM.read(0);      
+      EEPROM.commit();
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2001") == 0) {
+      ledState = !ledState;
+      EEPROM.write(0, 1);      
+      EEPROM.commit();
+      TaggersOwned = 1;
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2002") == 0) {
+      ledState = !ledState;
+      EEPROM.write(0, 2);      
+      EEPROM.commit();
+      TaggersOwned = 2;
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2003") == 0) {
+      ledState = !ledState;
+      EEPROM.write(0, 3);      
+      EEPROM.commit();
+      TaggersOwned = 3;
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2004") == 0) {
+      ledState = !ledState;
+      EEPROM.write(0, 4);      
+      EEPROM.commit();
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2005") == 0) {
+      ledState = !ledState;   
+      EEPROM.write(0, 5);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2006") == 0) {
+      ledState = !ledState;     
+      EEPROM.write(0, 6);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2007") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 7);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2008") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 8);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2009") == 0) {
+      ledState = !ledState;     
+      EEPROM.write(0, 9);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2010") == 0) {
+      ledState = !ledState;     
+      EEPROM.write(0, 10);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2011") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 11);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2012") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 12);       
+      EEPROM.commit();     
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2013") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 13);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2014") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 14);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2015") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 15);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2016") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 16);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2017") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 17);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2018") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 18);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2019") == 0) {
+      ledState = !ledState;
+      EEPROM.write(0, 19);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2020") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 20);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2021") == 0) {
+      ledState = !ledState;
+      EEPROM.write(0, 21);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2022") == 0) {
+      ledState = !ledState;
+      EEPROM.write(0, 22);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2023") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 23);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2024") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 24);      
+      EEPROM.commit();
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2025") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 25);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2026") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 26);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2027") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 27);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2028") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 28);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2029") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 29);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2030") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 30);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2031") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 31);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2032") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 32);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2033") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 33);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2034") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 34);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2035") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 35);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2036") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 36);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2037") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 37);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2038") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 38);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2039") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 39);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2040") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 40);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2041") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 41);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2042") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 42);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2043") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 43);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2044") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 44);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2045") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 45);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2046") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 46);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2047") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 47);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2048") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 48);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2049") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 49);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2050") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 50);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2051") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 51);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2052") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 52);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2053") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 53);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2054") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 54);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2055") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 55);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2056") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 56);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2057") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 57);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2058") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 58);        
+      EEPROM.commit();    
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2059") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 59);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2060") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 60);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2061") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 61);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2062") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 62);      
+      EEPROM.commit();      
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
+    if (strcmp((char*)data, "2063") == 0) {
+      ledState = !ledState;      
+      EEPROM.write(0, 63);      
+      EEPROM.commit();      
+      EEPROM.commit();
+      TaggersOwned = EEPROM.read(0);
+      Serial.println("Player Count = " + String(TaggersOwned));
+    }
     if (strcmp((char*)data, "toggle15") == 0) { // initialize jedge
       Menu[15] = 1501;
       WebSocketData = Menu[15];
@@ -3394,7 +3946,7 @@ void RequestingScores() {
   BroadcastData(); // sending data via ESPNOW
   Serial.println("Sent Data Via ESPNOW");
   ResetReadings();
-  if (ScoreRequestCounter < 63) {
+  if (ScoreRequestCounter < TaggersOwned) {
     Serial.println("Sent Request for Score to Player "+String(ScoreRequestCounter)+" out of 63");
     ScoreRequestCounter++;
   } else {
@@ -3656,7 +4208,14 @@ void setup(){
 
   pinMode(ledPin, OUTPUT);
   digitalWrite(ledPin, LOW);
-  
+
+  //Initialize EEPROM
+  EEPROM.begin(EEPROM_SIZE);
+  int eepromtaggercount = EEPROM.read(0);
+  if (eepromtaggercount > 0 && eepromtaggercount < 65) {
+    TaggersOwned = eepromtaggercount;
+  }
+
   // Connect to Wi-Fi
   Serial.println("Starting AP");
   WiFi.mode(WIFI_AP_STA);
@@ -3758,30 +4317,29 @@ void loop() {
       ESP.restart(); // we confirmed there is no update available, just reset and get ready to play 
     }
   } else {
-  if (DEMOMODE) {
-    unsigned long DemoCurrentMillis = millis();
-    if ((DemoCurrentMillis - previousMillis) >= 6000) {
-      previousMillis = DemoCurrentMillis;
-      if (DEMOTOGGLE) {
-        DEMOTOGGLE = false;
-        Menu[14] = 1401;
-        ledState = !ledState;
-        notifyClients();
-        Serial.println("menu = " + String(Menu[14]));
-        datapacket2 = Menu[14];
-        datapacket1 = 99;
-        BROADCASTESPNOW = true;
-      } else {
-        DEMOTOGGLE = true;
-        Menu[14] = 1400;
-        ledState = !ledState;
-        notifyClients();
-        Serial.println("menu = " + String(Menu[14]));
-        datapacket2 = Menu[14];
-        datapacket1 = 99;
-        BROADCASTESPNOW = true;
-      }
-    }
+  while (DEMOMODE) {
+    Menu[14] = 1401;
+    ledState = !ledState;
+    notifyClients();
+    Serial.println("menu = " + String(Menu[14]));
+    datapacket2 = Menu[14];
+    datapacket1 = 99;
+    getReadings();
+    BroadcastData(); // sending data via ESPNOW
+    Serial.println("Sent Data Via ESPNOW");
+    ResetReadings();
+    delay(12000);
+    Menu[14] = 1400;
+    ledState = !ledState;
+    notifyClients();
+    Serial.println("menu = " + String(Menu[14]));
+    datapacket2 = Menu[14];
+    datapacket1 = 99;
+    getReadings();
+    BroadcastData(); // sending data via ESPNOW
+    Serial.println("Sent Data Via ESPNOW");
+    ResetReadings();
+    vTaskDelay(2000);
   }
   ws.cleanupClients();
   digitalWrite(ledPin, ledState);
