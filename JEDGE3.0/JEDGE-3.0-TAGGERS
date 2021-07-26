@@ -1961,7 +1961,7 @@ void ProcessIncomingCommands() {
           Serial.println("Ammo set to unlimited magazies"); 
           SetRSPNMode=1; // set respon mode to auto immediate
           Serial.println("Respawn Set to Auto (Immediate)"); 
-          SetGNDR=2; // contra player audio
+          SetGNDR=3; // STARWARS player audio
           Serial.println("Gender set to Contra");
           SetFF=2; // free for all set to off
           Serial.println("Friendly Fire off");
@@ -3888,18 +3888,18 @@ void playersettings() {
   if (SetHealth == 2) {
     Health = "300,300,300";
   }
-  if(SetGNDR < 2) {
-    if (SetGNDR == 0) {
+  if (SetGNDR == 0) {
       sendString("$PSET,"+String(GunID)+","+String(SetTeam)+","+String(Health)+",50,,H44,JAD,V33,V3I,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
-    } else {
+  } 
+  if (SetGNDR == 1){
       sendString("$PSET,"+String(GunID)+","+String(SetTeam)+","+String(Health)+",50,,H44,JAD,VB3,VBI,VBC,VBG,VBE,VB7,H06,H55,H13,H21,H02,U15,W71,A10,*");
-    }
   }
   if (SetGNDR == 2) { // CONTRA
-    sendString("$PSET,"+String(GunID)+","+String(SetTeam)+","+String(Health)+",50,,CC01,,CC01,SW01,,CC05,CC05,CC05,CC05,CC05,CC05,CC05,CC10,U15,W71,A10,*");
+    sendString("$PSET,"+String(GunID)+","+String(SetTeam)+","+String(Health)+",50,,CC01,JAD,CC01,CC02,CC05,CC05,CC05,V37,H06,CC05,CC05,CC05,CC10,U15,W71,A10,*");
+  
   }
   if (SetGNDR == 3) { // STARWARS
-    sendString("$PSET,"+String(GunID)+","+String(SetTeam)+","+String(Health)+",50,,H44,SW05,H44,SW01,SW10,SW07,SW08,SW02,SW13,SW08,SW07,SW06,SW29,U15,W71,A10,*");
+    sendString("$PSET,"+String(GunID)+","+String(SetTeam)+","+String(Health)+",50,,H44,JAD,SW05,SW01,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
   }
   if (GameMode == 7 && Team == 3) { // infected 
     if (Team == 3) {
@@ -4176,6 +4176,9 @@ void MainGame() {
       if (SetTeam == 0 || SetTeam == 2) {
         MusicSelection = "$PLAY,SW31,4,6,,,,,*";
         MusicRestart = 60000;
+      } else {
+        MusicSelection = "$PLAY,SW04,4,6,,,,,*";
+        MusicRestart = 92000;
       }
     }
     gameconfigurator(); // send all game settings, weapons etc. 
@@ -4268,12 +4271,14 @@ void MainGame() {
       unsigned long CurrentMusicMillis = millis();
       if (CurrentMusicMillis - MusicPreviousMillis > MusicRestart) {
         MusicPreviousMillis = CurrentMusicMillis;
-        int randomcallout = random(11);
-        randomcallout = randomcallout + 40;
-        sendString("$PLAY,SW" + String(randomcallout) + ",4,6,,,,,*");
-        AudioDelay = 10000;
+        if (GameMode == 13) {
+          int randomcallout = random(11);
+          randomcallout = randomcallout + 40;
+          sendString("$PLAY,SW" + String(randomcallout) + ",4,6,,,,,*");
+          AudioDelay = 10000;
+          AudioPreviousMillis = millis();
+        }
         AudioSelection = MusicSelection;
-        AudioPreviousMillis = millis();
         AUDIO = true;
       }    
     }
@@ -4330,9 +4335,9 @@ void MainGame() {
         AUDIO1=true; 
         COUNTDOWN3=false;
         Serial.println("ten seconds remaining");
-        if (BACKGROUNDMUSIC) {
-          MusicPreviousMillis = 0;
-        }
+        //if (BACKGROUNDMUSIC) {
+          //MusicPreviousMillis = 0;
+        //}
       } // ten second count down
     }
     if (ActualGameTime > GameTimer) {
@@ -4508,6 +4513,13 @@ void ProcessBRXData() {
       if (tokenStrings[1] == "0") {
         if (tokenStrings[2] == "1") {
           Serial.println("Trigger pulled"); // as indicated this is the trigger
+
+          if (PlayerLives == 0 && INGAME == true) {
+            sendString("$PLAY,VA46,4,6,,,,,*"); // says lives depleted
+          }
+
+
+          
         }
         if (tokenStrings[2] == "0") {
           Serial.println("Trigger Released"); // goes without sayin... you let go of the trigger
@@ -5039,12 +5051,12 @@ void ProcessBRXData() {
         }
         if (PlayerLives == 0) {
           //GAMEOVER=true;
-          TerminalInput = "Lives Depleted"; // storing the string for sending to Tagger, elswhere
-          
           delay(3000);
           //sendString("$HLOOP,2,1200,*"); // this puts the headset in a loop for flashing
           sendString("$PLAY,VA46,4,6,,,,,*"); // says lives depleted
           Serial.println("lives depleted");
+          // KILL GUN LIGHTS
+          sendString("$GLED,9,9,9,0,10,,*");
         }
       }    
     }
