@@ -153,7 +153,7 @@
 int sample[5];
 
 // define the number of bytes I'm using/accessing for eeprom
-#define EEPROM_SIZE 4 // use 0 for OTA and 1 for Tagger ID
+#define EEPROM_SIZE 5 // use 0 for OTA and 1 for Tagger ID
 // if eeprom 0 is 1, it is OTA mode, if 0, regular mode.
 
 #define SERIAL1_RXPIN 16 // TO BRX TX and BLUETOOTH RX
@@ -177,7 +177,7 @@ String OTAssid = "dontchangeme"; // network name to update OTA
 String OTApassword = "dontchangeme"; // Network password for OTA
 int TaggersOwned = 64; // how many taggers do you own or will play?
 bool ACTASHOST = false; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
-String FirmwareVer = {"3.30"};
+String FirmwareVer = {"3.31"};
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -2389,11 +2389,10 @@ void ProcessIncomingCommands() {
         ChangeMyColor++;
        }
        Serial.println("OTA Update Mode");
-       EEPROM.write(1, 1);
-       EEPROM.commit();
+       EEPROM.write(4, 0); // reset OTA attempts counter
+       EEPROM.write(1, 1); // set trigger to run OTA updates
+       EEPROM.commit(); // Storar in Flash
        //INITIALIZEOTA = true;
-       
-       
      }
    }
    if (incomingData2 < 1700 && incomingData2 > 1599) { // Player-Team Selector
@@ -3934,6 +3933,7 @@ void gameover() {
     sendString("$PLAY,VS6,4,6,,,,,*"); // says game over
     AudioDelay = 3500;
     AudioSelection="VAP"; // "terminated"
+    AudioPreviousMillis = millis();
     AUDIO = true;
   }
   if (GameMode == 12) {
@@ -4885,8 +4885,9 @@ void ProcessBRXData() {
           Serial.println("left dpad pressed"); // as indicated this is the left button
           // lets do a score announcement
           if (!BACKGROUNDMUSIC) {
-            sendString("$PLAY,KL" + String(MyKills) + "01,4,6,,,,,*");
-            AudioDelay = 2250;
+            AudioSelection1 = "KL" + String(MyKills);
+            AUDIO1 = true;
+            AudioDelay = 2000;
             AudioPreviousMillis = millis();
             AudioSelection = "DT" + String(Deaths);
             AUDIO = true;            
@@ -5412,6 +5413,19 @@ void setup() {
   Serial.print("Active firmware version:");
   Serial.println(FirmwareVer);
   pinMode(LED_BUILTIN, OUTPUT);
+
+  // Loop check to make sure tagger doesnt try to update endlessly
+  int OTAattempts = EEPROM.read(4);
+  if (OTAattempts > 3) { // too many attempts, lets time it out
+    EEPROM.write(1, 0); // in case not already the case, clearing out eeprom state so it doesnt try to upgrade anymore
+    EEPROM.write(0, 2); // set up device to provide notification that there is no update available
+    EEPROM.commit(); // saves the eeprom state
+    ESP.restart(); // we confirmed there is no update available, just reset and get ready to play 
+  } else { // add one counter
+    OTAattempts++;
+    EEPROM.write(4, OTAattempts);
+    EEPROM.commit();
+  }
   
   bootstatus = EEPROM.read(0);
   Serial.print("Boot Status = ");
