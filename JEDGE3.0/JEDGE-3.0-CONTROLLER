@@ -735,6 +735,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="611">Kids Mode</option>
         <option value="612">Contra</option>
         <option value="613">StarWars</option>
+        <option value="614">Halo</option>
         </select>
       </p>
       <h2>Respawn Mode</h2>
@@ -2221,6 +2222,17 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       ledState = !ledState;
       notifyClients();
       Menu[6] = 613;
+      WebSocketData = Menu[6];
+      //notifyClients1();
+      Serial.println("preset game mode menu = " + String(Menu[6]));
+      datapacket2 = Menu[6];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+    }
+    if (strcmp((char*)data, "614") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[6] = 614;
       WebSocketData = Menu[6];
       //notifyClients1();
       Serial.println("preset game mode menu = " + String(Menu[6]));
