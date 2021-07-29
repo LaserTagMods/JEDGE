@@ -4069,6 +4069,8 @@ void respawnplayer() {
   }
   sendString("$HLOOP,0,0,*"); // stops headset flashing
   sendString("$HLOOP,0,0,*"); // stops headset flashing
+  sendString("$HLED,9,0,,,10,,*"); // stops headset flashing
+  sendString("$HLED,9,0,,,10,,*"); // stops headset flashing
   LastRespawnTime = millis();
   RespawnStatus = 1;
 }
