@@ -4017,7 +4017,7 @@ void respawnplayer() {
   long delaycounter = millis(); // this will be used to track current time in milliseconds and compared to the start of the delay
   int audibletrigger = 0; // used as a trigger once we get to 10 seconds left
   if (RespawnTimer > 10) {
-  while (RespawnTimer > actualdelay) { // this creates a sub loop in the object to keep doing the following steps until this condition is met... actual delay is the same as planned delay
+   while (RespawnTimer > actualdelay) { // this creates a sub loop in the object to keep doing the following steps until this condition is met... actual delay is the same as planned delay
     delaycounter = millis(); // sets the delay clock to the current progam timer
     actualdelay = delaycounter - delaybeginning; // calculates how long weve been delaying the program/start
     if ((RespawnTimer-actualdelay) < 3000) {
@@ -4028,7 +4028,7 @@ void respawnplayer() {
       Serial.println("playing 3 second countdown");
     } // this can only happen once so it doesnt keep looping in the program we only play it when trigger is equal to 1
     vTaskDelay(1);
-  }
+   }
   }
   Serial.println("Respawning Player");
   weaponsettingsA();
@@ -4071,7 +4071,6 @@ void respawnplayer() {
   sendString("$HLOOP,0,0,*"); // stops headset flashing
   LastRespawnTime = millis();
   RespawnStatus = 1;
-  }
 }
 //****************************************************************************************
 // this function will be used when a player is eliminated and needs to respawn off of a base
@@ -4311,12 +4310,16 @@ void MainGame() {
   }
   // In game checks and balances to execute actions for in game functions
   if (INGAME) {
-    if (RespawnStatus == 1) {
+    if (RespawnStatus > 0) {
       long currentesptime = millis();
       if (currentesptime - LastRespawnTime > 1500) {
         sendString("$HLOOP,0,0,*"); // stops headset flashing
         sendString("$HLOOP,0,0,*"); // stops headset flashing
-        RespawnStatus == 0;
+        if (RespawnStatus == 1) {
+          RespawnStatus = 2;
+        } else {
+          RespawnStatus = 0;
+        }
       }
     }
     long ActualGameTime = millis() - GameStartTime;
