@@ -133,6 +133,12 @@
  * updated 07/29/2021 Changed the score announcements for players taggers to select button instead of left dpad button (melee interference)                   
  *                    fixed the stealth outdoor/indoor call out and selection
  *                    tweaked the headset random flashing problem - hopfully
+ * updated 07/31/2021 fixed manual respawn from IR. Jecked it on JBOX to confirm functionality. All appears to now be in
+ *                    working order. 
+ *                    changed the tagger weapons for starwars mode to have 200 or so rounds and rapid fire rifle, low damage and higher damage regular blaster
+ *                    changed SWAPBRX weapon pick ups and perks etc from a loot. This way it has better flow/function, also updated weapons for upgrades
+ *                    and worked on a better pistol upgrade process, changing the pistol sound each time as well as its strength. (needs testing)
+ *                    Hopefully assimilation is now working as well. 
  * 
  *                    
  */
@@ -244,6 +250,17 @@ int ReloadType; // used for unlimited ammo... maybe 10 is for unlimited
 int SwapBRXCounter = 0; // used for weapon swaps in game for all weapons
 int totalweapons = 19; // counter used for weapon count, needs to be updated if i ever add more weapons
 bool SWAPBRX = false; // used as trigger to enable/disable swapbrx mode
+String SwapBRXPistol = "$WEAP,0,,50,0,0,10,0,,,,,,,,225,850,9,32768,400,0,7,70,70,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,30,,*";
+String SwapBRXPistol1 = "$WEAP,0,,55,0,0,15,2,,,,,,,,225,850,10,32768,400,0,7,70,70,,0,,,R13,,,,D04,D03,D02,D18,,,,,10,9999999,35,,*";
+String SwapBRXPistol2 = "$WEAP,0,,60,0,0,20,4,,,,,,,,225,850,11,32768,400,0,7,80,80,,0,,,R14,,,,D04,D03,D02,D18,,,,,11,9999999,40,,*";
+String SwapBRXPistol3 = "$WEAP,0,,65,0,0,25,6,,,,,,,,225,850,12,32768,400,0,7,80,80,,0,,,R15,,,,D04,D03,D02,D18,,,,,12,9999999,45,,*";
+String SwapBRXPistol4 = "$WEAP,0,,70,0,0,30,8,,,,,,,,225,850,13,32768,400,0,7,90,90,,0,,,R16,,,,D04,D03,D02,D18,,,,,13,9999999,50,,*";
+String SwapBRXPistol5 = "$WEAP,0,,75,0,0,35,10,,,,,,,,225,850,14,32768,400,0,7,90,90,,0,,,R17,,,,D04,D03,D02,D18,,,,,14,9999999,55,,*";
+String SwapBRXPistol6 = "$WEAP,0,,80,0,0,40,12,,,,,,,,225,850,15,32768,400,0,7,90,90,,0,,,R18,,,,D04,D03,D02,D18,,,,,15,9999999,60,,*";
+String SwapBRXPistol7 = "$WEAP,0,,85,0,0,45,14,,,,,,,,225,850,16,32768,400,0,7,90,90,,0,,,R19,,,,D04,D03,D02,D18,,,,,16,9999999,65,,*";
+String SwapBRXPistol8 = "$WEAP,0,,90,0,0,50,16,,,,,,,,225,850,17,32768,400,0,7,90,90,,0,,,R20,,,,D04,D03,D02,D18,,,,,17,9999999,70,,*";
+String SwapBRXPistol9 = "$WEAP,0,2,100,0,0,60,18,,,,,,100,30,225,850,20,32768,400,0,7,100,100,,0,,,SW36,,,,D04,D03,D02,D18,,,,,20,9999999,75,15,*";
+int SwapPistolLevel = 0;
 long SelectButtonTimer = 0; // used to disable option to swap weapons
 int GetAmmoOdds = 3; // setting default odds as 1/3 for ammo reload
 
@@ -3022,13 +3039,14 @@ void TagPerks() {
   Serial.println("Is Critical: "+String(tokenStrings[6]));
   Serial.println("Power: "+String(tokenStrings[7]));
   //  Checking for special tags
-  if (tokenStrings[2] == "15" && tokenStrings[6] == "1" && tokenStrings[7] == "0") { // we just determined that it is a respawn tag
+  if (tokenStrings[2] == "15" && tokenStrings[7] == "0" && tokenStrings[5] == "6") { // we just determined that it is a respawn tag
       Serial.println("Received a respawn tag");
       if (tokenStrings[4].toInt() == SetTeam) {
         Serial.println("Respawn Tag Team is a Match");
         if (PENDINGRESPAWNIR) { // checks if we are awaiting a respawn signal
+          // sendString("$respawnreceived,*");
           RESPAWN = true; // triggers a respawn
-          PENDINGRESPAWNIR = false; // closing the process of checking for a respawining tag and enables all other normal in game functions
+          //PENDINGRESPAWNIR = false; // closing the process of checking for a respawining tag and enables all other normal in game functions
         }
       } else {
         Serial.println("Respawn Tag Team does not match");        
@@ -3254,7 +3272,7 @@ void weaponsettingsA() {
     }
     if(SetSlotA == 20) {
       Serial.println("Weapon 0 set to Pistol"); 
-      sendString("$WEAP,0,,60,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,40,,*");
+      sendString(SwapBRXPistol);
     }
   }
   if (UNLIMITEDAMMO==1) { // limited mags
@@ -3349,7 +3367,7 @@ void weaponsettingsA() {
   }
   if(SetSlotA == 23) {
     Serial.println("Weapon 0 set to STANDARD BLASTER SW"); 
-    sendString("$WEAP,0,,100,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,SW36,,,,D04,D03,D02,D18,,,,,9,9999999,20,,*");
+    sendString("$WEAP,0,,100,0,0,45,0,,,,,,,,225,850,200,32768,400,0,7,100,100,,0,,,SW36,,,,D04,D03,D02,D18,,,,,200,9999999,20,,*");
   }
 }
 //*****************************************************************************************
@@ -3704,7 +3722,7 @@ void weaponsettingsB() {
   }
   if(SetSlotB == 24) {
     Serial.println("Weapon 0 set to sw rIFLE"); 
-    sendString("$WEAP,1,,100,8,0,100,0,,,,,,,,1250,850,100,32768,2500,0,14,100,100,,14,,,SW23,C15,C17,,D30,D29,D37,A73,SW40,C04,20,150,100,9999999,75,,*");
+    sendString("$WEAP,1,,100,0,0,6,0,,,,,,,,100,850,100,32768,1400,0,0,100,100,,5,,,SW23,C15,C17,,D30,D29,D37,A73,SW40,C04,20,150,100,9999999,75,,*");
   }
 }
 
@@ -3818,7 +3836,8 @@ void gameconfigurator() {
   // The $SIR functions above can be changed to incorporate more in game IR based functions (health boosts, armor, shields) or customized over BLE to support game functions/modes
   //delay(500);
   sendString("$SIR,1,1,,8,0,100,0,60,*"); // no damage just vibe on impact - use for SWAPBRX, and other game features based upon player ID 0-63
-  sendString("$SIR,1,1,,8,0,100,0,60,*"); // no damage just vibe on impact - use for SWAPBRX, and other game features based upon player ID 0-63
+  sendString("$SIR,15,0,,34,0,100,0,60,*"); // no damage just vibe on impact - use for RESPAWN WHEN DEAD
+  sendString("$SIR,15,0,,35,0,100,0,60,*"); // no damage just vibe on impact - use for RESPAWN WHEN DEAD
   sendString("$BMAP,0,0,,,,,*"); // sets the trigger on tagger to weapon 0
   sendString("$BMAP,0,0,,,,,*"); // sets the trigger on tagger to weapon 0
   sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
@@ -4006,12 +4025,12 @@ void respawnplayer() {
   //sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
   //sendString("$HLOOP,2,1200,*"); // flashes the headset lights in a loop
   // this portion creates a hang up in the program to delay until the time is up
-  if (SetRSPNMode == 9) {
-    gameconfigurator();
-  }
-  if (RespawnTimer < RespawnTimerMax) {
-    RespawnTimer = 5000 * Deaths;
-  }
+  //if (SetRSPNMode == 9) {
+    //gameconfigurator();
+  //}
+  //if (RespawnTimer < RespawnTimerMax) {
+    //RespawnTimer = 5000 * Deaths;
+  //}
   long actualdelay = 0; // used to count the actual delay versus desired delay
   long delaybeginning = millis(); // sets variable as the current time to track when the actual delay started
   long delaycounter = millis(); // this will be used to track current time in milliseconds and compared to the start of the delay
@@ -4079,27 +4098,27 @@ void respawnplayer() {
 // or player signal to respawn them... a lot to think about still on this and im using auto respawn 
 // for now untill this is further thought out and developed
 void ManualRespawnMode() {
-  delay(4000); // delay added to allow sound to finish and lights process as well
-  sendString("$VOL,0,0,*"); // adjust volume to default
-  sendString("$VOL,0,0,*"); // adjust volume to default
-  sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,,,,,,,,,,,,,,,,,*");
-  sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,,,,,,,,,,,,,,,,,*");
-  sendString("$STOP,*"); // this is essentially ending the game for player... need to rerun configurator or use a different command
-  sendString("$STOP,*"); // this is essentially ending the game for player... need to rerun configurator or use a different command
-  sendString("$SPAWN,,*"); // this is playing "get some as part of a respawn
-  sendString("$SPAWN,,*"); // this is playing "get some as part of a respawn
+  //delay(4000); // delay added to allow sound to finish and lights process as well
+  //sendString("$VOL,0,0,*"); // adjust volume to default
+  //sendString("$VOL,0,0,*"); // adjust volume to default
+  //sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,,,,,,,,,,,,,,,,,*");
+  //sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,70,70,50,,,,,,,,,,,,,,,,,,*");
+  //sendString("$STOP,*"); // this is essentially ending the game for player... need to rerun configurator or use a different command
+  //sendString("$STOP,*"); // this is essentially ending the game for player... need to rerun configurator or use a different command
+  //sendString("$SPAWN,,*"); // this is playing "get some as part of a respawn
+  //sendString("$SPAWN,,*"); // this is playing "get some as part of a respawn
   //sendString("$HLOOP,2,1200,*"); // this puts the headset in a loop for flashing
   //sendString("$HLOOP,2,1200,*"); // this puts the headset in a loop for flashing
-  sendString("$GLED,,,,,,,*"); // changes headset to tagged out color
-  sendString("$GLED,,,,,,,*"); // changes headset to tagged out color
+  //sendString("$GLED,,,,,,,*"); // changes headset to tagged out color
+  //sendString("$GLED,,,,,,,*"); // changes headset to tagged out color
   //AudioSelection1 = "VA54"; // audio that says respawn time
   //AUDIO1 = true;
-  PENDINGRESPAWNIR = true;
-  MANUALRESPAWN = false;
-  RespawnStartTimer = millis();
-  if (BACKGROUNDMUSIC) {
-    sendString(MusicSelection);
-  }
+  //PENDINGRESPAWNIR = true;
+  //MANUALRESPAWN = false;
+  //RespawnStartTimer = millis();
+  //if (BACKGROUNDMUSIC) {
+    //sendString(MusicSelection);
+  //}
 }
 //****************************************************************************
 void Audio() {
@@ -4435,11 +4454,12 @@ void MainGame() {
         }
       } else {
         respawnplayer(); // respawns player
+        PENDINGRESPAWNIR = false;
       }
     }
-    if (MANUALRESPAWN) { // checks if manual respawn was triggered to respawn a player
-      ManualRespawnMode();
-    }
+    //if (MANUALRESPAWN) { // checks if manual respawn was triggered to respawn a player
+      //ManualRespawnMode();
+    //}
     if (LOOT) {
       LOOT = false;
       swapbrx();
@@ -4472,76 +4492,121 @@ void MainGame() {
 //**************************************************************************
 // run SWAPTX style weapon swap as from my youtube funny video:
 void swapbrx() {
-  // need to check if going to restock ammor or not:
-  int getammo = random(1,GetAmmoOdds);
-  if (getammo == GetAmmoOdds) { // current special weapon restock of ammo enabled
+  // Lets Roll for a perk!
+  int LuckyRoll = random(0,10);
+  /*  lets talk perks!
+   *  0. pick up body armor = add defense                Chance: 10%
+   *  1. pick up a med kit - restore health              Chance: 10%
+   *  2. pick up a full restore of health and armor      Chance: 10%
+   *  3. pick up a shotgun                               Chance: 10%
+   *  4. pick up an SMG                                  Chance: 10%
+   *  5. pick up a sniper rifle                          Chance: 10%
+   *  6. pick up an assault rifle                        Chance: 10%
+   *  7. pick up a rocket launcher                       Chance: 10%
+   *  8. pick up ammo for your current weapon            Chance: 10%
+   *  9. pick up a weapon upgrade for your stock pistol  Chance: 10%
+   */
+  // apply the perk!
+  if (LuckyRoll == 0) {
+    // body armor picked up, Adding full body armor restore:
+    AudioSelection = "OP42";
+    sendString("$LIFE,,70,,1,*");
+  }
+  if (LuckyRoll == 1) {
+    // MedKit picked up, Adding full health restore:
+    AudioSelection = "OP34";
+    sendString("$LIFE,,,45,1,*");
+  }
+  if (LuckyRoll ==2) {
+    // Full health/armor restore picked up:
+    AudioSelection = "OP44";
+    sendString("$LIFE,,70,45,1,*");
+  }
+  if (LuckyRoll == 3) {
+    // shotgun picked up:
+    AudioSelection = "OP37";
+    SpecialWeapon = 15;
+    SELECTCONFIRM = true; // enables trigger for select button
+    SPECIALWEAPONLOADOUT = true;
+    SelectButtonTimer = millis();
+    AudioSelection1="VA9B"; // set audio playback to "press select button"
+  }
+  if (LuckyRoll == 4) {
+    // SMG picked up:
+    AudioSelection = "OP40";
+    SpecialWeapon = 16;
+    SELECTCONFIRM = true; // enables trigger for select button
+    SPECIALWEAPONLOADOUT = true;
+    SelectButtonTimer = millis();
+    AudioSelection1="VA9B"; // set audio playback to "press select button"
+  }
+  if (LuckyRoll == 5) {
+    // sniper picked up:
+    AudioSelection = "OP38";
+    SpecialWeapon = 17;
+    SELECTCONFIRM = true; // enables trigger for select button
+    SPECIALWEAPONLOADOUT = true;
+    SelectButtonTimer = millis();
+    AudioSelection1="VA9B"; // set audio playback to "press select button"
+  }
+  if (LuckyRoll == 6) {
+    // assault rifle picked up:
+    AudioSelection = "OP39";
+    SpecialWeapon = 3;
+    SELECTCONFIRM = true; // enables trigger for select button
+    SPECIALWEAPONLOADOUT = true;
+    SelectButtonTimer = millis();
+    AudioSelection1="VA9B"; // set audio playback to "press select button"
+  }
+  if (LuckyRoll == 7) {
+    // rocket picked up:
+    AudioSelection = "OP36";
+    SpecialWeapon = 14;
+    SELECTCONFIRM = true; // enables trigger for select button
+    SPECIALWEAPONLOADOUT = true;
+    SelectButtonTimer = millis();
+    AudioSelection1="VA9B"; // set audio playback to "press select button"
+  }
+  if (LuckyRoll == 8) {
+    // Ammo picked up:
+    AudioSelection = "OP41";
     SpecialWeapon = PreviousSpecialWeapon; // makes special weapon equal to whatever the last special weapon was set to
     LoadSpecialWeapon(); // reloads the last special weapon again to refresh ammo to original maximums
-    sendString("$PLAY,VA14,4,6,,,,,*");
   }
-  // need to randomize the weapon pick up
-  int randomnumber = random(100); // randomizing between all weapons with total weapons count
-  // randomizing: 100% AR:10 BR:25 RL:10 SG:20 SMG:10 SNIPE:10 BURST:15
-  if (randomnumber < 25) { // bolt rifle 25% chance 0-24
-    SpecialWeapon = 4;
-  }
-  if (randomnumber > 24 && randomnumber < 45) { // Shotgun 20% chance 25-45
-    SpecialWeapon = 15;
-  }
-  if (randomnumber > 44 && randomnumber < 60) { // Burst rifle 15% chance
-    SpecialWeapon = 5;
-  }
-  if (randomnumber > 59 && randomnumber < 70) { // Assault Rifle 10%
-    SpecialWeapon = 3;
-  }
-  if (randomnumber > 69 && randomnumber < 80) { // Rocket Launcher 10%
-    SpecialWeapon = 14;
-  }
-  if (randomnumber > 79 && randomnumber < 90) { // Sniper Rifle
-    SpecialWeapon = 17;
-  }
-  if (randomnumber >89 && randomnumber < 100) { // SMG
-    SpecialWeapon = 16;
-  }
-  
-  Serial.println("Special Weapon Load Out = " + String(SpecialWeapon));
-  // need to add to counter to increase power for pistol
-  if (SwapBRXCounter < 100) {
-    SwapBRXCounter = SwapBRXCounter + 10; // this is used to increase the critical chance strike and improve your weapon power.
-    Serial.println("Set SwapBRXCounter to : " + String(SwapBRXCounter));
-    sendString("$WEAP,0,,35,0,0,8," + String(SwapBRXCounter) + ",,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,20,,*");
-  }
-  Serial.println("Weapon Slot 0 set"); 
-  if(SpecialWeapon < 10) {
-    AudioSelection = ("GN0" + String(SpecialWeapon));
-  }
-  if (SpecialWeapon > 9) {
-    AudioSelection = ("GN" + String(SpecialWeapon));
-  }
-  sendString("$PLAY,"+AudioSelection+",4,6,,,,,*"); // plays the gun id callout
-  AudioSelection = "NULL";
-  // Enable special weapon load by select button
-  SELECTCONFIRM = true; // enables trigger for select button
-  SPECIALWEAPONLOADOUT = true;
-  SelectButtonTimer = millis();
-  AudioSelection1="VA9B"; // set audio playback to "press select button"
-  // randomize perk pick up
-  int statboost = random(1,10);
-  Serial.println("Random Perk Statboost = " + String(statboost));
-  if (statboost == 10) { // full health restore plus shields 10% chance
-    sendString("$LIFE,70,70,45,1,*");
-    AudioPerk = "VA1Q";
-    PERK = true;
-  }
-  if (statboost == 8 || statboost == 9) { // get shields only 20% chance
-    sendString("$LIFE,70,,,1,*");
-    AudioPerk = "VA5K";
-    PERK = true;
-  }
-  if (statboost == 6 || statboost == 7) { // Armor replenish 20% chance
-    sendString("$LIFE,,70,,,*");
-    AudioPerk = "VA16";
-    PERK = true;
+  if (LuckyRoll == 9) {
+    // Pistol upgrade picked up:
+    AudioSelection = "OP41";
+    // increase pistol level 0-9; 
+    if (SwapPistolLevel < 9) {
+      SwapPistolLevel++;
+      if (SwapPistolLevel == 1) {
+        sendString(SwapBRXPistol1);
+      }
+      if (SwapPistolLevel == 2) {
+        sendString(SwapBRXPistol2);
+      }
+      if (SwapPistolLevel == 3) {
+        sendString(SwapBRXPistol3);
+      }
+      if (SwapPistolLevel == 4) {
+        sendString(SwapBRXPistol4);
+      }
+      if (SwapPistolLevel == 5) {
+        sendString(SwapBRXPistol5);
+      }
+      if (SwapPistolLevel == 6) {
+        sendString(SwapBRXPistol6);
+      }
+      if (SwapPistolLevel == 7) {
+        sendString(SwapBRXPistol7);
+      }
+      if (SwapPistolLevel == 8) {
+        sendString(SwapBRXPistol8);
+      }
+      if (SwapPistolLevel == 9) {
+        sendString(SwapBRXPistol9);
+      }
+    }
   }
 }
 //**************************************************************
@@ -5088,6 +5153,7 @@ void ProcessBRXData() {
       health = tokenStrings[1].toInt(); // setting variable to be sent to esp8266
       armor = tokenStrings[2].toInt(); // setting variable to be sent to esp8266
       shield = tokenStrings[3].toInt(); // setting variable to be sent to esp8266
+      if (!PENDINGRESPAWNIR) {
       if ((tokenStrings[1] == "0") && (tokenStrings[2] == "0") && (tokenStrings[3] == "0")) { // player is dead
         if (GameMode == 8) {
           sendString("$STOP,*");
@@ -5139,7 +5205,8 @@ void ProcessBRXData() {
           Serial.println("Auto respawn enabled");
         }
         if (PlayerLives > 0 && SetRSPNMode == 9) { // doing a check if we still have lives left after dying
-          MANUALRESPAWN = true;
+          //MANUALRESPAWN = true;
+          PENDINGRESPAWNIR = true;
           Serial.println("Manual respawn enabled");
         }
         if (PlayerLives == 0) {
@@ -5151,6 +5218,7 @@ void ProcessBRXData() {
           // KILL GUN LIGHTS
           sendString("$GLED,9,9,9,0,10,,*");
         }
+      }
       }    
     }
 }
