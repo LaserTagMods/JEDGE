@@ -42,6 +42,7 @@ Player ID Initial Setup:
     4. Navigate to 192.168.4.1
     5. Scroll all the way to the bottom and select a player ID to assign to this tagger.
     6. Tagger should announce "good to go" and lights change. This tagger is now the player ID selected. I recommend labeling it.
+   6a. Do the same for tagger version option.
     7. Turn off this tagger
     8. Repeat steps 1-7 for each modded tagger.
     
