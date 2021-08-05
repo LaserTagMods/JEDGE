@@ -3,6 +3,7 @@
  * 
  * 7/11 added in ability to send wifi credentials to tagger for updating.
  * 7/12 added in ability to assign gun generation to esp32 for flash memory
+ * 8/4  added in offline game mode settings
  */
 
 // Import required libraries
@@ -45,7 +46,7 @@ int updatenotification;
 unsigned long previousMillis_2 = 0;
 const long otainterval = 1000;
 const long mini_interval = 1000;
-String FirmwareVer = {"3.15"};
+String FirmwareVer = {"3.17"};
 
 // text inputs
 const char* PARAM_INPUT_1 = "input1";
@@ -728,8 +729,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="604">Battle Royale</option>
         <option value="605">Capture The Flag</option>
         <option value="606">Own The Zone</option>
-        <option value="607">Survival-Infection</option>
-        <option value="608">Assimilation</option>
+        <option value="608">Team Assimilation</option>
         <option value="609">Gun Game</option>
         <option value="610">Team Death Match</option>
         <option value="611">Kids Mode</option>
@@ -870,6 +870,94 @@ const char index_html[] PROGMEM = R"rawliteral(
       <p><button id="syncscores" class="button">Sync Scores</button></p>
     </div>
   </div>
+  <div class="topnav">
+    <h3>Offline Game Modes</h3>
+  </div>
+  <div class="content">
+    <div class="card">
+      <h2>** Switching Between Offline Games & Online Games Requires Reset of Taggers **</h2>
+      <p><button id="pbblock" class="button">Lockout Players</button></p>
+      <h2>Select A Game</h2>
+      <p><select name="pbgame" id="pbgameid">
+        <option value="2100">Free For All</option>
+        <option value="2101">Death Match</option>
+        <option value="2102">Generals</option>
+        <option value="2103">Supremacy</option>
+        <option value="2104">Commanders</option>
+        <option value="2105">Survival</option>
+        <option value="2106">The Swarm</option>
+        </select>
+      </p>
+      <h2>Select A Team/Faction</h2>
+      <p><select name="pbteam" id="pbteamid">
+        <option value="2107">Resistance - Alpha - Survivor</option>
+        <option value="2108">Nexus - Bravo - Infected</option>
+        <option value="2109">Vanguard</option>
+        </select>
+      </p>
+      <h2>Select A Weapon/Class</h2>
+      <p><select name="pbweap" id="pbweapid">
+        <option value="2110">M4 - Heavy - Sentinel - Wraith</option>
+        <option value="2111">SR-100 - Soldier - Maurader - Sniper</option>
+        <option value="2112">SMGX3 - Medic - Guardian - Technician</option>
+        <option value="2113">Tac-87 - Valkyrie - Grenadier - Viper</option>
+        <option value="2114">MG-7 - Mercenary</option>
+        <option value="2115">TAR-33 - Commander/General</option>
+        <option value="2116">Silenced AR</option>
+        </select>
+      </p>
+      <h2>Select A Perk - General & Deathmatch</h2>
+      <p><select name="pbperk" id="pbperkid">
+        <option value="2117">Grenade Launcher</option>
+        <option value="2118">Medkit</option>
+        <option value="2119">Body Armor</option>
+        <option value="2120">Extended Mags</option>
+        <option value="2121">Concussion Grenades</option>
+        <option value="2122">Critical Strike</option>
+        </select>
+      </p>
+      <h2>Lives</h2>
+      <p><select name="pblives" id="pblivesid">
+        <option value="2123">1 Life</option>
+        <option value="2124">3 Lives</option>
+        <option value="2125">5 Lives</option>
+        <option value="2126">10 Lives</option>
+        <option value="2127">15 Lives</option>
+        <option value="2128">Infinite</option>
+        </select>
+      </p>
+      <h2>Game Time</h2>
+      <p><select name="pbtime" id="pbtimeid">
+        <option value="2129">5 Minutes</option>
+        <option value="2130">10 Minutes</option>
+        <option value="2131">15 Minutes</option>
+        <option value="2132">20 Minutes</option>
+        <option value="2133">30 Minutes</option>
+        <option value="2134">Infinite</option>
+        </select>
+      </p>
+      <h2>Respawn Time</h2>
+      <p><select name="pbspawn" id="pbspawnid">
+        <option value="2135">Off</option>
+        <option value="2136">15 Seconds</option>
+        <option value="2137">30 Seconds</option>
+        <option value="2138">60 Seconds</option>
+        <option value="2139">Ramp 45 Minutes</option>
+        <option value="2140">Ramp 90</option>
+        </select>
+      </p>
+      <h2>Indoor/Outdoor</h2>
+      <p><select name="pbindoor" id="pbindoorid">
+        <option value="2141">Outdoor Mode</option>
+        <option value="2142">Indoor Mode</option>
+        </select>
+      </p>
+      <p><button id="pbstart" class="button">Start Game</button></p>
+      <p><button id="pbstarta" class="button">15 Second Start</button></p>
+      <p><button id="pbend" class="button">End Game</button></p>
+      
+    </div>
+  </div>    
   <div class="stopnav">
     <h3>Score Reporting</h3>
   </div>
@@ -1521,7 +1609,31 @@ if (!!window.EventSource) {
     document.getElementById('playerperkid').addEventListener('change', handleplayerperk, false);
     document.getElementById('playerassignmentid').addEventListener('change', handleplayerassignment, false);
     document.getElementById('playercountid').addEventListener('change', handleplayercount, false);
+    document.getElementById('pbgameid').addEventListener('change', handlepbgame, false);
+    document.getElementById('pbteamid').addEventListener('change', handlepbteam, false);
+    document.getElementById('pbweapid').addEventListener('change', handlepbweap, false);
+    document.getElementById('pbperkid').addEventListener('change', handlepbperk, false);
+    document.getElementById('pblivesid').addEventListener('change', handlepblives, false);
+    document.getElementById('pbtimeid').addEventListener('change', handlepbtime, false);
+    document.getElementById('pbspawnid').addEventListener('change', handlepbspawn, false);
+    document.getElementById('pbindoorid').addEventListener('change', handlepbindoor, false);
+    document.getElementById('pbblock').addEventListener('click', togglepbblock);
+    document.getElementById('pbstart').addEventListener('click', togglepbstart);
+    document.getElementById('pbstarta').addEventListener('click', togglepbstarta);
+    document.getElementById('pbend').addEventListener('click', togglepbend);
     
+  }
+  function togglepbblock(){
+    websocket.send('togglepbblock');
+  }
+  function togglepbend(){
+    websocket.send('togglepbend');
+  }
+  function togglepbstart(){
+    websocket.send('togglepbstart');
+  }
+  function togglepbstarta(){
+    websocket.send('togglepbstarta');
   }
   function toggle9(){
     websocket.send('toggle9');
@@ -1547,6 +1659,38 @@ if (!!window.EventSource) {
   function handleplayerperk() {
     var xo = document.getElementById("playerperkid").value;
     websocket.send(xo);
+  }
+  function handlepbgame() {
+    var xs = document.getElementById("pbgameid").value;
+    websocket.send(xs);
+  }
+  function handlepbteam() {
+    var xs = document.getElementById("pbteamid").value;
+    websocket.send(xs);
+  }
+  function handlepbweap() {
+    var xs = document.getElementById("pbweapid").value;
+    websocket.send(xs);
+  }
+  function handlepbperk() {
+    var xs = document.getElementById("pbperkid").value;
+    websocket.send(xs);
+  }
+  function handlepblives() {
+    var xs = document.getElementById("pblivesid").value;
+    websocket.send(xs);
+  }
+  function handlepbtime() {
+    var xs = document.getElementById("pbtimeid").value;
+    websocket.send(xs);
+  }
+  function handlepbspawn() {
+    var xs = document.getElementById("pbspawnid").value;
+    websocket.send(xs);
+  }
+  function handlepbindoor() {
+    var xs = document.getElementById("pbindoorid").value;
+    websocket.send(xs);
   }
   function handleplayerselector() {
     var xn = document.getElementById("playerselectorid").value;
@@ -1659,6 +1803,42 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       SCORESYNC = true;
       Serial.println("Commencing Score Sync Process");
       ScoreRequestCounter = 0;
+    }
+    if (strcmp((char*)data, "togglepbblock") == 0) { // block players
+      Menu[14] = 2197;
+      ledState = !ledState;
+      notifyClients();
+      Serial.println("menu = " + String(Menu[14]));
+      datapacket2 = Menu[14];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+    }
+    if (strcmp((char*)data, "togglepbend") == 0) { // game start
+      Menu[14] = 2196;
+      ledState = !ledState;
+      notifyClients();
+      Serial.println("menu = " + String(Menu[14]));
+      datapacket2 = Menu[14];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+    }
+    if (strcmp((char*)data, "togglepbstart") == 0) { // game start
+      Menu[14] = 2199;
+      ledState = !ledState;
+      notifyClients();
+      Serial.println("menu = " + String(Menu[14]));
+      datapacket2 = Menu[14];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
+    }
+    if (strcmp((char*)data, "togglepbstarta") == 0) { // game start w delay
+      Menu[14] = 2198;
+      ledState = !ledState;
+      notifyClients();
+      Serial.println("menu = " + String(Menu[14]));
+      datapacket2 = Menu[14];
+      datapacket1 = 99;
+      BROADCASTESPNOW = true;
     }
     if (strcmp((char*)data, "toggle14s") == 0) { // game start
       Menu[14] = 1401;
@@ -3813,6 +3993,606 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       EEPROM.commit();
       TaggersOwned = EEPROM.read(0);
       Serial.println("Player Count = " + String(TaggersOwned));
+    }
+        if (strcmp((char*)data, "2100") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2100;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2101") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2101;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2102") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2102;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2103") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2103;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2104") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2104;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2105") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2105;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2106") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2106;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2107") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2107;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2108") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2108;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2109") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2109;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2110") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2110;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2111") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2111;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2112") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2112;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2113") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2113;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2114") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2114;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2115") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2115;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2116") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2116;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2117") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2117;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2118") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2118;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2119") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2119;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2120") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2120;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2121") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2121;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2122") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2122;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2123") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2123;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2124") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2124;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2125") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2125;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2126") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2126;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2127") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2127;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2128") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2128;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2129") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2129;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2130") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2130;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2131") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2131;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2132") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2132;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2133") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2133;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2134") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2134;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2135") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2135;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2136") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2136;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2137") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2137;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2138") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2138;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2139") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2139;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2140") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2140;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2141") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2141;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2142") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2142;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2143") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2143;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2144") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2144;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2145") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2145;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2146") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2146;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2147") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2147;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2148") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2148;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2149") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2149;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2150") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2150;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2151") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2151;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2152") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2152;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2153") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2153;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2154") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2154;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2155") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2155;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2156") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2156;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2157") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2157;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2158") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2158;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2159") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2159;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2160") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2160;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2161") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2161;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2162") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2162;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2163") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2163;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2164") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2164;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2165") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2165;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2166") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2166;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2167") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2167;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2168") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2168;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2169") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2169;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2170") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2170;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2171") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2171;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2172") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2172;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2173") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2173;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2174") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2174;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2175") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2175;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2176") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2176;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2177") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2177;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2178") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2178;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2179") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2179;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2180") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2180;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2181") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2181;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2182") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2182;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2183") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2183;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2184") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2184;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2185") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2185;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2186") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2186;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2187") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2187;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2188") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2188;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2189") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2189;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2190") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2190;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2191") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2191;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2192") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2192;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2193") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2193;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2194") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2194;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2195") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2195;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2196") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2196;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2197") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2197;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2198") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2198;
+      PrimaryMenu();
+    }
+    if (strcmp((char*)data, "2199") == 0) {
+      ledState = !ledState;
+      notifyClients();
+      Menu[0] = 2199;
+      PrimaryMenu();
     }
     if (strcmp((char*)data, "toggle15") == 0) { // initialize jedge
       Menu[15] = 1501;
