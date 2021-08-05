@@ -45,6 +45,8 @@ Player ID Initial Setup:
    6a. Do the same for tagger version option.
     7. Turn off this tagger
     8. Repeat steps 1-7 for each modded tagger.
+
+  **** Note: jedge uses custom audio files, be sure to upload to your tagger before running jedge.
     
     Again, this is a one time set up. This is essential if you plan on updating your tagger in the future so that you can keep your unique tagger player IDs consistent, regardless of updates.
     
@@ -88,6 +90,9 @@ Ammunition Modes:
 
 Melee Mode:
 1.	You can toggle melee to off/on/disarm. Under disarm/arm Melee will cause players to lose their weapons instead of take damage. This can be used for taking prisoners and gun point if your able to pull it off and take hostages. Be careful though, because you can arm them if you melee them a second time as it both arms and disarms players. This allows for team mates to rescue them and arm them for their escape.
+
+Health adjustment:
+1. Apply handicaps or make it a one hit kills game.
 
 Preset Game Modes:
 I have put together quick start game settings to make game starting faster/easier. Be careful though because some of the game modes modify game play so be sure to go do default if playing a complicated game set up so that it makes sure it changes the way the taggers behave, if changing your game mode the next match. Note that after selecting a preset game mode you can modify/customize it as well.
@@ -143,19 +148,6 @@ Assimilation:
            * Gender - male
            * Friendly Fire - off
 * This game has a special mode where when you are killed, you respawn to the team of the person that killed you. This repeats until all players are the same team or the time is up.
-
-Survival/Infection:
-           * Weapon 0 - Burst Rifle
-           * Weapon 1 - medic heal dart with alt fire
-           * Lives - Unlimited
-           * Game Time - 10
-           * Delay Start - 30 sec
-           * Ammunitions - ulimited mags
-           * Teams - manual set (just red and green) human and infected
-           * Respawn - Auto 15 seconds
-           * Gender - Male
-           * Friendly Fire – Off
-* This game requires manual team selection to designate who are the infected ones. If human, you respawn as an infected one.
 
 Own the Zone:
            * Weapon 0 - Force Rifle
@@ -232,6 +224,16 @@ Default Mode:
            * Friendly Fire – On
 * These are defaults that the taggers start up with pre-loaded and you can quickly switch back to them
 
+Star Wars:
+Play awesome star wars sounds with a high powered blaster and fast but week automatic rifle blaster, enjoy movie music
+And character sounds during play. Your melee weapon is a light saber!!!
+
+Halo:
+Same as team death match with energy weapons. Play cool sohndtrack music with air strikes going on in the background!
+
+Contra mode:
+Retro gaming at its finest. Use the original contra assault rifle with an alternate weapon as the spread gun that works like a shotgun
+
 Disclaimers:
 ----------------------------------
 JEDGE is an open source project that was mostly coded by one individual, but with contributions from many, to pull it all together. Thousands of thanks are owed to all of those who have contributed to this work in the devlopment of JEDGE. It would not have been possible without your support!
@@ -240,7 +242,7 @@ The devices do need to be hard wired in with quick disconnect means. If you wish
 
 General Use Guidelines:
 ----------------------------------
-The system is designed so that all players start in the same location, within range of a hosting device which can be a tagger with the software  installed or a standalone esp32.
+The system is designed so that all players start in the same location, within range of a hosting devic, a standalone esp32.
 1. One individual uses the mobile app to modify the game settings as desired
 2. Taggers announce confirmations of the game settings being selected
 2. The individual using the mobile app presses "start game"
@@ -294,7 +296,7 @@ OTA :
 ----------------------------------
 
 
-Before beginning, make sure you updated the correct wifi credentials for your wifi network that is connected to the internet. look for the following: const char* OTAssid = "yourwifinetwork"; // network name to update OTA
+Before beginning, make sure you updated the correct wifi credentials for your wifi network that is connected to the internet. wifi credentials are entered in the web application only DO NOT MODIFY ANY THING IN THE CODE.
 const char* OTApassword = "password"; // Network password for OTA
 
 1. Pressing the OTA button causes both the esp32 to stop listening to ESPNOW    this will ensure that your esp32 is running the update program, just wait for it...
