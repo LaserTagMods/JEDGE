@@ -1126,6 +1126,164 @@ void AccumulateIncomingScores() {
     Serial.println(String(millis()));
     //UpdateWebApp();
 }
+// adjust settings for offline weapon use and callouts
+void weaponalignment() {
+  if (pbgame < 3) {// F4A, Death, Generals
+    if (pbweap = 0) {
+     AudioSelection1 = "VA4B";
+    }
+    if (pbweap = 1) {
+     AudioSelection1 = "VA5Y";
+    }
+    if (pbweap = 2) {
+     AudioSelection1 = "VA5R";
+    }
+    if (pbweap = 3) {
+     AudioSelection1 = "VA6A";
+    }
+    if (pbweap = 4) {
+     AudioSelection1 = "VA4F";
+    }
+    if (pbweap = 5) {
+     AudioSelection1 = "VA6B";
+    }
+    if (pbweap = 6) {
+     AudioSelection1 = "VA9O";
+    }
+  }
+  if (pbgame > 2 && pbgame < 5 && pbteam == 0) {// supremacy, commanders
+    if (pbweap = 0) {
+     AudioSelection1 = "V3M";
+    }
+    if (pbweap = 1) {
+     AudioSelection1 = "VEM";
+    }
+    if (pbweap = 2) {
+     AudioSelection1 = "V8M";
+    }
+    if (pbweap = 3) {
+     AudioSelection1 = "VHM";
+    }
+    if (pbweap = 4) {
+     AudioSelection1 = "VNM";
+    }
+    if (pbweap = 5) {
+     AudioSelection1 = "VS1";
+    }
+  }
+  if (pbgame > 2 && pbgame < 5 && pbteam == 1) {// supremacy, commanders
+    if (pbweap = 0) {
+     AudioSelection1 = "VCM";
+    }
+    if (pbweap = 1) {
+     AudioSelection1 = "V7M";
+    }
+    if (pbweap = 2) {
+     AudioSelection1 = "V2M";
+    }
+    if (pbweap = 3) {
+     AudioSelection1 = "V1M";
+    }
+    if (pbweap = 4) {
+     AudioSelection1 = "VNM";
+    }
+    if (pbweap = 5) {
+     AudioSelection1 = "VS1";
+    }
+  }
+  if (pbgame > 2 && pbgame < 5 && pbteam == 2) {// supremacy, commanders
+    if (pbweap = 0) {
+     AudioSelection1 = "VKM";
+    }
+    if (pbweap = 1) {
+     AudioSelection1 = "VDM";
+    }
+    if (pbweap = 2) {
+     AudioSelection1 = "VGM";
+    }
+    if (pbweap = 3) {
+     AudioSelection1 = "VJM";
+    }
+    if (pbweap = 4) {
+     AudioSelection1 = "VNM";
+    }
+    if (pbweap = 5) {
+     AudioSelection1 = "VS1";
+    }
+  }
+  if (pbgame > 4 && pbteam == 0) {// survival, swarm
+    if (pbweap = 0) {
+     AudioSelection1 = "VA4B";
+    }
+    if (pbweap = 1) {
+     AudioSelection1 = "VA5Y";
+    }
+    if (pbweap = 2) {
+     AudioSelection1 = "VA5R";
+    }
+    if (pbweap = 3) {
+     AudioSelection1 = "VA6A";
+    }
+    if (pbweap = 4) {
+     AudioSelection1 = "VA4F";
+    }
+    if (pbweap = 5) {
+     AudioSelection1 = "VA6B";
+    }
+    if (pbweap = 6) {
+     AudioSelection1 = "VA9O";
+    }
+  }
+  AUDIO1 = true;
+}
+// adjust settings for offline game mode team settings
+void teamalignment() {
+  if (SetTeam == 0 || Team == 0) {
+    if (pbgame == 3 || pbgame == 4) {
+      AudioSelection = "RS9"; pbteam = 0;
+    } 
+    if (pbgame > 4) {
+      AudioSelection = "VA3T"; pbteam = 0;
+    } 
+    if (pbgame < 3) {
+      AudioSelection = "VA13"; pbteam = 0;
+    }
+  }
+  if (SetTeam == 1 || Team == 1) {
+    if (pbgame == 3 || pbgame == 4) {
+      AudioSelection = "VA4N"; pbteam = 1;
+    } 
+    if (pbgame > 4) {
+      AudioSelection = "VA1L"; pbteam = 0;
+    } 
+    if (pbgame < 3) {
+      AudioSelection = "VA1L"; pbteam = 1;
+    }
+  }
+  if (SetTeam == 3 || Team == 3) {
+    if (pbgame == 3 || pbgame == 4) {
+      AudioSelection = "VA71"; pbteam = 2;
+    } 
+    if (pbgame > 4) {
+      AudioSelection = "VA3Y"; pbteam = 1;
+    } 
+    if (pbgame < 3) {
+      AudioSelection = "VA27"; pbteam = 2;
+    }
+  }
+  if (SetTeam == 2 || Team == 2) {
+    if (pbgame == 3 || pbgame == 4) {
+      AudioSelection = "VA1R"; pbteam = 0;
+    } 
+    if (pbgame > 4) {
+      AudioSelection = "VA1R"; pbteam = 0;
+    } 
+    if (pbgame < 3) {
+      AudioSelection = "VA1R"; pbteam = 1;
+    }
+  }
+  AUDIO1 = true;
+}
 void ProcessIncomingCommands() {
   ledState = !ledState;
   //Serial.print("cOMMS loop running on core ");
@@ -1390,16 +1548,16 @@ void ProcessIncomingCommands() {
           Serial.println("Free For All"); 
           SetTeam=0;
           SetFF=1;
-          AudioSelection="VA30";
+          //AudioSelection="VA30";
         }
         if (b==2) {
           Serial.println("Teams Mode Two Teams (odds/evens)");
           if (GunID % 2) {
             SetTeam=0; 
-            AudioSelection="VA13";
+            //AudioSelection="VA13";
           } else {
             SetTeam=1; 
-            AudioSelection="VA1L";
+            //AudioSelection="VA1L";
           }
         }
         if (b==3) {
@@ -1407,15 +1565,15 @@ void ProcessIncomingCommands() {
           while (A < 64) {
             if (GunID == A) {
               SetTeam=0;
-              AudioSelection="VA13";
+              //AudioSelection="VA13";
             }
             if (GunID == B) {
               SetTeam=1;
-              AudioSelection="VA1L";
+              //AudioSelection="VA1L";
             }
             if (GunID == C) {
               SetTeam=3;
-              AudioSelection1="VA27";
+              //AudioSelection1="VA27";
             }
             A = A + 3;
             B = B + 3;
@@ -1431,19 +1589,19 @@ void ProcessIncomingCommands() {
           while (A < 64) {
             if (GunID == A) {
               SetTeam=0;
-              AudioSelection="VA13";
+              //AudioSelection="VA13";
             }
             if (GunID == B) {
               SetTeam=1;
-              AudioSelection="VA1L";
+              //AudioSelection="VA1L";
             }
             if (GunID == C) {
               SetTeam=2;
-              AudioSelection="VA1R";
+              //AudioSelection="VA1R";
             }
             if (GunID == D) {
               SetTeam=3;
-              AudioSelection="VA27";
+              //AudioSelection="VA27";
             }
             A = A + 4;
             B = B + 4;
@@ -1462,6 +1620,8 @@ void ProcessIncomingCommands() {
           SetTeam=100; 
           AudioSelection="VA5E";
         } // this one allows for manual input of settings... each gun will need to select a team now
+        teamalignment();
+      
         AUDIO=true;
         ChangeMyColor = SetTeam; // triggers a gun/tagger color change
       }
@@ -2324,6 +2484,7 @@ void ProcessIncomingCommands() {
          Serial.println("starting game");
          if (SetTeam == 100) {
            SetTeam=Team;
+           Team = 99;
          }
        }
      }
@@ -2591,24 +2752,24 @@ void ProcessIncomingCommands() {
       } else { 
         ChangeMyColor++;
       }
-      if (incomingData2 == 2100) { pbgame = 0; AudioSelection1="VA30";}
-      if (incomingData2 == 2101) { pbgame = 1; AudioSelection1="VA26";}
-      if (incomingData2 == 2102) { pbgame = 2; AudioSelection1="VA36";}
-      if (incomingData2 == 2103) { pbgame = 3; AudioSelection1="VA62";}
-      if (incomingData2 == 2104) { pbgame = 4; AudioSelection1="VA1Y";}
-      if (incomingData2 == 2105) { pbgame = 5; AudioSelection1="VA64";}
-      if (incomingData2 == 2106) { pbgame = 6; AudioSelection1="VA6J";}
-      if (incomingData2 == 2107) { pbteam = 0; SetTeam = 0;}
-      if (incomingData2 == 2108) { pbteam = 1; SetTeam = 1;}
-      if (incomingData2 == 2109) { pbteam = 3; SetTeam = 3;}
-      if (incomingData2 == 2143) { pbteam = 2; SetTeam = 2;}
-      if (incomingData2 == 2110) { pbweap = 0;}
-      if (incomingData2 == 2111) { pbweap = 1;}
-      if (incomingData2 == 2112) { pbweap = 2;}
-      if (incomingData2 == 2113) { pbweap = 3;}
-      if (incomingData2 == 2114) { pbweap = 4;}
-      if (incomingData2 == 2115) { pbweap = 5;}
-      if (incomingData2 == 2116) { pbweap = 6;}
+      if (incomingData2 == 2100) { pbgame = 0; AudioSelection1="VA30";} // f4A
+      if (incomingData2 == 2101) { pbgame = 1; AudioSelection1="VA26";} // DMATCH
+      if (incomingData2 == 2102) { pbgame = 2; AudioSelection1="VA36";} // GENERALS
+      if (incomingData2 == 2103) { pbgame = 3; AudioSelection1="VA62";} // SUPREM
+      if (incomingData2 == 2104) { pbgame = 4; AudioSelection1="VA1Y";} // COMMNDR
+      if (incomingData2 == 2105) { pbgame = 5; AudioSelection1="VA64";} // SURVIVAL
+      if (incomingData2 == 2106) { pbgame = 6; AudioSelection1="VA6J";} // SWARM
+      if (incomingData2 == 2107) { SetTeam = 0; if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "RS9"; pbteam = 0;} if (pbgame > 4) {AudioSelection1 = "VA3T"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA13"; pbteam = 0;}}
+      if (incomingData2 == 2108) { SetTeam = 1; if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA4N"; pbteam = 1;} if (pbgame > 4) {AudioSelection1 = "VA1L"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA1L"; pbteam = 1;}}
+      if (incomingData2 == 2109) { SetTeam = 3; if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA71"; pbteam = 2;} if (pbgame > 4) {AudioSelection1 = "VA3Y"; pbteam = 1;} if (pbgame < 3) {AudioSelection1 = "VA27"; pbteam = 0;}}
+      if (incomingData2 == 2143) { SetTeam = 2; if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA1R"; pbteam = 1;} if (pbgame > 4) {AudioSelection1 = "VA1R"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA1R"; pbteam = 1;}}
+      if (incomingData2 == 2110) { pbweap = 0; weaponalignment();}
+      if (incomingData2 == 2111) { pbweap = 1; weaponalignment();}
+      if (incomingData2 == 2112) { pbweap = 2; weaponalignment();}
+      if (incomingData2 == 2113) { pbweap = 3; weaponalignment();}
+      if (incomingData2 == 2114) { pbweap = 4; weaponalignment();}
+      if (incomingData2 == 2115) { pbweap = 5; weaponalignment();}
+      if (incomingData2 == 2116) { pbweap = 6; weaponalignment();}
       if (incomingData2 == 2117) { pbperk = 0; AudioSelection1="VA38";}
       if (incomingData2 == 2118) { pbperk = 1; AudioSelection1="VA4D";}
       if (incomingData2 == 2119) { pbperk = 2; AudioSelection1="VA1G";}
@@ -2645,6 +2806,9 @@ void ProcessIncomingCommands() {
       if (incomingData2 == 2149) { GameMode = 13; AudioSelection1="SW00"; } // starwars
       if (incomingData2 == 2150) { GameMode = 14; AudioSelection1="JA5";} // halo
       if (incomingData2 == 2199) {
+        MyKills = 0;
+        ClearScores();
+        Deaths = 0;
         sendString("$PBINDOOR," + String(pbindoor) + ",*");
         sendString("$PBINDOOR," + String(pbindoor) + ",*");
         sendString("$PBGAME," + String(pbgame) + ",*");
@@ -2663,9 +2827,8 @@ void ProcessIncomingCommands() {
         sendString("$PBSTART,*");
         sendString("$PID," + String(GunID) + ",*");
         sendString("$PID," + String(GunID) + ",*");
-        pbteam = SetTeam;
-        sendString("$TID," + String(pbteam) + ",*");
-        sendString("$TID," + String(pbteam) + ",*");
+        sendString("$TID," + String(SetTeam) + ",*");
+        sendString("$TID," + String(SetTeam) + ",*");
         INGAME = true;
         sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
         sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
@@ -4950,13 +5113,13 @@ void ProcessBRXData() {
             if (Team==0 && STATUSCHANGE == false) {
               Team=3; 
               STATUSCHANGE=true; 
-              AudioSelection1="VA3Y"; 
+              teamalignment(); 
               AUDIO1=true;
               Serial.println("team changed to Infected");
             }          
             if (Team==3 && STATUSCHANGE == false) {
               Team=0; 
-              AudioSelection1="VA3T"; 
+              teamalignment(); 
               AUDIO1=true;
               Serial.println("team changed to Human");
             }
@@ -4965,38 +5128,38 @@ void ProcessBRXData() {
             if (Team==5) {
               Team=0; 
               STATUSCHANGE=true; 
-              AudioSelection1="VA13"; 
+              teamalignment(); 
               AUDIO1=true;
               Serial.println("team changed from 5 to 0");
             }          
             if (Team==4) {
               Team=5; 
-              AudioSelection1="VA2Y"; 
+              teamalignment(); 
               AUDIO1=true; 
               Serial.println("team changed from 4 to 5");
             } // foxtrot team
             if (Team==3) {
               Team=0; 
               STATUSCHANGE=true; 
-              AudioSelection1="VA13"; 
+              teamalignment(); 
               AUDIO1=true; 
               Serial.println("team changed from 3 to 0");
             } // echo team
             if (Team==2) {
               Team=3; 
-              AudioSelection1="VA27"; 
+              teamalignment(); 
               AUDIO1=true; 
               Serial.println("team changed from 2 to 3");
             } // delta team
             if (Team==1) {
               Team=2; 
-              AudioSelection1="VA1R"; 
+              teamalignment(); 
               AUDIO1=true; 
               Serial.println("team changed from 1 to 2");
             } // charlie team
             if (Team==0 && STATUSCHANGE==false) {
               Team=1; 
-              AudioSelection1="VA1L"; 
+              teamalignment();
               AUDIO1=true; Serial.println("team changed from 0 to 1");
             } // bravo team        
             STATUSCHANGE=false;
@@ -5007,121 +5170,139 @@ void ProcessBRXData() {
           if (SLOTA==19) {
             SLOTA=1; 
             STATUSCHANGE=true; 
-            AudioSelection1="GN01"; 
+            //AudioSelection1="GN01"; 
             AUDIO1=true; 
             Serial.println("Weapon changed from 19 to 1");
           }          
           if (SLOTA==18) {
             SLOTA=19; 
-            AudioSelection1="GN19"; 
+            //AudioSelection1="GN19"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 18 to 19");
           } // 
           if (SLOTA==17) {
             SLOTA=18; 
-            AudioSelection1="GN18"; 
+            //AudioSelection1="GN18"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 17 to 18");
           } // 
           if (SLOTA==16) {
             SLOTA=17; 
-            AudioSelection1="GN17"; 
+            //AudioSelection1="GN17"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 16 to 17");
           } // 
           if (SLOTA==15) {
             SLOTA=16; 
-            AudioSelection1="GN16"; 
+            //AudioSelection1="GN16"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 15 to 16");
           } //        
           if (SLOTA==14) {
             SLOTA=15; 
-            AudioSelection1="GN15"; 
+            //AudioSelection1="GN15"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 14 to 15");
           } // 
           if (SLOTA==13) {
             SLOTA=14; 
-            AudioSelection1="GN14"; 
+            //AudioSelection1="GN14"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 13 to 14");
           } // 
           if (SLOTA==12) {
             SLOTA=13; 
-            AudioSelection1="GN13"; 
+            //AudioSelection1="GN13"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 12 to 13");
           } // 
           if (SLOTA==11) {
             SLOTA=12; 
-            AudioSelection1="GN12"; 
+            //AudioSelection1="GN12"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 11 to 12");
           } //         
           if (SLOTA==10) {
             SLOTA=11; 
-            AudioSelection1="GN11"; 
+            //AudioSelection1="GN11"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 10 to 11");
           } // 
           if (SLOTA==9) {
             SLOTA=10; 
-            AudioSelection1="GN10"; 
+            //AudioSelection1="GN10"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 9 to 10");
           } // 
           if (SLOTA==8) {
             SLOTA=9; 
-            AudioSelection1="GN09"; 
+            //AudioSelection1="GN09"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 8 to 9");
           } // 
           if (SLOTA==7) {
-            SLOTA=8; 
-            AudioSelection1="GN08"; 
+            //SLOTA=8;
+            SLOTA=1; 
+            STATUSCHANGE=true;
+            pbweap = 0;
+             weaponalignment();
+            //AudioSelection1="GN08"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 7 to 8");
           } // 
           if (SLOTA==6) {
             SLOTA=7; 
-            AudioSelection1="GN07"; 
+            pbweap = 6;
+            weaponalignment();
+            //AudioSelection1="GN07"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 6 to 7");
           } // 
           if (SLOTA==5) {
             SLOTA=6; 
-            AudioSelection1="GN06"; 
+            pbweap = 5;
+            weaponalignment();
+            //AudioSelection1="GN06"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 5 to 6");
           } // 
           if (SLOTA==4) {
             SLOTA=5; 
-            AudioSelection1="GN05"; 
+            pbweap = 4;
+            weaponalignment();
+            //AudioSelection1="GN05"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 4 to 5");
           } //         
           if (SLOTA==3) {
             SLOTA=4; 
-            AudioSelection1="GN04"; 
+            pbweap = 3;
+            weaponalignment();
+            //AudioSelection1="GN04"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 3 to 4");
           } // 
           if (SLOTA==2) {
             SLOTA=3; 
-            AudioSelection1="GN03"; 
+            pbweap = 2;
+            weaponalignment();
+            //AudioSelection1="GN03"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 2 to 3");
           } // 
           if (SLOTA==1 && STATUSCHANGE==false) {
             SLOTA=2; 
-            AudioSelection1="GN02"; 
+            pbweap = 1;
+            weaponalignment();
+            //AudioSelection1="GN02"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 1 to 2");
           } // 
           if (SLOTA==100) {
             SLOTA=1; 
-            AudioSelection1="GN01"; 
+            pbweap = 0;
+            weaponalignment();
+            //AudioSelection1="GN01"; 
             AUDIO1=true; 
             Serial.println("Weapon 0 changed from 0 to 1");
           } //        
@@ -5266,6 +5447,8 @@ void ProcessBRXData() {
           GETTEAM=false; 
           AudioSelection1="VAO"; 
           AUDIO1=true;
+          SetTeam = Team;
+          Team = 99;
         }
         if (GETSLOT0) {
           GETSLOT0=false; 

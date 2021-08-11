@@ -682,9 +682,9 @@ const char index_html[] PROGMEM = R"rawliteral(
       </p>
       <h2>Select A Team/Faction</h2>
       <p><select name="pbteam" id="pbteamid">
-        <option value="2107">Resistance - Alpha - Survivor</option>
-        <option value="2108">Nexus - Bravo - Infected</option>
-        <option value="2109">Vanguard</option>
+        <option value="2107">Resistance - Alpha - Human</option>
+        <option value="2108">Nexus - Bravo</option>
+        <option value="2109">Vanguard - infected</option>
         <option value="2143">Charlie</option>
         <option value="502">Two Teams (Odds Vs Evens)</option>
         <option value="503">Three Teams (every third)</option>
@@ -777,6 +777,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="2114">MG-7 - Mercenary</option>
         <option value="2115">TAR-33 - Commander/General</option>
         <option value="2116">Silenced AR</option>
+        <option value="1">Manual Selection</option>
         </select>
       </p>
       <h2>Select A Perk - General & Deathmatch</h2>
