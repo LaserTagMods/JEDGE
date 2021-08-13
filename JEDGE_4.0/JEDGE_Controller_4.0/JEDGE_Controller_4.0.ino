@@ -19,7 +19,7 @@
 #include <EEPROM.h> // used for storing data even after reset, in flash/eeprom memory
 
 // define the number of bytes I'm using/accessing for eeprom
-#define EEPROM_SIZE 4 // use 0 for OTA and 1 for Tagger ID
+#define EEPROM_SIZE 100 // use 0 for OTA and 1 for Tagger ID
 // EEPROM Definitions:
 // EEPROM 0 is used for number of taggers
 
@@ -46,7 +46,7 @@ int updatenotification;
 unsigned long previousMillis_2 = 0;
 const long otainterval = 1000;
 const long mini_interval = 1000;
-String FirmwareVer = {"4.1"};
+String FirmwareVer = {"4.3"};
 
 // text inputs
 const char* PARAM_INPUT_1 = "input1";
@@ -4830,7 +4830,27 @@ void setup(){
   if (eepromtaggercount > 0 && eepromtaggercount < 65) {
     TaggersOwned = eepromtaggercount;
   }
-
+  // setting up eeprom based SSID:
+  String esid;
+  for (int i = 1; i < 33; ++i)
+  {
+    esid += char(EEPROM.read(i));
+  }
+  Serial.println();
+  Serial.print("SSID: ");
+  Serial.println(esid);
+  Serial.println("Reading EEPROM pass");
+  // Setting up EEPROM Password
+  String epass = "";
+  for (int i = 34; i < 96; ++i)
+  {
+    epass += char(EEPROM.read(i));
+  }
+  Serial.print("PASS: ");
+  Serial.println(epass);
+  // now updating the OTA credentials to match
+  OTAssid = esid;
+  OTApassword = epass;
   // Connect to Wi-Fi
   Serial.println("Starting AP");
   WiFi.mode(WIFI_AP_STA);
@@ -4866,12 +4886,40 @@ void setup(){
       inputMessage = request->getParam(PARAM_INPUT_1)->value();
       inputParam = PARAM_INPUT_1;
       OTAssid = inputMessage;
+      Serial.println("clearing eeprom");
+      for (int i = 1; i < 34; ++i) {
+        EEPROM.write(i, 0);
+      }
+      Serial.println("writing eeprom ssid:");
+      int j = 1;
+      for (int i = 0; i < OTAssid.length(); ++i)
+      {
+        EEPROM.write(j, OTAssid[i]);
+        Serial.print("Wrote: ");
+        Serial.println(OTAssid[i]);
+        j++;
+      }
+      EEPROM.commit();
     }
     // GET input2 value on <ESP_IP>/get?input2=<inputMessage>
     else if (request->hasParam(PARAM_INPUT_2)) {
       inputMessage = request->getParam(PARAM_INPUT_2)->value();
       inputParam = PARAM_INPUT_2;
       OTApassword = inputMessage;
+      Serial.println("clearing eeprom");
+      for (int i = 34; i < 96; ++i) {
+        EEPROM.write(i, 0);
+      }
+      Serial.println("writing eeprom Password:");
+      int k = 34;
+      for (int i = 0; i < OTApassword.length(); ++i)
+      {
+        EEPROM.write(k, OTApassword[i]);
+        Serial.print("Wrote: ");
+        Serial.println(OTApassword[i]);
+        k++;
+      }
+      EEPROM.commit();
     }
     else {
       inputMessage = "No message sent";
