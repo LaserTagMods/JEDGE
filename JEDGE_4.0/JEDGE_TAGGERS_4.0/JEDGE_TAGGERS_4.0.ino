@@ -141,7 +141,8 @@
  *                    Hopefully assimilation is now working as well. 
  * updated 08/04/2021 Even better improvements for assimilation mode. making it work even smoother.
  *                    Added in off line game mode options/settings
- *                    
+ * updated 08/1202021 Incorporated all pbgame settings for primarily utilizing offline game modes, trouble shooting issues as well                   
+ * 
  */
 
 //*************************************************************************
@@ -188,7 +189,7 @@ String OTAssid = "dontchangeme"; // network name to update OTA
 String OTApassword = "dontchangeme"; // Network password for OTA
 int TaggersOwned = 64; // how many taggers do you own or will play?
 bool ACTASHOST = false; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
-String FirmwareVer = {"3.37"};
+String FirmwareVer = {"4.7"};
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -225,7 +226,9 @@ int pblives = 0;
 int pbtime = 0;
 int pbspawn = 0;
 int pbindoor = 0;
-
+bool PBGAMESTART = false;
+bool PBLOCKOUT = false;
+bool PBENDGAME = false;
 
 // definitions for analyzing incoming brx serial data
 String readStr; // the incoming data is stored as this string
@@ -275,6 +278,7 @@ int SwapPistolLevel = 0;
 long SelectButtonTimer = 0; // used to disable option to swap weapons
 int GetAmmoOdds = 3; // setting default odds as 1/3 for ammo reload
 
+long LastDeathTime = 0;
 int Deaths = 0; // death counter
 int Team=0; // team selection used when allowed for custom configuration
 int MyKills = 0; // counter for this players kill count
@@ -333,6 +337,7 @@ bool TAGGERUPDATE = false; // used to trigger sending data to ESP8266 used for B
 bool TAGGERUPDATE1 = false; // used to turn off BLE core lcd send data trigger
 bool AUDIO = false; // used to trigger an audio on tagger FOR SERIAL CORE
 bool AUDIO1 = false; // used to trigger an audio on tagger FOR BLE CORE
+int AudioChannel = 3;
 bool GAMESTART = false; // used to trigger game start
 bool TurnOffAudio=false; // used to trigger audio off from serial core
 bool GETTEAM=false; // used when configuring customized settings
@@ -1009,20 +1014,21 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
   }
 }
 void ClearScores() {
-  int playercounter = 0;
-  while (playercounter < 64) {
-    PlayerKills[playercounter] = 0;
-    playercounter++;
-    delay(1);
-  }
+  Serial.println("resetting all scores");
+  CompletedObjectives = 0;
   int teamcounter = 0;
   while (teamcounter < 4) {
-    TeamKills[teamcounter] = 0;
-    TeamObjectives[teamcounter] = 0;
-    TeamDeaths[teamcounter] = 0;
+    TeamKillCount[teamcounter] = 0;
     teamcounter++;
+    vTaskDelay(1);
   }
-  Serial.println("reset all stored scores from previous game, done");
+  int playercounter = 0;
+  while (playercounter < 64) {
+    PlayerKillCount[playercounter] = 0;
+    playercounter++;
+    vTaskDelay(1);
+  }
+  Serial.println("Scores Reset");
 }
 //**************************************************************
 void SyncScores() {
@@ -1084,7 +1090,7 @@ void AccumulateIncomingScores() {
     // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
     Serial.println("Score Data Recieved from a tagger:");
   
-    int Deaths=0;
+    int TempDeaths=0;
     int Objectives=0;
     int Kills=0;
     int Team=0;
@@ -1098,9 +1104,9 @@ void AccumulateIncomingScores() {
     }
     Player=Data[0];
     Serial.println("Player ID: " + String(Player));
-    Deaths = Data[3] + Data[4] + Data[5] + Data[6]; // added the total team kills to accumulate the number of deaths of this player
-    Serial.println("Player Deaths: "+String(Deaths));
-    PlayerDeaths[Player] = Deaths; // just converted temporary data to this players death count record
+    TempDeaths = Data[3] + Data[4] + Data[5] + Data[6]; // added the total team kills to accumulate the number of deaths of this player
+    Serial.println("Player Deaths: "+String(TempDeaths));
+    PlayerDeaths[Player] = TempDeaths; // just converted temporary data to this players death count record
     TeamKills[0] = TeamKills[0] + Data[3]; // accumulating team kill counts
     TeamKills[1] = TeamKills[1] + Data[4];
     TeamKills[2] = TeamKills[2] + Data[5];
@@ -1118,7 +1124,7 @@ void AccumulateIncomingScores() {
       j++;
     }
     Team = Data[1]; // setting the player's team for accumulation of player objectives
-    TeamDeaths[Team] = TeamDeaths[Team] + Deaths;
+    TeamDeaths[Team] = TeamDeaths[Team] + TempDeaths;
     PlayerObjectives[Player] = Data[2]; // converted temporary data storage to main memory for score reporting of player objectives
     Serial.println("Player Objectives completed: "+String(Data[2]));
     Serial.println("Player Objectives completed: "+String(PlayerObjectives[Player]));
@@ -1129,108 +1135,108 @@ void AccumulateIncomingScores() {
 // adjust settings for offline weapon use and callouts
 void weaponalignment() {
   if (pbgame < 3) {// F4A, Death, Generals
-    if (pbweap = 0) {
+    if (pbweap == 0) {
      AudioSelection1 = "VA4B";
     }
-    if (pbweap = 1) {
+    if (pbweap == 1) {
      AudioSelection1 = "VA5Y";
     }
-    if (pbweap = 2) {
+    if (pbweap == 2) {
      AudioSelection1 = "VA5R";
     }
-    if (pbweap = 3) {
+    if (pbweap == 3) {
      AudioSelection1 = "VA6A";
     }
-    if (pbweap = 4) {
+    if (pbweap == 4) {
      AudioSelection1 = "VA4F";
     }
-    if (pbweap = 5) {
+    if (pbweap == 5) {
      AudioSelection1 = "VA6B";
     }
-    if (pbweap = 6) {
+    if (pbweap == 6) {
      AudioSelection1 = "VA9O";
     }
   }
   if (pbgame > 2 && pbgame < 5 && pbteam == 0) {// supremacy, commanders
-    if (pbweap = 0) {
+    if (pbweap == 0) {
      AudioSelection1 = "V3M";
     }
-    if (pbweap = 1) {
+    if (pbweap == 1) {
      AudioSelection1 = "VEM";
     }
-    if (pbweap = 2) {
+    if (pbweap == 2) {
      AudioSelection1 = "V8M";
     }
-    if (pbweap = 3) {
+    if (pbweap == 3) {
      AudioSelection1 = "VHM";
     }
-    if (pbweap = 4) {
+    if (pbweap == 4) {
      AudioSelection1 = "VNM";
     }
-    if (pbweap = 5) {
+    if (pbweap == 5) {
      AudioSelection1 = "VS1";
     }
   }
   if (pbgame > 2 && pbgame < 5 && pbteam == 1) {// supremacy, commanders
-    if (pbweap = 0) {
+    if (pbweap == 0) {
      AudioSelection1 = "VCM";
     }
-    if (pbweap = 1) {
+    if (pbweap == 1) {
      AudioSelection1 = "V7M";
     }
-    if (pbweap = 2) {
+    if (pbweap == 2) {
      AudioSelection1 = "V2M";
     }
-    if (pbweap = 3) {
+    if (pbweap == 3) {
      AudioSelection1 = "V1M";
     }
-    if (pbweap = 4) {
+    if (pbweap == 4) {
      AudioSelection1 = "VNM";
     }
-    if (pbweap = 5) {
+    if (pbweap == 5) {
      AudioSelection1 = "VS1";
     }
   }
   if (pbgame > 2 && pbgame < 5 && pbteam == 2) {// supremacy, commanders
-    if (pbweap = 0) {
+    if (pbweap == 0) {
      AudioSelection1 = "VKM";
     }
-    if (pbweap = 1) {
+    if (pbweap == 1) {
      AudioSelection1 = "VDM";
     }
-    if (pbweap = 2) {
+    if (pbweap == 2) {
      AudioSelection1 = "VGM";
     }
-    if (pbweap = 3) {
+    if (pbweap == 3) {
      AudioSelection1 = "VJM";
     }
-    if (pbweap = 4) {
+    if (pbweap == 4) {
      AudioSelection1 = "VNM";
     }
-    if (pbweap = 5) {
+    if (pbweap == 5) {
      AudioSelection1 = "VS1";
     }
   }
   if (pbgame > 4 && pbteam == 0) {// survival, swarm
-    if (pbweap = 0) {
+    if (pbweap == 0) {
      AudioSelection1 = "VA4B";
     }
-    if (pbweap = 1) {
+    if (pbweap == 1) {
      AudioSelection1 = "VA5Y";
     }
-    if (pbweap = 2) {
+    if (pbweap == 2) {
      AudioSelection1 = "VA5R";
     }
-    if (pbweap = 3) {
+    if (pbweap == 3) {
      AudioSelection1 = "VA6A";
     }
-    if (pbweap = 4) {
+    if (pbweap == 4) {
      AudioSelection1 = "VA4F";
     }
-    if (pbweap = 5) {
+    if (pbweap == 5) {
      AudioSelection1 = "VA6B";
     }
-    if (pbweap = 6) {
+    if (pbweap == 6) {
      AudioSelection1 = "VA9O";
     }
   }
@@ -1548,6 +1554,8 @@ void ProcessIncomingCommands() {
           Serial.println("Free For All"); 
           SetTeam=0;
           SetFF=1;
+          ProcessTeamsAssignmnet();
+          //AUDIO1 = true;
           //AudioSelection="VA30";
         }
         if (b==2) {
@@ -1559,6 +1567,8 @@ void ProcessIncomingCommands() {
             SetTeam=1; 
             //AudioSelection="VA1L";
           }
+          ProcessTeamsAssignmnet();
+          //AUDIO1=true;
         }
         if (b==3) {
           Serial.println("Teams Mode Three Teams (every third player)");
@@ -1583,7 +1593,9 @@ void ProcessIncomingCommands() {
           A = 0;
           B = 1;
           C = 2;
-        }    
+          ProcessTeamsAssignmnet();
+          //AUDIO1 = true;
+        }
         if (b==4) {
           Serial.println("Teams Mode Four Teams (every fourth player)");
           while (A < 64) {
@@ -1613,16 +1625,17 @@ void ProcessIncomingCommands() {
           B = 1;
           C = 2;
           D = 3;
+          ProcessTeamsAssignmnet();
+          //AUDIO1 = true;
         }
         if (b==5) {
           Serial.println("Teams Mode Player's Choice"); 
           settingsallowed=3; 
           SetTeam=100; 
           AudioSelection="VA5E";
+          AUDIO=true;
         } // this one allows for manual input of settings... each gun will need to select a team now
-        teamalignment();
-      
-        AUDIO=true;
+        //teamalignment();
         ChangeMyColor = SetTeam; // triggers a gun/tagger color change
       }
     }
@@ -2351,9 +2364,9 @@ void ProcessIncomingCommands() {
           ChangeMyColor++;
         }
       }
-      if (b == 2) { // this is an incoming score from a player!
-        AccumulateIncomingScores();
-      }
+      //if (b == 2) { // this is an incoming score from a player!
+        //AccumulateIncomingScores();
+      //}
     }
     if (incomingData2 < 1100 && incomingData2 > 999) { // Setting Gender
       int b = incomingData2 - 1000;
@@ -2747,285 +2760,102 @@ void ProcessIncomingCommands() {
     }
     // 2100s used for offline games
     if (incomingData2 > 2099 && incomingData2 < 3000) {
-      if (ChangeMyColor > 8) {
-        ChangeMyColor = 4; // triggers a gun/tagger color change
-      } else { 
-        ChangeMyColor++;
-      }
-      if (incomingData2 == 2100) { pbgame = 0; AudioSelection1="VA30";} // f4A
-      if (incomingData2 == 2101) { pbgame = 1; AudioSelection1="VA26";} // DMATCH
-      if (incomingData2 == 2102) { pbgame = 2; AudioSelection1="VA36";} // GENERALS
-      if (incomingData2 == 2103) { pbgame = 3; AudioSelection1="VA62";} // SUPREM
-      if (incomingData2 == 2104) { pbgame = 4; AudioSelection1="VA1Y";} // COMMNDR
-      if (incomingData2 == 2105) { pbgame = 5; AudioSelection1="VA64";} // SURVIVAL
-      if (incomingData2 == 2106) { pbgame = 6; AudioSelection1="VA6J";} // SWARM
-      if (incomingData2 == 2107) { SetTeam = 0; if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "RS9"; pbteam = 0;} if (pbgame > 4) {AudioSelection1 = "VA3T"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA13"; pbteam = 0;}}
-      if (incomingData2 == 2108) { SetTeam = 1; if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA4N"; pbteam = 1;} if (pbgame > 4) {AudioSelection1 = "VA1L"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA1L"; pbteam = 1;}}
-      if (incomingData2 == 2109) { SetTeam = 3; if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA71"; pbteam = 2;} if (pbgame > 4) {AudioSelection1 = "VA3Y"; pbteam = 1;} if (pbgame < 3) {AudioSelection1 = "VA27"; pbteam = 0;}}
-      if (incomingData2 == 2143) { SetTeam = 2; if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA1R"; pbteam = 1;} if (pbgame > 4) {AudioSelection1 = "VA1R"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA1R"; pbteam = 1;}}
-      if (incomingData2 == 2110) { pbweap = 0; weaponalignment();}
-      if (incomingData2 == 2111) { pbweap = 1; weaponalignment();}
-      if (incomingData2 == 2112) { pbweap = 2; weaponalignment();}
-      if (incomingData2 == 2113) { pbweap = 3; weaponalignment();}
-      if (incomingData2 == 2114) { pbweap = 4; weaponalignment();}
-      if (incomingData2 == 2115) { pbweap = 5; weaponalignment();}
-      if (incomingData2 == 2116) { pbweap = 6; weaponalignment();}
-      if (incomingData2 == 2117) { pbperk = 0; AudioSelection1="VA38";}
-      if (incomingData2 == 2118) { pbperk = 1; AudioSelection1="VA4D";}
-      if (incomingData2 == 2119) { pbperk = 2; AudioSelection1="VA1G";}
-      if (incomingData2 == 2120) { pbperk = 3; AudioSelection1="VA2N";}
-      if (incomingData2 == 2121) { pbperk = 4; AudioSelection1="VA1Z";}
-      if (incomingData2 == 2122) { pbperk = 5; AudioSelection1="VA24";}
-      if (incomingData2 == 2123) { pblives = 0; AudioSelection1="VA01";}
-      if (incomingData2 == 2124) { pblives = 1; AudioSelection1="VA03";}
-      if (incomingData2 == 2125) { pblives = 2; AudioSelection1="VA05";}
-      if (incomingData2 == 2126) { pblives = 3; AudioSelection1="VA0A";}
-      if (incomingData2 == 2127) { pblives = 4; AudioSelection1="VA0F";}
-      if (incomingData2 == 2128) { pblives = 5; AudioSelection1="VA6V";}
-      if (incomingData2 == 2129) { pbtime = 0; AudioSelection1="VA2S";}
-      if (incomingData2 == 2130) { pbtime = 1; AudioSelection1="VA6H";}
-      if (incomingData2 == 2131) { pbtime = 2; AudioSelection1="VA2P";}
-      if (incomingData2 == 2132) { pbtime = 3; AudioSelection1="VA6Q";}
-      if (incomingData2 == 2133) { pbtime = 4; AudioSelection1="VA0Q";}
-      if (incomingData2 == 2134) { pbtime = 5; AudioSelection1="VA6V";}
-      if (incomingData2 == 2135) { pbspawn = 0; AudioSelection1="VA4T";}
-      if (incomingData2 == 2136) { pbspawn = 1; AudioSelection1="VA2Q";}
-      if (incomingData2 == 2137) { pbspawn = 2; AudioSelection1="VA0R";}
-      if (incomingData2 == 2138) { pbspawn = 3; AudioSelection1="VA0V";}
-      if (incomingData2 == 2139) { pbspawn = 4; AudioSelection1="VA0S";}
-      if (incomingData2 == 2140) { pbspawn = 5; AudioSelection1="VA0W";}
-      if (incomingData2 == 2141) { pbindoor = 0; AudioSelection1="VA3W";}
-      if (incomingData2 == 2142) { pbindoor = 1; AudioSelection1="VA4W";}
-      if (incomingData2 == 2151) { pbindoor = 0; STEALTH = true; AudioSelection1="VA60";}
-      if (incomingData2 == 2152) { pbindoor = 1; STEALTH = true; AudioSelection1="VA60";}
-      if (incomingData2 == 2144) { GameMode = 0; AudioSelection1="VA5Z"; BACKGROUNDMUSIC = true;} // standard - defaul
-      if (incomingData2 == 2145) { GameMode = 4; AudioSelection1="VA8J"; BACKGROUNDMUSIC = true;} // battle royale
-      if (incomingData2 == 2146) { GameMode = 8; AudioSelection1="OP01"; BACKGROUNDMUSIC = true;} // assimilation
-      if (incomingData2 == 2147) { GameMode = 9; AudioSelection1="OP06"; BACKGROUNDMUSIC = true;} // gun game
-      if (incomingData2 == 2148) { GameMode = 12; AudioSelection1="CC07";} // contra
-      if (incomingData2 == 2149) { GameMode = 13; AudioSelection1="SW00"; } // starwars
-      if (incomingData2 == 2150) { GameMode = 14; AudioSelection1="JA5";} // halo
-      if (incomingData2 == 2199) {
-        MyKills = 0;
-        ClearScores();
-        Deaths = 0;
-        sendString("$PBINDOOR," + String(pbindoor) + ",*");
-        sendString("$PBINDOOR," + String(pbindoor) + ",*");
-        sendString("$PBGAME," + String(pbgame) + ",*");
-        sendString("$PBGAME," + String(pbgame) + ",*");
-        sendString("$PBLIVES," + String(pblives) + ",*");
-        sendString("$PBLIVES," + String(pblives) + ",*");
-        sendString("$PBTIME," + String(pbtime) + ",*");
-        sendString("$PBTIME," + String(pbtime) + ",*");
-        sendString("$PBSPAWN," + String(pbspawn) + ",*");
-        sendString("$PBSPAWN," + String(pbspawn) + ",*");
-        sendString("$PBWEAP," + String(pbweap) + ",*");
-        sendString("$PBWEAP," + String(pbweap) + ",*");
-        sendString("$PBPERK," + String(pbperk) + ",*");
-        sendString("$PBPERK," + String(pbperk) + ",*");
-        sendString("$PBSTART,*");
-        sendString("$PBSTART,*");
-        sendString("$PID," + String(GunID) + ",*");
-        sendString("$PID," + String(GunID) + ",*");
-        sendString("$TID," + String(SetTeam) + ",*");
-        sendString("$TID," + String(SetTeam) + ",*");
-        INGAME = true;
-        sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
-        sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
-        if (GameMode == 4) { // battle royale
-          sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-          sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-          sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5****
-          sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5****
-          sendString("$WEAP,0,,60,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,40,,*");
-          sendString("$WEAP,0,,60,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,40,,*");
-          sendString("$WEAP,3,1,90,15,0,6,0,,,,,,,,1400,50,1,32768,0,10,13,100,100,,0,0,,H29,,,,,,,D18,,,0,,1,9999999,20,,*"); // Set weapon 3 as respawn
-          sendString("$WEAP,3,1,90,15,0,6,0,,,,,,,,1400,50,1,32768,0,10,13,100,100,,0,0,,H29,,,,,,,D18,,,0,,1,9999999,20,,*"); // Set weapon 3 as respawn        
+      Serial.println("received a 2100 series command");
+      if (!INGAME) {
+        if (ChangeMyColor > 8) {
+          ChangeMyColor = 4; // triggers a gun/tagger color change
+        } else { 
+          ChangeMyColor++;
         }
-        if (GameMode == 8) { // assimilation
-          // NOTHING? JUST TRIGGER ADDED WHEN DEAD 
+        if (incomingData2 == 2100) { pbgame = 0; AudioSelection1="VA30"; Serial.println("Free For All");} // f4A
+        if (incomingData2 == 2101) { pbgame = 1; AudioSelection1="VA26"; Serial.println("Death Match");} // DMATCH
+        if (incomingData2 == 2102) { pbgame = 2; AudioSelection1="VA36"; Serial.println("Generals");} // GENERALS
+        if (incomingData2 == 2103) { pbgame = 3; AudioSelection1="VA62"; Serial.println("supremacy");} // SUPREM
+        if (incomingData2 == 2104) { pbgame = 4; AudioSelection1="VA1Y"; Serial.println("comander");} // COMMNDR
+        if (incomingData2 == 2105) { pbgame = 5; AudioSelection1="VA64"; Serial.println("survival");} // SURVIVAL
+        if (incomingData2 == 2106) { pbgame = 6; AudioSelection1="VA6J"; Serial.println("swarm");} // SWARM
+        if (incomingData2 == 2107) { SetTeam = 0; Serial.println("team0"); if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VS9"; pbteam = 0;} if (pbgame > 4) {AudioSelection1 = "VA3T"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA13"; pbteam = 0;} Serial.println("pbteam = " + String(pbteam)); ChangeMyColor = SetTeam;}
+        if (incomingData2 == 2108) { SetTeam = 1; Serial.println("team1"); if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA4N"; pbteam = 1;} if (pbgame > 4) {AudioSelection1 = "VA1L"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA1L"; pbteam = 1;} Serial.println("pbteam = " + String(pbteam)); ChangeMyColor = SetTeam;}
+        if (incomingData2 == 2109) { SetTeam = 3; Serial.println("team3"); if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA71"; pbteam = 2;} if (pbgame > 4) {AudioSelection1 = "VA3Y"; pbteam = 1;} if (pbgame < 3) {AudioSelection1 = "VA27"; pbteam = 0;} Serial.println("pbteam = " + String(pbteam)); ChangeMyColor = SetTeam;}
+        if (incomingData2 == 2143) { SetTeam = 2; Serial.println("team2"); if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA1R"; pbteam = 1;} if (pbgame > 4) {AudioSelection1 = "VA1R"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA1R"; pbteam = 1;} Serial.println("pbteam = " + String(pbteam)); ChangeMyColor = SetTeam;}
+        if (incomingData2 == 2110) { pbweap = 0; Serial.println("weap0"); weaponalignment();}
+        if (incomingData2 == 2111) { pbweap = 1; Serial.println("weap1"); weaponalignment();}
+        if (incomingData2 == 2112) { pbweap = 2; Serial.println("weap2"); weaponalignment();}
+        if (incomingData2 == 2113) { pbweap = 3; Serial.println("weap3"); weaponalignment();}
+        if (incomingData2 == 2114) { pbweap = 4; Serial.println("weap4"); weaponalignment();}
+        if (incomingData2 == 2115) { pbweap = 5; Serial.println("weap5"); weaponalignment();}
+        if (incomingData2 == 2116) { pbweap = 6; Serial.println("weap6"); weaponalignment();}
+        if (incomingData2 == 2117) { pbperk = 0; Serial.println("perk0"); AudioSelection1 = "VA38";}
+        if (incomingData2 == 2118) { pbperk = 1; AudioSelection1="VA4D"; Serial.println("perk1");}
+        if (incomingData2 == 2119) { pbperk = 2; AudioSelection1="VA1G"; Serial.println("perk2");}
+        if (incomingData2 == 2120) { pbperk = 3; AudioSelection1="VA2N"; Serial.println("perk3");}
+        if (incomingData2 == 2121) { pbperk = 4; AudioSelection1="VA1Z"; Serial.println("perk4");}
+        if (incomingData2 == 2122) { pbperk = 5; AudioSelection1="VA24"; Serial.println("perk5");}
+        if (incomingData2 == 2123) { pblives = 0; AudioSelection1="VA01"; Serial.println("lives0");}
+        if (incomingData2 == 2124) { pblives = 1; AudioSelection1="VA03"; Serial.println("lives1");}
+        if (incomingData2 == 2125) { pblives = 2; AudioSelection1="VA05"; Serial.println("lives2");}
+        if (incomingData2 == 2126) { pblives = 3; AudioSelection1="VA0A"; Serial.println("lives3");}
+        if (incomingData2 == 2127) { pblives = 4; AudioSelection1="VA0F"; Serial.println("lives4");}
+        if (incomingData2 == 2128) { pblives = 5; AudioSelection1="VA6V"; Serial.println("lives5");}
+        if (incomingData2 == 2129) { pbtime = 0; AudioSelection1="VA2S"; Serial.println("time0");}
+        if (incomingData2 == 2130) { pbtime = 1; AudioSelection1="VA6H"; Serial.println("time1");}
+        if (incomingData2 == 2131) { pbtime = 2; AudioSelection1="VA2P"; Serial.println("time2");}
+        if (incomingData2 == 2132) { pbtime = 3; AudioSelection1="VA6Q"; Serial.println("time3");}
+        if (incomingData2 == 2133) { pbtime = 4; AudioSelection1="VA0Q"; Serial.println("time4");}
+        if (incomingData2 == 2134) { pbtime = 5; AudioSelection1="VA6V"; Serial.println("time5");}
+        if (incomingData2 == 2135) { pbspawn = 0; AudioSelection1="VA4T"; Serial.println("spawn0");}
+        if (incomingData2 == 2136) { pbspawn = 1; AudioSelection1="VA2Q"; Serial.println("spawn1");}
+        if (incomingData2 == 2137) { pbspawn = 2; AudioSelection1="VA0R"; Serial.println("spawn2");}
+        if (incomingData2 == 2138) { pbspawn = 3; AudioSelection1="VA0V"; Serial.println("spawn3");}
+        if (incomingData2 == 2139) { pbspawn = 4; AudioSelection1="VA0S"; Serial.println("spawn4");}
+        if (incomingData2 == 2140) { pbspawn = 5; AudioSelection1="VA0W"; Serial.println("spawn5");}
+        if (incomingData2 == 2141) { pbindoor = 0; AudioSelection1="VA4W"; Serial.println("outdoor");}
+        if (incomingData2 == 2142) { pbindoor = 1; AudioSelection1="VA3W"; Serial.println("indoor");}
+        if (incomingData2 == 2151) { pbindoor = 0; STEALTH = true; AudioSelection1="VA60"; Serial.println("outdoorS");}
+        if (incomingData2 == 2152) { pbindoor = 1; STEALTH = true; AudioSelection1="VA60"; Serial.println("indoorS");}
+        if (incomingData2 == 2144) { GameMode = 0; AudioSelection1="VA5Z"; BACKGROUNDMUSIC = false; Serial.println("nogamemod"); StringSender = "$PLAYX,4,*"; STRINGSENDER = true;} // standard - defaul
+        if (incomingData2 == 2145) { GameMode = 4; AudioSelection1="VA8J"; BACKGROUNDMUSIC = false; Serial.println("royalegamemod"); StringSender = "$PLAYX,4,*"; STRINGSENDER = true;} // battle royale
+        if (incomingData2 == 2146) { GameMode = 8; AudioSelection1="OP01"; BACKGROUNDMUSIC = false; Serial.println("assimilationgamemod"); StringSender = "$PLAYX,4,*"; STRINGSENDER = true;} // assimilation
+        if (incomingData2 == 2147) { GameMode = 9; AudioSelection1="OP06"; BACKGROUNDMUSIC = false; Serial.println("gungamemod"); StringSender = "$PLAYX,4,*"; STRINGSENDER = true;} // gun game
+        if (incomingData2 == 2148) { GameMode = 12; AudioSelection1="CC07"; Serial.println("contra"); StringSender = "$PLAYX,4,*"; STRINGSENDER = true;} // contra
+        if (incomingData2 == 2149) { GameMode = 13; AudioSelection1="SW00"; Serial.println("starwars"); StringSender = "$PLAYX,4,*"; STRINGSENDER = true;} // starwars
+        if (incomingData2 == 2150) { GameMode = 14; AudioSelection1="JA5"; Serial.println("halo"); StringSender = "$PLAYX,4,*"; STRINGSENDER = true;} // halo
+        if (incomingData2 == 2153) {
+          SetTeam = random(2);
+          ProcessTeamsAssignmnet();
+        }  
+        if (incomingData2 == 2154) {
+          SetTeam = random(3);
+          ProcessTeamsAssignmnet();
         }
-        if (GameMode == 9) { // gun game
-          sendString("$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,0,1400,10,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
-          sendString("$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,0,1400,10,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
+        if (incomingData2 == 2155) {
+          SetTeam = random(4);
+          ProcessTeamsAssignmnet();
+        }   
+        if (incomingData2 == 2199) {
+           Serial.println("start game");
+          PBGAMESTART = true;
+          ChangeMyColor = 9; // turns off led
         }
-        if (GameMode == 12) { // contra
-          sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-          sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-          sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,50,,CC01,JAD,CC01,CC02,CC05,CC05,CC05,V37,H06,CC05,CC05,CC05,CC10,U15,W71,A10,*");
-          sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,50,,CC01,JAD,CC01,CC02,CC05,CC05,CC05,V37,H06,CC05,CC05,CC05,CC10,U15,W71,A10,*");
-          sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,175,850,32,32768,1400,10,0,100,100,,0,,,CC03,,,,CC03,,,D18,,,,,99,9999999,75,,*");
-          sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,175,850,32,32768,1400,10,0,100,100,,0,,,CC03,,,,CC03,,,D18,,,,,99,9999999,75,,*");
-          sendString("$WEAP,1,2,100,0,0,45,10,,,,,,70,80,400,850,6,32768,400,10,7,100,100,,0,,,CC04,,,,CC04,,,,,,,,99,9999999,75,30,*");
-          sendString("$WEAP,1,2,100,0,0,45,10,,,,,,70,80,400,850,6,32768,400,10,7,100,100,,0,,,CC04,,,,CC04,,,,,,,,99,9999999,75,30,*");
-          MusicSelection = "$PLAY,CC08,4,10,,,,,*"; 
-          BACKGROUNDMUSIC = true; 
-          MusicRestart = 107000; 
-          MusicPreviousMillis = millis();
-          AudioSelection = MusicSelection;
-          AUDIO = true;
+        if (incomingData2 == 2198) {
+          Serial.println("delay start");
+          AudioSelection = "OP47"; // says game count down initiated
+          AUDIO = true; 
+          delay(13000);
+          PBGAMESTART = true;
         }
-        if (GameMode == 13) { // starwars
-          sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,50,,H44,JAD,SW05,SW01,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
-          sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,50,,H44,JAD,SW05,SW01,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
-          sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-          sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-          sendString("$WEAP,0,,100,0,0,45,0,,,,,,,,225,850,200,32768,400,0,7,100,100,,0,,,SW36,,,,D04,D03,D02,D18,,,,,200,9999999,20,,*");
-          sendString("$WEAP,0,,100,0,0,45,0,,,,,,,,225,850,200,32768,400,0,7,100,100,,0,,,SW36,,,,D04,D03,D02,D18,,,,,200,9999999,20,,*");
-          sendString("$WEAP,1,,100,0,0,6,0,,,,,,,,100,850,100,32768,1400,0,0,100,100,,5,,,SW23,C15,C17,,D30,D29,D37,A73,SW40,C04,20,150,100,9999999,75,,*");
-          sendString("$WEAP,1,,100,0,0,6,0,,,,,,,,100,850,100,32768,1400,0,0,100,100,,5,,,SW23,C15,C17,,D30,D29,D37,A73,SW40,C04,20,150,100,9999999,75,,*");
-          sendString("$WEAP,4,1,90,13,0,115,0,,,,,,,,800,50,100,32768,0,10,13,100,100,,0,0,,SW17,,,,,,SW15,U64,,,0,,100,9999999,20,,*"); // this is default melee weapon for rifle bash
-          sendString("$WEAP,4,1,90,13,0,115,0,,,,,,,,800,50,100,32768,0,10,13,100,100,,0,0,,SW17,,,,,,SW15,U64,,,0,,100,9999999,20,,*"); // this is default melee weapon for rifle bash
-          if (SetTeam == 0 || SetTeam == 2) {
-            MusicSelection = "$PLAY,SW31,4,10,,,,,*";
-            MusicRestart = 60000;
-          } else {
-            MusicSelection = "$PLAY,SW04,4,10,,,,,*";
-            MusicRestart = 92000;
-          }
-          BACKGROUNDMUSIC = true;
-          MusicRestart = 92000; // JEDI - for dark side: 60000
-          MusicPreviousMillis = millis();
-          AudioSelection = MusicSelection;
-          AUDIO = true;
-        }
-        if (GameMode == 14) { // halo
-          if (SetTeam == 0 || SetTeam == 2) {
-            MusicSelection = "$PLAY,JAN,4,10,,,,,*";
-            MusicRestart = 59000;
-          }
-          if (SetTeam == 1) {
-            MusicSelection = "$PLAY,JAO,4,10,,,,,*";
-            MusicRestart = 59000;
-          }
-          if (SetTeam == 3) {
-            MusicSelection = "$PLAY,JAP,4,10,,,,,*";
-            MusicRestart = 59000;
-          }
-          BACKGROUNDMUSIC = true;
-          MusicRestart = 92000; // JEDI - for dark side: 60000
-          MusicPreviousMillis = millis();
-          AudioSelection = MusicSelection;
-          AUDIO = true;
-        }
-      }
-      if (incomingData2 == 2198) {
-        delay(13000);
-        sendString("$PBINDOOR," + String(pbindoor) + ",*");
-        sendString("$PBINDOOR," + String(pbindoor) + ",*");
-        sendString("$PBGAME," + String(pbgame) + ",*");
-        sendString("$PBGAME," + String(pbgame) + ",*");
-        sendString("$PBLIVES," + String(pblives) + ",*");
-        sendString("$PBLIVES," + String(pblives) + ",*");
-        sendString("$PBTIME," + String(pbtime) + ",*");
-        sendString("$PBTIME," + String(pbtime) + ",*");
-        sendString("$PBSPAWN," + String(pbspawn) + ",*");
-        sendString("$PBSPAWN," + String(pbspawn) + ",*");
-        sendString("$PBWEAP," + String(pbweap) + ",*");
-        sendString("$PBWEAP," + String(pbweap) + ",*");
-        sendString("$PBPERK," + String(pbperk) + ",*");
-        sendString("$PBPERK," + String(pbperk) + ",*");
-        sendString("$PBSTART,*");
-        sendString("$PBSTART,*");
-        sendString("$PID," + String(GunID) + ",*");
-        sendString("$PID," + String(GunID) + ",*");
-        pbteam = SetTeam;
-        sendString("$TID," + String(pbteam) + ",*");
-        sendString("$TID," + String(pbteam) + ",*");
-        INGAME = true;
-        sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
-        sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
-        if (GameMode == 4) { // battle royale
-          sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-          sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-          sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5****
-          sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5****
-          sendString("$WEAP,0,,60,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,40,,*");
-          sendString("$WEAP,0,,60,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,40,,*");
-          sendString("$WEAP,3,1,90,15,0,6,0,,,,,,,,1400,50,1,32768,0,10,13,100,100,,0,0,,H29,,,,,,,D18,,,0,,1,9999999,20,,*"); // Set weapon 3 as respawn
-          sendString("$WEAP,3,1,90,15,0,6,0,,,,,,,,1400,50,1,32768,0,10,13,100,100,,0,0,,H29,,,,,,,D18,,,0,,1,9999999,20,,*"); // Set weapon 3 as respawn        
-        }
-        if (GameMode == 8) { // assimilation
-          // NOTHING? JUST TRIGGER ADDED WHEN DEAD 
-        }
-        if (GameMode == 9) { // gun game
-          sendString("$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,0,1400,10,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
-          sendString("$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,0,1400,10,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
-        }
-        if (GameMode == 12) { // contra
-          sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-          sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-          sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,50,,CC01,JAD,CC01,CC02,CC05,CC05,CC05,V37,H06,CC05,CC05,CC05,CC10,U15,W71,A10,*");
-          sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,50,,CC01,JAD,CC01,CC02,CC05,CC05,CC05,V37,H06,CC05,CC05,CC05,CC10,U15,W71,A10,*");
-          sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,175,850,32,32768,1400,10,0,100,100,,0,,,CC03,,,,CC03,,,D18,,,,,99,9999999,75,,*");
-          sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,175,850,32,32768,1400,10,0,100,100,,0,,,CC03,,,,CC03,,,D18,,,,,99,9999999,75,,*");
-          sendString("$WEAP,1,2,100,0,0,45,10,,,,,,70,80,400,850,6,32768,400,10,7,100,100,,0,,,CC04,,,,CC04,,,,,,,,99,9999999,75,30,*");
-          sendString("$WEAP,1,2,100,0,0,45,10,,,,,,70,80,400,850,6,32768,400,10,7,100,100,,0,,,CC04,,,,CC04,,,,,,,,99,9999999,75,30,*");
-          MusicSelection = "$PLAY,CC08,4,10,,,,,*"; 
-          BACKGROUNDMUSIC = true; 
-          MusicRestart = 107000; 
-          MusicPreviousMillis = millis();
-          AudioSelection = MusicSelection;
-          AUDIO = true;
-        }
-        if (GameMode == 13) { // starwars
-          sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,50,,H44,JAD,SW05,SW01,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
-          sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,50,,H44,JAD,SW05,SW01,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
-          sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-          sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-          sendString("$WEAP,0,,100,0,0,45,0,,,,,,,,225,850,200,32768,400,0,7,100,100,,0,,,SW36,,,,D04,D03,D02,D18,,,,,200,9999999,20,,*");
-          sendString("$WEAP,0,,100,0,0,45,0,,,,,,,,225,850,200,32768,400,0,7,100,100,,0,,,SW36,,,,D04,D03,D02,D18,,,,,200,9999999,20,,*");
-          sendString("$WEAP,1,,100,0,0,6,0,,,,,,,,100,850,100,32768,1400,0,0,100,100,,5,,,SW23,C15,C17,,D30,D29,D37,A73,SW40,C04,20,150,100,9999999,75,,*");
-          sendString("$WEAP,1,,100,0,0,6,0,,,,,,,,100,850,100,32768,1400,0,0,100,100,,5,,,SW23,C15,C17,,D30,D29,D37,A73,SW40,C04,20,150,100,9999999,75,,*");
-          sendString("$WEAP,4,1,90,13,0,115,0,,,,,,,,800,50,100,32768,0,10,13,100,100,,0,0,,SW17,,,,,,SW15,U64,,,0,,100,9999999,20,,*"); // this is default melee weapon for rifle bash
-          sendString("$WEAP,4,1,90,13,0,115,0,,,,,,,,800,50,100,32768,0,10,13,100,100,,0,0,,SW17,,,,,,SW15,U64,,,0,,100,9999999,20,,*"); // this is default melee weapon for rifle bash
-          if (SetTeam == 0 || SetTeam == 2) {
-            MusicSelection = "$PLAY,SW31,4,10,,,,,*";
-            MusicRestart = 60000;
-          } else {
-            MusicSelection = "$PLAY,SW04,4,10,,,,,*";
-            MusicRestart = 92000;
-          }
-          BACKGROUNDMUSIC = true;
-          MusicRestart = 92000; // JEDI - for dark side: 60000
-          MusicPreviousMillis = millis();
-          AudioSelection = MusicSelection;
-          AUDIO = true;
-        }
-        if (GameMode == 14) { // halo
-          if (SetTeam == 0 || SetTeam == 2) {
-            MusicSelection = "$PLAY,JAN,4,10,,,,,*";
-            MusicRestart = 59000;
-          }
-          if (SetTeam == 1) {
-            MusicSelection = "$PLAY,JAO,4,10,,,,,*";
-            MusicRestart = 59000;
-          }
-          if (SetTeam == 3) {
-            MusicSelection = "$PLAY,JAP,4,10,,,,,*";
-            MusicRestart = 59000;
-          }
-          BACKGROUNDMUSIC = true;
-          MusicRestart = 92000; // JEDI - for dark side: 60000
-          MusicPreviousMillis = millis();
-          AudioSelection = MusicSelection;
-          AUDIO = true;
-        }
+        
       }
       if (incomingData2 == 2197) { 
-        sendString("$PHONE,*");
-        sendString("$PBLOCK,*");
-        INGAME = false;
+        PBLOCKOUT = true;
       }
       if (incomingData2 == 2196) { 
-        sendString("$PBLOCK,*");
-        INGAME = false;
-        BACKGROUNDMUSIC = false;
+        PBENDGAME = true;
       }
       AUDIO1 = true;
     }
-
-
+  
+  
     
     // 10000s used for JBOX
     
@@ -3255,8 +3085,239 @@ void ProcessIncomingCommands() {
     }
   }
   digitalWrite(2, LOW);
-}  
-
+}
+void PBGameStart() {
+          sendString("$PLAY,VA1A,3,10,,,,,*"); // says let battle begin  
+          PBGAMESTART = false;
+          MyKills = 0;
+          ClearScores();
+          Deaths = 0;
+          GETTEAM = false;
+          sendString("$PBINDOOR," + String(pbindoor) + ",*");
+          sendString("$PBINDOOR," + String(pbindoor) + ",*");
+          sendString("$PBGAME," + String(pbgame) + ",*");
+          sendString("$PBGAME," + String(pbgame) + ",*");
+          sendString("$PBLIVES," + String(pblives) + ",*");
+          sendString("$PBLIVES," + String(pblives) + ",*");
+          sendString("$PBTIME," + String(pbtime) + ",*");
+          sendString("$PBTIME," + String(pbtime) + ",*");
+          sendString("$PBSPAWN," + String(pbspawn) + ",*");
+          sendString("$PBSPAWN," + String(pbspawn) + ",*");
+          sendString("$PBWEAP," + String(pbweap) + ",*");
+          sendString("$PBWEAP," + String(pbweap) + ",*");
+          sendString("$PBPERK," + String(pbperk) + ",*");
+          sendString("$PBPERK," + String(pbperk) + ",*");
+          delay(1000);
+          sendString("$PBSTART,*");
+          sendString("$PBSTART,*");
+          sendString("$PID," + String(GunID) + ",*");
+          sendString("$PID," + String(GunID) + ",*");
+          sendString("$TID," + String(SetTeam) + ",*");
+          sendString("$TID," + String(SetTeam) + ",*");
+          INGAME = true;
+          sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
+          sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
+          if (GameMode == 4) { // battle royale
+            sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+            sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+            sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5****
+            sendString("$BMAP,3,5,,,,,*"); // sets the select button as Weapon 5****
+            sendString("$WEAP,0,,60,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,40,,*");
+            sendString("$WEAP,0,,60,0,0,8,0,,,,,,,,225,850,9,32768,400,0,7,100,100,,0,,,R12,,,,D04,D03,D02,D18,,,,,9,9999999,40,,*");
+            sendString("$WEAP,3,1,90,15,0,6,0,,,,,,,,1400,50,1,32768,0,10,13,100,100,,0,0,,H29,,,,,,,D18,,,0,,1,9999999,20,,*"); // Set weapon 3 as respawn
+            sendString("$WEAP,3,1,90,15,0,6,0,,,,,,,,1400,50,1,32768,0,10,13,100,100,,0,0,,H29,,,,,,,D18,,,0,,1,9999999,20,,*"); // Set weapon 3 as respawn
+            sendString("$WEAP,1,*");
+            sendString("$WEAP,1,*");        
+          }  
+          if (GameMode == 8) { // assimilation
+            // NOTHING? JUST TRIGGER ADDED WHEN DEAD 
+          }
+          if (GameMode == 9) { // gun game
+            sendString("$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,0,1400,10,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
+            sendString("$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,0,1400,10,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
+          }
+          if (GameMode == 12) { // contra
+            sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+            sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+            sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,50,,CC01,JAD,CC01,CC02,CC05,CC05,CC05,V37,H06,CC05,CC05,CC05,CC10,U15,W71,A10,*");
+            sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,50,,CC01,JAD,CC01,CC02,CC05,CC05,CC05,V37,H06,CC05,CC05,CC05,CC10,U15,W71,A10,*");
+            sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,175,850,32,32768,1400,10,0,100,100,,0,,,CC03,,,,CC03,,,D18,,,,,99,9999999,75,,*");
+            sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,175,850,32,32768,1400,10,0,100,100,,0,,,CC03,,,,CC03,,,D18,,,,,99,9999999,75,,*");
+            sendString("$WEAP,1,2,100,0,0,45,10,,,,,,70,80,400,850,6,32768,400,10,7,100,100,,0,,,CC04,,,,CC04,,,,,,,,99,9999999,75,30,*");
+            sendString("$WEAP,1,2,100,0,0,45,10,,,,,,70,80,400,850,6,32768,400,10,7,100,100,,0,,,CC04,,,,CC04,,,,,,,,99,9999999,75,30,*");
+            MusicSelection = "$PLAY,CC08,4,10,,,,,*"; 
+            BACKGROUNDMUSIC = true; 
+            MusicRestart = 107000; 
+            MusicPreviousMillis = 0;
+            AudioSelection = MusicSelection;
+            AUDIO = true;
+          }
+          if (GameMode == 13) { // starwars
+            sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,50,,H44,JAD,SW05,SW01,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
+            sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,50,,H44,JAD,SW05,SW01,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
+            sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+            sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+            sendString("$WEAP,0,,100,0,0,45,0,,,,,,,,225,850,200,32768,400,0,7,100,100,,0,,,SW36,,,,D04,D03,D02,D18,,,,,200,9999999,20,,*");
+            sendString("$WEAP,0,,100,0,0,45,0,,,,,,,,225,850,200,32768,400,0,7,100,100,,0,,,SW36,,,,D04,D03,D02,D18,,,,,200,9999999,20,,*");
+            sendString("$WEAP,1,,100,0,0,6,0,,,,,,,,100,850,100,32768,1400,0,0,100,100,,5,,,SW23,C15,C17,,D30,D29,D37,A73,SW40,C04,20,150,100,9999999,75,,*");
+            sendString("$WEAP,1,,100,0,0,6,0,,,,,,,,100,850,100,32768,1400,0,0,100,100,,5,,,SW23,C15,C17,,D30,D29,D37,A73,SW40,C04,20,150,100,9999999,75,,*");
+            sendString("$WEAP,4,1,90,13,0,115,0,,,,,,,,800,50,100,32768,0,10,13,100,100,,0,0,,SW17,,,,,,SW15,U64,,,0,,100,9999999,20,,*"); // this is default melee weapon for rifle bash
+            sendString("$WEAP,4,1,90,13,0,115,0,,,,,,,,800,50,100,32768,0,10,13,100,100,,0,0,,SW17,,,,,,SW15,U64,,,0,,100,9999999,20,,*"); // this is default melee weapon for rifle bash
+            if (SetTeam == 0 || SetTeam == 2) {
+              MusicSelection = "$PLAY,SW31,4,10,,,,,*";
+              MusicRestart = 60000;
+            } else {
+              MusicSelection = "$PLAY,SW04,4,10,,,,,*";
+              MusicRestart = 92000;
+            }
+            BACKGROUNDMUSIC = true;
+            MusicRestart = 92000; // JEDI - for dark side: 60000
+            MusicPreviousMillis = 0;
+            AudioSelection = MusicSelection;
+            AUDIO = true;
+          }
+          if (GameMode == 14) { // halo
+            if (SetTeam == 0 || SetTeam == 2) {
+              MusicSelection = "$PLAY,JAN,4,10,,,,,*";
+              MusicRestart = 59000;
+            }
+            if (SetTeam == 1) {
+              MusicSelection = "$PLAY,JAO,4,10,,,,,*";
+              MusicRestart = 59000;
+            }
+            if (SetTeam == 3) {
+              MusicSelection = "$PLAY,JAP,4,10,,,,,*";
+              MusicRestart = 59000;
+            }
+            BACKGROUNDMUSIC = true;
+            MusicRestart = 92000; // JEDI - for dark side: 60000
+            MusicPreviousMillis = 0;
+            AudioSelection = MusicSelection;
+            AUDIO = true;
+          }
+}
+void ProcessTeamsAssignmnet() {
+          if (SetTeam == 0) {
+            Serial.println("team0"); 
+            if (pbgame == 3 || pbgame == 4) {
+              AudioSelection1 = "VS9"; 
+              pbteam = 0;
+            } 
+            if (pbgame > 4) {
+              AudioSelection1 = "VA3T"; 
+              pbteam = 0;
+            } 
+            if (pbgame < 3) {
+              AudioSelection1 = "VA13"; 
+              pbteam = 0;
+            } 
+            Serial.println("pbteam = " + String(pbteam));
+          }
+          if (SetTeam == 1) {
+            Serial.println("team1"); 
+            if (pbgame == 3 || pbgame == 4) {
+              AudioSelection1 = "VA4N"; 
+              pbteam = 1;
+            }
+            if (pbgame > 4) {
+              AudioSelection1 = "VA1L"; 
+              pbteam = 0;
+            } 
+            if (pbgame < 3) {
+              AudioSelection1 = "VA1L"; 
+              pbteam = 1;
+            }
+            Serial.println("pbteam = " + String(pbteam));
+          }
+          if (SetTeam == 2) {
+            Serial.println("team2"); 
+            if (pbgame == 3 || pbgame == 4) {
+              AudioSelection1 = "VA71"; 
+              pbteam = 2;
+            } 
+            if (pbgame > 4) {
+              AudioSelection1 = "VA3Y"; 
+              pbteam = 0;
+            } 
+            if (pbgame < 3) {
+              AudioSelection1 = "VA27"; 
+              pbteam = 0;
+            } 
+            Serial.println("pbteam = " + String(pbteam));
+          }
+          if (SetTeam == 3) {
+            Serial.println("team3"); 
+            if (pbgame == 3 || pbgame == 4) {
+              AudioSelection1 = "VA1R"; 
+              pbteam = 2;
+            } 
+            if (pbgame > 4) {
+              AudioSelection1 = "VA1R"; 
+              pbteam = 1;
+            } 
+            if (pbgame < 3) {
+              AudioSelection1 = "VA1R"; 
+              pbteam = 0;
+            } 
+            Serial.println("pbteam = " + String(pbteam));
+          }
+          AUDIO1 = true;
+          ChangeMyColor = SetTeam;
+}
+void PBLockout() {
+  BACKGROUNDMUSIC = false;
+  PBLOCKOUT = false;
+  sendString("$VOL,0,0,*"); // adjust volume to default
+  Serial.println();
+  Serial.println("JEDGE is taking over the BRX");
+  sendString("$PHONE,*");
+  sendString("$PHONE,*");
+  sendString("$PBLOCK,*");
+  sendString("$PBLOCK,*");
+  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
+  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
+  INGAME = false;
+  sendString("$PLAY,OP47,3,10,,,,,*"); // says "jedge init."
+}
+void PBEndGame() {
+  sendString("$PLAYX,0,*");
+  sendString("$VOL,0,0,*"); // adjust volume to default
+  PBENDGAME = false;
+  sendString("$PBLOCK,*");
+  INGAME = false;
+  BACKGROUNDMUSIC = false;
+  SwapBRXCounter = 0;
+  SWAPBRX = false;
+  SELECTCONFIRM = false;
+  SPECIALWEAPONLOADOUT = false;
+  PreviousSpecialWeapon = 0;
+  Serial.println("sending game exit commands");
+  delay(500);
+  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
+  sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
+  AudioSelection1 = "VA33"; // "game over"
+  AUDIO1 = true;
+  AudioDelay = 1500;
+  AudioSelection="VAP"; // "head back to base"
+  AudioPreviousMillis = millis();
+  AUDIO = true;
+  if (GameMode == 12) {
+    sendString("$PLAY,CC09,3,10,,,,,*"); // says game over
+  } else {
+    if (GameMode == 13) {
+      sendString("$PLAY,SW03,4,6,,,,,*");
+    } else {
+      sendString("$PLAY,VS6,3,10,,,,,*"); // says game over
+    }
+  }
+  Serial.println("Game Over Object Complete");
+  CurrentDominationLeader = 99; // resetting the domination game status
+  ClosingVictory[0] = 0;
+  ClosingVictory[1] = 0;
+  ClosingVictory[2] = 0;
+  ClosingVictory[3] = 0;
+}
+  
 //******************************************************************************************
 void InitializeJEDGE() {
   Serial.println();
@@ -3293,7 +3354,7 @@ void InitializeJEDGE() {
 // process used to send string properly to gun... splits up longer strings in bytes of 20
 // to make sure gun understands them all... not sure about all of what does what below...
 void sendString(String value) {
-  int genonedelay = 7;
+  int genonedelay = 6;
   const char * c_string = value.c_str();
   Serial.println("Sending the following to Tagger:");
   //Serial.print("sending: ");
@@ -4578,7 +4639,12 @@ void Audio() {
   if (AUDIO) {
     if (AudioDelay > 1) {
       if (millis() - AudioPreviousMillis > AudioDelay) {
-        sendString("$PLAY,"+AudioSelection+",3,10,,,,,*");
+        if (AudioChannel == 3) {
+          sendString("$PLAY,"+AudioSelection+",3,10,,,,,*");
+        } else {
+          sendString("$PLAY,"+AudioSelection+"," + AudioChannel + ",10,,,,,*");
+          AudioChannel = 3;
+        }
         AUDIO = false;
         AudioSelection  = "NULL";
         AudioDelay = 0; // reset the delay for another application
@@ -4650,6 +4716,15 @@ void ChangeColors() {
 //********************************************************************************************
 // This main game object
 void MainGame() {
+  if (PBGAMESTART) {
+    PBGameStart();
+  }
+  if (PBLOCKOUT) {
+    PBLockout();
+  }
+  if (PBENDGAME) {
+    PBEndGame();
+  }
   if (INITJEDGE) {
     INITJEDGE = false;
     InitializeJEDGE();
@@ -5113,54 +5188,55 @@ void ProcessBRXData() {
             if (Team==0 && STATUSCHANGE == false) {
               Team=3; 
               STATUSCHANGE=true; 
-              teamalignment(); 
+              //teamalignment(); 
               AUDIO1=true;
               Serial.println("team changed to Infected");
             }          
             if (Team==3 && STATUSCHANGE == false) {
               Team=0; 
-              teamalignment(); 
+              ProcessTeamsAssignmnet(); 
               AUDIO1=true;
               Serial.println("team changed to Human");
             }
             STATUSCHANGE = false;
           } else {
-            if (Team==5) {
-              Team=0; 
+            if (SetTeam==5) {
+              SetTeam=0; 
               STATUSCHANGE=true; 
-              teamalignment(); 
+              ProcessTeamsAssignmnet(); 
               AUDIO1=true;
               Serial.println("team changed from 5 to 0");
             }          
-            if (Team==4) {
-              Team=5; 
-              teamalignment(); 
+            if (SetTeam==4) {
+              SetTeam=5; 
+              //teamalignment(); 
               AUDIO1=true; 
               Serial.println("team changed from 4 to 5");
             } // foxtrot team
-            if (Team==3) {
-              Team=0; 
+            if (SetTeam==3) {
+              SetTeam=0; 
               STATUSCHANGE=true; 
-              teamalignment(); 
+              ProcessTeamsAssignmnet(); 
               AUDIO1=true; 
               Serial.println("team changed from 3 to 0");
             } // echo team
-            if (Team==2) {
-              Team=3; 
-              teamalignment(); 
+            if (SetTeam==2) {
+              SetTeam=3; 
+              ProcessTeamsAssignmnet(); 
               AUDIO1=true; 
               Serial.println("team changed from 2 to 3");
             } // delta team
-            if (Team==1) {
-              Team=2; 
-              teamalignment(); 
+            if (SetTeam==1) {
+              SetTeam=2; 
+              ProcessTeamsAssignmnet(); 
               AUDIO1=true; 
               Serial.println("team changed from 1 to 2");
             } // charlie team
-            if (Team==0 && STATUSCHANGE==false) {
-              Team=1; 
-              teamalignment();
-              AUDIO1=true; Serial.println("team changed from 0 to 1");
+            if (SetTeam==0 && STATUSCHANGE==false) {
+              SetTeam=1; 
+              ProcessTeamsAssignmnet();
+              AUDIO1=true; 
+              Serial.println("team changed from 0 to 1");
             } // bravo team        
             STATUSCHANGE=false;
             ChangeMyColor = Team; // triggers a gun/tagger color change
@@ -5493,17 +5569,17 @@ void ProcessBRXData() {
             SPECIALWEAPONLOADOUT = false;
             LoadSpecialWeapon();
           }
-        } else {
-          if (!INGAME) {
-            // lets do a score announcement
-            AudioSelection1 = "KL" + String(MyKills);
-            AUDIO1 = true;
-            AudioDelay = 2000;
-            AudioPreviousMillis = millis();
-            AudioSelection = "DT" + String(Deaths);
-            AUDIO = true;            
-          }
-        }
+        } //else {
+          //if (!INGAME) {
+            //// lets do a score announcement
+            //AudioSelection1 = "KL" + String(MyKills);
+            //AUDIO1 = true;
+            //AudioDelay = 2000;
+            //AudioPreviousMillis = millis();
+            //AudioSelection = "DT" + String(Deaths);
+            //AUDIO = true;            
+          //}
+        //}
       }
     }
     if (tokenStrings[1] == "4") {
@@ -5600,9 +5676,31 @@ void ProcessBRXData() {
      *  more can be done with this, like using the ammo info to post to lcd
     */
     int currenthealth = tokenStrings[1].toInt(); // sets the variable to be sent to esp8266 for ammo in clip
-    if (currenthealth >= 100) { // player just spawned
+    if (currenthealth >= 100 || currenthealth == 45) { // player just spawned
+      sendString("$PID," + String(GunID) + ",*");
+      sendString("$PID," + String(GunID) + ",*");
       if (GameMode > 11) { // we are playing a music game
         BACKGROUNDMUSIC = true;
+      }
+      if (GameMode == 13) { // starwars, need to respawn the weapons!
+        sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+        sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+        sendString("$WEAP,0,,100,0,0,45,0,,,,,,,,225,850,200,32768,400,0,7,100,100,,0,,,SW36,,,,D04,D03,D02,D18,,,,,200,9999999,20,,*");
+        sendString("$WEAP,0,,100,0,0,45,0,,,,,,,,225,850,200,32768,400,0,7,100,100,,0,,,SW36,,,,D04,D03,D02,D18,,,,,200,9999999,20,,*");
+        sendString("$WEAP,1,,100,0,0,6,0,,,,,,,,100,850,100,32768,1400,0,0,100,100,,5,,,SW23,C15,C17,,D30,D29,D37,A73,SW40,C04,20,150,100,9999999,75,,*");
+        sendString("$WEAP,1,,100,0,0,6,0,,,,,,,,100,850,100,32768,1400,0,0,100,100,,5,,,SW23,C15,C17,,D30,D29,D37,A73,SW40,C04,20,150,100,9999999,75,,*");
+        sendString("$WEAP,4,1,90,13,0,115,0,,,,,,,,800,50,100,32768,0,10,13,100,100,,0,0,,SW17,,,,,,SW15,U64,,,0,,100,9999999,20,,*"); // this is default melee weapon for rifle bash
+        sendString("$WEAP,4,1,90,13,0,115,0,,,,,,,,800,50,100,32768,0,10,13,100,100,,0,0,,SW17,,,,,,SW15,U64,,,0,,100,9999999,20,,*"); // this is default melee weapon for rifle bash
+      }
+      if (GameMode == 12) {
+            sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+            sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+            sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,50,,CC01,JAD,CC01,CC02,CC05,CC05,CC05,V37,H06,CC05,CC05,CC05,CC10,U15,W71,A10,*");
+            sendString("$PSET,"+String(GunID)+","+String(SetTeam)+",45,50,,CC01,JAD,CC01,CC02,CC05,CC05,CC05,V37,H06,CC05,CC05,CC05,CC10,U15,W71,A10,*");
+            sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,175,850,32,32768,1400,10,0,100,100,,0,,,CC03,,,,CC03,,,D18,,,,,99,9999999,75,,*");
+            sendString("$WEAP,0,,100,0,0,9,0,,,,,,,,175,850,32,32768,1400,10,0,100,100,,0,,,CC03,,,,CC03,,,D18,,,,,99,9999999,75,,*");
+            sendString("$WEAP,1,2,100,0,0,45,10,,,,,,70,80,400,850,6,32768,400,10,7,100,100,,0,,,CC04,,,,CC04,,,,,,,,99,9999999,75,30,*");
+            sendString("$WEAP,1,2,100,0,0,45,10,,,,,,70,80,400,850,6,32768,400,10,7,100,100,,0,,,CC04,,,,CC04,,,,,,,,99,9999999,75,30,*");
       }
     }   
   }
@@ -5620,66 +5718,71 @@ void ProcessBRXData() {
     shield = tokenStrings[3].toInt(); // setting variable to be sent to esp8266
     if (!PENDINGRESPAWNIR) {
       if ((tokenStrings[1] == "0") && (tokenStrings[2] == "0") && (tokenStrings[3] == "0")) { // player is dead
-        if (GameMode > 11) {
-          BACKGROUNDMUSIC = false;
+        long CurrentDeathTime = millis();
+        if (CurrentDeathTime - LastDeathTime > 3000) {
+          LastDeathTime = millis();
+          if (GameMode > 11) {
+            BACKGROUNDMUSIC = false;
+          }
+          if (GameMode == 8) {
+            // playersettings();
+            if (lastTaggedTeam == 0) {sendString("$PLAY,VA13,3,10,,,,,*"); delay(300); sendString("$TID,0,*"); sendString("$TID,0,*");}
+            if (lastTaggedTeam == 1) {sendString("$PLAY,VA1L,3,10,,,,,*"); delay(300); sendString("$TID,1,*"); sendString("$TID,1,*");}
+            if (lastTaggedTeam == 2) {sendString("$PLAY,VA1R,3,10,,,,,*"); delay(300); sendString("$TID,2,*"); sendString("$TID,2,*");}
+            if (lastTaggedTeam == 3) {sendString("$PLAY,VA27,3,10,,,,,*"); delay(300); sendString("$TID,3,*");sendString("$TID,3,*");}
+          }
+          if (HASFLAG) {
+            HASFLAG = false; 
+            AudioSelection1 = "VA2I"; 
+            AUDIO1 = true;
+          }
+          PlayerKillCount[lastTaggedPlayer]++; // adding a point to the last player who killed us
+          datapacket1 = lastTaggedPlayer; // setting an identifier for who recieves the tag
+          datapacket2 = 32000; // identifier to tell player they got a kill
+          if (GameMode == 4) {
+            datapacket3 = PreviousSpecialWeapon; // current special weapon equiped
+          } else {
+            datapacket3 = GunID; // null action to send
+          }
+          BROADCASTESPNOW = true;
+          TeamKillCount[lastTaggedTeam]++; // adding a point to the team who caused the last kill
+          PlayerLives--; // taking our preset lives and subtracting one life then talking about it on the monitor
+          Deaths++;
+          //   call audio to announce player's killer
+          AnounceScore = 0;
+          AudioDelay = 5000;
+          AudioChannel = 1;
+          AudioSelection="KB"+String(lastTaggedPlayer);
+          AudioPreviousMillis = millis();
+          AUDIO=true;
+          Serial.println("Lives Remaining = " + String(PlayerLives));
+          Serial.println("Killed by: " + String(lastTaggedPlayer) + " on team: " + String(lastTaggedTeam));
+          Serial.println("Team: " + String(lastTaggedTeam) + "Score: " + String(TeamKillCount[lastTaggedTeam]));
+          Serial.println("Player: " + String(lastTaggedPlayer) + " Score: " + String(PlayerKillCount[lastTaggedPlayer]));
+          Serial.println("Death Count: " + String(Deaths));
+          //if (PlayerLives > 0 && SetRSPNMode != 9) { // doing a check if we still have lives left after dying
+            //RESPAWN = true;
+            //Serial.println("Auto respawn enabled");
+          //}
+          //if (PlayerLives > 0 && SetRSPNMode == 9) { // doing a check if we still have lives left after dying
+            //MANUALRESPAWN = true;
+            //PENDINGRESPAWNIR = true;
+            //Serial.println("Manual respawn enabled");
+          //}
+          //if (PlayerLives == 0) {
+            //GAMEOVER=true;
+            //delay(3000);
+            //sendString("$HLOOP,2,1200,*"); // this puts the headset in a loop for flashing
+            //sendString("$PLAY,VA46,3,10,,,,,*"); // says lives depleted
+            //Serial.println("lives depleted");
+            // KILL GUN LIGHTS
+            //sendString("$GLED,9,9,9,0,10,,*");
+          //}
         }
-        if (GameMode == 8) {
-          // playersettings();
-          if (lastTaggedTeam == 0) {sendString("$PLAY,VA13,3,10,,,,,*"); delay(300); sendString("$TID,0,*"); sendString("$TID,0,*");}
-          if (lastTaggedTeam == 1) {sendString("$PLAY,VA1L,3,10,,,,,*"); delay(300); sendString("$TID,1,*"); sendString("$TID,1,*");}
-          if (lastTaggedTeam == 2) {sendString("$PLAY,VA1R,3,10,,,,,*"); delay(300); sendString("$TID,2,*"); sendString("$TID,2,*");}
-          if (lastTaggedTeam == 3) {sendString("$PLAY,VA27,3,10,,,,,*"); delay(300); sendString("$TID,3,*");sendString("$TID,3,*");}
-        }
-        if (HASFLAG) {
-          HASFLAG = false; 
-          AudioSelection1 = "VA2I"; 
-          AUDIO1 = true;
-        }
-        PlayerKillCount[lastTaggedPlayer]++; // adding a point to the last player who killed us
-        datapacket1 = lastTaggedPlayer; // setting an identifier for who recieves the tag
-        datapacket2 = 32000; // identifier to tell player they got a kill
-        if (GameMode == 4) {
-          datapacket3 = PreviousSpecialWeapon; // current special weapon equiped
-        } else {
-          datapacket3 = GunID; // null action to send
-        }
-        BROADCASTESPNOW = true;
-        TeamKillCount[lastTaggedTeam]++; // adding a point to the team who caused the last kill
-        PlayerLives--; // taking our preset lives and subtracting one life then talking about it on the monitor
-        Deaths++;
-        // call audio to announce player's killer
-        AnounceScore = 0;
-        AudioDelay = 5000;
-        AudioSelection="KB"+String(lastTaggedPlayer);
-        AudioPreviousMillis = millis();
-        AUDIO=true;
-        Serial.println("Lives Remaining = " + String(PlayerLives));
-        Serial.println("Killed by: " + String(lastTaggedPlayer) + " on team: " + String(lastTaggedTeam));
-        Serial.println("Team: " + String(lastTaggedTeam) + "Score: " + String(TeamKillCount[lastTaggedTeam]));
-        Serial.println("Player: " + String(lastTaggedPlayer) + " Score: " + String(PlayerKillCount[lastTaggedPlayer]));
-        Serial.println("Death Count: " + String(Deaths));
-        //if (PlayerLives > 0 && SetRSPNMode != 9) { // doing a check if we still have lives left after dying
-          //RESPAWN = true;
-          //Serial.println("Auto respawn enabled");
-        //}
-        //if (PlayerLives > 0 && SetRSPNMode == 9) { // doing a check if we still have lives left after dying
-          //MANUALRESPAWN = true;
-          //PENDINGRESPAWNIR = true;
-          //Serial.println("Manual respawn enabled");
-        //}
-        //if (PlayerLives == 0) {
-          //GAMEOVER=true;
-          //delay(3000);
-          //sendString("$HLOOP,2,1200,*"); // this puts the headset in a loop for flashing
-          //sendString("$PLAY,VA46,3,10,,,,,*"); // says lives depleted
-          //Serial.println("lives depleted");
-          // KILL GUN LIGHTS
-          //sendString("$GLED,9,9,9,0,10,,*");
-        //}
-        }
-      }    
+      }
     }
   }
+}
 //******************************************************************************************
 //******************************************************************************************
 void SoftWareReset() {
@@ -5728,7 +5831,7 @@ void AccumulateIncomingScores1() {
     // (Player ID, token 0), (Player Team, token 1), (Player Objective Score, token 2) (Team scores, tokens 3-8), (player kill counts, tokens 9-72 
     Serial.println("Score Data Recieved from a tagger:");
   
-    int Deaths=0;
+    int TempDeaths=0;
     int Objectives=0;
     int Kills=0;
     int Team=0;
@@ -5742,9 +5845,9 @@ void AccumulateIncomingScores1() {
     }
     Player=Data[0];
     Serial.println("Player ID: " + String(Player));
-    Deaths = Data[3] + Data[4] + Data[5] + Data[6]; // added the total team kills to accumulate the number of deaths of this player
-    Serial.println("Player Deaths: "+String(Deaths));
-    PlayerDeaths[Player] = Deaths; // just converted temporary data to this players death count record
+    TempDeaths = Data[3] + Data[4] + Data[5] + Data[6]; // added the total team kills to accumulate the number of deaths of this player
+    Serial.println("Player Deaths: "+String(TempDeaths));
+    PlayerDeaths[Player] = TempDeaths; // just converted temporary data to this players death count record
     TeamKills[0] = TeamKills[0] + Data[3]; // accumulating team kill counts
     TeamKills[1] = TeamKills[1] + Data[4];
     TeamKills[2] = TeamKills[2] + Data[5];
@@ -5762,7 +5865,7 @@ void AccumulateIncomingScores1() {
       j++;
     }
     Team = Data[1]; // setting the player's team for accumulation of player objectives
-    TeamDeaths[Team] = TeamDeaths[Team] + Deaths;
+    TeamDeaths[Team] = TeamDeaths[Team] + TempDeaths;
     PlayerObjectives[Player] = Data[2]; // converted temporary data storage to main memory for score reporting of player objectives
     Serial.println("Player Objectives completed: "+String(Data[2]));
     Serial.println("Player Objectives completed: "+String(PlayerObjectives[Player]));
