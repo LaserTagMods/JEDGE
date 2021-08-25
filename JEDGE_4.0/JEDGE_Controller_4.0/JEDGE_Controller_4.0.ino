@@ -4,6 +4,7 @@
  * 7/11 added in ability to send wifi credentials to tagger for updating.
  * 7/12 added in ability to assign gun generation to esp32 for flash memory
  * 8/4  added in offline game mode settings
+ * 8/25 added all games settings sent upon game start pressed
  */
 
 // Import required libraries
@@ -23,7 +24,19 @@
 // EEPROM Definitions:
 // EEPROM 0 is used for number of taggers
 
-int GunID = 99; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
+int VolumeSetting = 3; // 1-5
+int OutdoorSetting = 0; // Outdoor, Indoor, Outdoor Stealth, Indoor Stealth
+int GameMode = 0; // F4A, DM, General, Suprem, Commmanders, Survival, Swarm
+int CustomGameMode = 0; // none, BR, Assim, Contra, Starwars, Halo
+int PlayerLives = 0; // 1, 3, 5, 10, 15, unlimited
+int GameTime = 0; // 5, 10, 15, 20, 30, unlimited
+int RespawnTime = 0; // 0, 15, 30, 60, R45, R90
+int TeamSetting = 0; // Red, Blue, Green, Yellow, Two Teams, Three Teams, Four Teams, Random two, random three, random four
+int WeaponSetting = 0; // M4/heavy/sentinel/wraith, sr100/maruader/sniper/soldier, smgx3/medic/guardian/technician, tac87/valkyrie/grenadier/viper, mg-7/mercenary, Tar33/commander/general, silencedAR
+int PerkSetting = 0; // none, Grenades, Medkit, body armor, extended mags, concussion nades, critical strike, focus
+
+
+int GunID = 98; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
 int GunGeneration = 2; // change to gen 1, 2, 3
 int TaggersOwned = 64; // how many taggers do you own or will play?
 
@@ -46,7 +59,7 @@ int updatenotification;
 unsigned long previousMillis_2 = 0;
 const long otainterval = 1000;
 const long mini_interval = 1000;
-String FirmwareVer = {"4.3"};
+String FirmwareVer = {"4.7"};
 
 // text inputs
 const char* PARAM_INPUT_1 = "input1";
@@ -55,6 +68,7 @@ const char* PARAM_INPUT_2 = "input2";
 int WebSocketData;
 bool ledState = 0;
 const int ledPin = 2;
+//const int LED_BUILTIN = 2;
 int Menu[25]; // used for menu settings storage
 
 unsigned long currentmilliseconds = 0;
@@ -644,7 +658,6 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="2144">None</option>
         <option value="2145">Battle Royale</option>
         <option value="2146">Team Assimilation</option>
-        <option value="2147">Gun Game</option>
         <option value="2148">Contra</option>
         <option value="2149">StarWars</option>
         <option value="2150">Halo</option>
@@ -689,7 +702,6 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="502">Two Teams (Odds Vs Evens)</option>
         <option value="503">Three Teams (every third)</option>
         <option value="504">Four Teams (every fourth)</option>
-        <option value="505">Manual Select</option>
         <option value="2153">Randomized - Two Teams</option>
         <option value="2154">Randomized - Three Teams</option>
         <option value="2155">Randomized - Four Teams</option>
@@ -777,17 +789,18 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="2114">MG-7 - Mercenary</option>
         <option value="2115">TAR-33 - Commander/General</option>
         <option value="2116">Silenced AR</option>
-        <option value="1">Manual Selection</option>
         </select>
       </p>
       <h2>Select A Perk - General & Deathmatch</h2>
       <p><select name="pbperk" id="pbperkid">
+        <option value="2158">None</option>
         <option value="2117">Grenade Launcher</option>
         <option value="2118">Medkit</option>
         <option value="2119">Body Armor</option>
         <option value="2120">Extended Mags</option>
         <option value="2121">Concussion Grenades</option>
         <option value="2122">Critical Strike</option>
+        <option value="2157">Focus</option>
         </select>
       </p>
       <p><button id="resendlastsetting" class="button">Resend Last Setting</button></p>
@@ -1652,6 +1665,12 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       Serial.println("menu = " + String(Menu[14]));
       datapacket2 = Menu[14];
       datapacket1 = 99;
+      // create a string that looks like this: 
+      // (VolumeSetting, token 0), (OutdoorSetting, token 1), (GameMode, token 2) (CustomGameMode, tokens 3), (PlayerLives, tokens 4), (GameTime, token 5), (RespawnTime, token 6), (TeamSetting, Token 7), (WeaponSetting, Token 8), (PerkSetting, token 9)
+      String GameSettings = String(VolumeSetting)+","+String(OutdoorSetting)+","+String(GameMode)+","+String(CustomGameMode)+","+String(PlayerLives)+","+String(GameTime)+","+String(RespawnTime)+","+String(TeamSetting)+","+String(WeaponSetting)+","+String(PerkSetting);
+      Serial.println("Sending the following Score Data to Server");
+      Serial.println(GameSettings);
+      datapacket4 = GameSettings;      
       BROADCASTESPNOW = true;
     }
     if (strcmp((char*)data, "togglepbstarta") == 0) { // game start w delay
@@ -1661,6 +1680,12 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       Serial.println("menu = " + String(Menu[14]));
       datapacket2 = Menu[14];
       datapacket1 = 99;
+      // create a string that looks like this: 
+      // (VolumeSetting, token 0), (OutdoorSetting, token 1), (GameMode, token 2) (CustomGameMode, tokens 3), (PlayerLives, tokens 4), (GameTime, token 5), (RespawnTime, token 6), (TeamSetting, Token 7), (WeaponSetting, Token 8), (PerkSetting, token 9)
+      String GameSettings = String(VolumeSetting)+","+String(OutdoorSetting)+","+String(GameMode)+","+String(CustomGameMode)+","+String(PlayerLives)+","+String(GameTime)+","+String(RespawnTime)+","+String(TeamSetting)+","+String(WeaponSetting)+","+String(PerkSetting);
+      Serial.println("Sending the following Score Data to Server");
+      Serial.println(GameSettings);
+      datapacket4 = GameSettings;
       BROADCASTESPNOW = true;
     }
     if (strcmp((char*)data, "toggle14s") == 0) { // game start
@@ -2075,12 +2100,14 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 503;
+      TeamSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "504") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 504;
+      TeamSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "505") == 0) {
@@ -2385,30 +2412,35 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 1301;
+      VolumeSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "1302") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 1302;
+      VolumeSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "1303") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 1303;
+      VolumeSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "1304") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 1304;
+      VolumeSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "1305") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 1305;
+      VolumeSetting = Menu[0];
       PrimaryMenu();
     }
     
@@ -3821,258 +3853,301 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2100;
+      GameMode = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2101") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2101;
+      GameMode = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2102") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2102;
+      GameMode = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2103") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2103;
+      GameMode = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2104") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2104;
+      GameMode = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2105") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2105;
+      GameMode = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2106") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2106;
+      GameMode = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2107") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2107;
+      TeamSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2108") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2108;
+      TeamSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2109") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2109;
+      TeamSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2110") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2110;
+      WeaponSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2111") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2111;
+      WeaponSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2112") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2112;
+      WeaponSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2113") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2113;
+      WeaponSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2114") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2114;
+      WeaponSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2115") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2115;
+      WeaponSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2116") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2116;
+      WeaponSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2117") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2117;
+      PerkSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2118") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2118;
+      PerkSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2119") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2119;
+      PerkSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2120") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2120;
+      PerkSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2121") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2121;
+      PerkSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2122") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2122;
+      PerkSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2123") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2123;
+      PlayerLives = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2124") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2124;
+      PlayerLives = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2125") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2125;
+      PlayerLives = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2126") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2126;
+      PlayerLives = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2127") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2127;
+      PlayerLives = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2128") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2128;
+      PlayerLives = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2129") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2129;
+      GameTime = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2130") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2130;
+      GameTime = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2131") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2131;
+      GameTime = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2132") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2132;
+      GameTime = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2133") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2133;
+      GameTime = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2134") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2134;
+      GameTime = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2135") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2135;
+      RespawnTime = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2136") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2136;
+      RespawnTime = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2137") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2137;
+      RespawnTime = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2138") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2138;
+      RespawnTime = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2139") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2139;
+      RespawnTime = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2140") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2140;
+      RespawnTime = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2141") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2141;
+      OutdoorSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2142") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2142;
+      OutdoorSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2143") == 0) {
@@ -4085,72 +4160,84 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2144;
+      CustomGameMode = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2145") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2145;
+      CustomGameMode = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2146") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2146;
+      CustomGameMode = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2147") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2147;
+      CustomGameMode = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2148") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2148;
+      CustomGameMode = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2149") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2149;
+      CustomGameMode = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2150") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2150;
+      CustomGameMode = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2151") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2151;
+      OutdoorSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2152") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2152;
+      OutdoorSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2153") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2153;
+      TeamSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2154") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2154;
+      TeamSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2155") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2155;
+      TeamSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2156") == 0) {
@@ -4163,12 +4250,14 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2157;
+      PerkSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2158") == 0) {
       ledState = !ledState;
       notifyClients();
       Menu[0] = 2158;
+      PerkSetting = Menu[0];
       PrimaryMenu();
     }
     if (strcmp((char*)data, "2159") == 0) {
@@ -4822,6 +4911,7 @@ void setup(){
   Serial.begin(115200);
 
   pinMode(ledPin, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(ledPin, LOW);
 
   //Initialize EEPROM
