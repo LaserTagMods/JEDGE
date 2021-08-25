@@ -1329,7 +1329,7 @@ void ApplyGameSettings() {
     // (VolumeSetting, token 0), (OutdoorSetting, token 1), (GameMode, token 2) (CustomGameMode, tokens 3), (PlayerLives, tokens 4), (GameTime, token 5), (RespawnTime, token 6), (TeamSetting, Token 7), (WeaponSetting, Token 8), (PerkSetting, token 9)
     int Data[10];
     int count=0;
-    while (count<11) {
+    while (count<10) {
       sendString("$VOL,0,0,*"); // adjust volume to default
       Data[count]=GameSettingsTokens[count].toInt();
       // Serial.println("Converting String character "+String(count)+" to integer: "+String(Data[count]));
@@ -1339,6 +1339,7 @@ void ApplyGameSettings() {
       count++;
       //delay(2000);
     }
+    Serial.println("completed applying Settings");
 }
 void PBGameStart() {
           sendString("$PBLOCK,*");
