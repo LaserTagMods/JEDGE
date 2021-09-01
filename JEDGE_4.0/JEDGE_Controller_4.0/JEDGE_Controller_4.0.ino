@@ -661,6 +661,8 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="2148">Contra</option>
         <option value="2149">StarWars</option>
         <option value="2150">Halo</option>
+        <option value="2147">JEDGE SUPREMACY 5V5</option>
+        <option value="2156">JEDGE SUPREMACY 6V6</option>
         </select>
       </p>
       <h2>Lives</h2>
