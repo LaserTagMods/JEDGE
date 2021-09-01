@@ -1307,10 +1307,10 @@ void ProcessIncomingCommands() {
         if (incomingData2 == 2104) { pbgame = 4; EEPROM.write(9, pbgame); EEPROM.commit(); AudioSelection1="VA1Y"; Serial.println("comander");} // COMMNDR
         if (incomingData2 == 2105) { pbgame = 5; EEPROM.write(9, pbgame); EEPROM.commit(); AudioSelection1="VA64"; Serial.println("survival");} // SURVIVAL
         if (incomingData2 == 2106) { pbgame = 6; EEPROM.write(9, pbgame); EEPROM.commit(); AudioSelection1="VA6J"; Serial.println("swarm");} // SWARM
-        if (incomingData2 == 2107) { SetTeam = 0; EEPROM.write(14, SetTeam); EEPROM.commit(); Serial.println("team0"); if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VS9"; pbteam = 0;} if (pbgame > 4) {AudioSelection1 = "VA3T"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA13"; pbteam = 0;} Serial.println("pbteam = " + String(pbteam)); ChangeMyColor = SetTeam;}
-        if (incomingData2 == 2108) { SetTeam = 1; EEPROM.write(14, SetTeam); EEPROM.commit(); Serial.println("team1"); if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA4N"; pbteam = 1;} if (pbgame > 4) {AudioSelection1 = "VA1L"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA1L"; pbteam = 1;} Serial.println("pbteam = " + String(pbteam)); ChangeMyColor = SetTeam;}
-        if (incomingData2 == 2109) { SetTeam = 3; EEPROM.write(14, SetTeam); EEPROM.commit(); Serial.println("team3"); if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA71"; pbteam = 2;} if (pbgame > 4) {AudioSelection1 = "VA3Y"; pbteam = 1;} if (pbgame < 3) {AudioSelection1 = "VA27"; pbteam = 0;} Serial.println("pbteam = " + String(pbteam)); ChangeMyColor = SetTeam;}
-        if (incomingData2 == 2143) { SetTeam = 2; EEPROM.write(14, SetTeam); EEPROM.commit(); Serial.println("team2"); if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA1R"; pbteam = 1;} if (pbgame > 4) {AudioSelection1 = "VA1R"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA1R"; pbteam = 1;} Serial.println("pbteam = " + String(pbteam)); ChangeMyColor = SetTeam;}
+        if (incomingData2 == 2107) { SetTeam = 0; EEPROM.commit(); Serial.println("team0"); if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VS9"; pbteam = 0;} if (pbgame > 4) {AudioSelection1 = "VA3T"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA13"; pbteam = 0;} Serial.println("pbteam = " + String(pbteam)); ChangeMyColor = SetTeam; EEPROM.write(14, pbteam);}
+        if (incomingData2 == 2108) { SetTeam = 1; EEPROM.commit(); Serial.println("team1"); if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA4N"; pbteam = 1;} if (pbgame > 4) {AudioSelection1 = "VA1L"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA1L"; pbteam = 1;} Serial.println("pbteam = " + String(pbteam)); ChangeMyColor = SetTeam; EEPROM.write(14, pbteam);}
+        if (incomingData2 == 2109) { SetTeam = 3; EEPROM.commit(); Serial.println("team3"); if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA71"; pbteam = 2;} if (pbgame > 4) {AudioSelection1 = "VA3Y"; pbteam = 1;} if (pbgame < 3) {AudioSelection1 = "VA27"; pbteam = 0;} Serial.println("pbteam = " + String(pbteam)); ChangeMyColor = SetTeam; EEPROM.write(14, pbteam);}
+        if (incomingData2 == 2143) { SetTeam = 2; EEPROM.commit(); Serial.println("team2"); if (pbgame == 3 || pbgame == 4) {AudioSelection1 = "VA1R"; pbteam = 1;} if (pbgame > 4) {AudioSelection1 = "VA1R"; pbteam = 0;} if (pbgame < 3) {AudioSelection1 = "VA1R"; pbteam = 1;} Serial.println("pbteam = " + String(pbteam)); ChangeMyColor = SetTeam; EEPROM.write(14, pbteam);}
         if (incomingData2 == 2110) { pbweap = 0; EEPROM.write(15, pbweap); EEPROM.commit(); Serial.println("weap0"); weaponalignment();}
         if (incomingData2 == 2111) { pbweap = 1; EEPROM.write(15, pbweap); EEPROM.commit(); Serial.println("weap1"); weaponalignment();}
         if (incomingData2 == 2112) { pbweap = 2; EEPROM.write(15, pbweap); EEPROM.commit(); Serial.println("weap2"); weaponalignment();}
@@ -1505,10 +1505,14 @@ void ProcessIncomingCommands() {
             EEPROM.write(13, pbspawn);
             EEPROM.commit();
           }
-          if (GunID == 5 || GunID == 11 || GunID == 17 || GunID == 23) { // Wraith
+          if (GunID == 5 || GunID == 11 || GunID == 17 || GunID == 23) { // Medic/Commander
             pbweap = 5;
             pbteam = 0;
-            pbspawn = 5; 
+            pbspawn = 2;
+            pblives = 1; 
+            PlayerLives = 3; 
+            EEPROM.write(19, PlayerLives); 
+            EEPROM.write(11, pblives);
             EEPROM.write(14, pbteam);
             EEPROM.write(15, pbweap);
             EEPROM.write(13, pbspawn);
@@ -1925,6 +1929,9 @@ void ProcessTeamsAssignmnet() {
             } 
             Serial.println("pbteam = " + String(pbteam));
           }
+          EEPROM.write(14, pbteam);
+          EEPROM.write(88, SetTeam);
+          EEPROM.commit();
           AUDIO1 = true;
           ChangeMyColor = SetTeam;
 }
@@ -2831,8 +2838,8 @@ void loop1(void *pvParameters) {
     pblives = EEPROM.read(11);
     pbtime = EEPROM.read(12);
     pbspawn = EEPROM.read(13);
-    Team = EEPROM.read(14);
-    teamalignment();
+    pbteam = EEPROM.read(14);
+    SetTeam = EEPROM.read(88);
     pbweap = EEPROM.read(15);
     pbperk = EEPROM.read(16);
     Serial.println("all data retreived from EEPROM");
