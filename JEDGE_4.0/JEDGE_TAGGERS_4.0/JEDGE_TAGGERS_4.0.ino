@@ -152,6 +152,7 @@
  *                    added in verification if game time for pbgames indicates time up. if time is up, reset the esp32, also if deaths are equal to initial planned lives game is over and reset as well
  * updated 08/25/2021 fixed audio timing issue for music playing game modes, modified starwars and contra pset health/armor as well as the weapons to be similar to offline game modes.               
  *                    Added in the receiveing and processing of all game settings when start game comes in
+ * updated 08/30/2021 fixed two way communication, had to bring back in AP settings post deletion. 
  * 
  */
 
@@ -160,6 +161,8 @@
 //*************************************************************************
 #include <HardwareSerial.h> // for assigining misc pins for tx/rx
 #include <WiFi.h> // used for all kinds of wifi stuff
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 #include <esp_now.h> // espnow library
 #include <esp_wifi.h> // needed for resetting the mac address
 #include <HTTPClient.h> // to update via http
@@ -172,7 +175,7 @@
 int sample[5];
 
 // define the number of bytes I'm using/accessing for eeprom
-#define EEPROM_SIZE 84 // use 0 for OTA and 1 for Tagger ID
+#define EEPROM_SIZE 100 // use 0 for OTA and 1 for Tagger ID
 // if eeprom 0 is 1, it is OTA mode, if 0, regular mode.
 // eeprom 1-4 is used for update process and resetting as well as attempts counters
 // eeprom 5 - player deaths
@@ -216,7 +219,7 @@ String OTAssid = "dontchangeme"; // network name to update OTA
 String OTApassword = "dontchangeme"; // Network password for OTA
 int TaggersOwned = 64; // how many taggers do you own or will play?
 bool ACTASHOST = false; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
-String FirmwareVer = {"4.12"};
+String FirmwareVer = {"4.13"};
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -358,6 +361,10 @@ bool SCORESYNC = false;
 
 long WebAppUpdaterTimer = 0;
 int WebAppUpdaterProcessCounter = 0;
+int WebSocketData;
+
+// Replace with your network credentials
+const char* ssid = GunName;
 
 int ScoreRequestCounter = 0;
 String ScoreTokenStrings[73];
@@ -494,7 +501,12 @@ void BroadcastData() {
 
 // object to used to change esp default mac to custom mac
 void ChangeMACaddress() {
-  //WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(GunName, password);
+
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(IP);
   
   Serial.print("[OLD] ESP32 Board MAC Address:  ");
   Serial.println(WiFi.macAddress());
@@ -542,6 +554,147 @@ void IntializeESPNOW() {
 //****************************************************8
 // WebServer 
 //****************************************************
+// Create AsyncWebServer object on port 80
+AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
+AsyncEventSource events("/events");
+
+const char index_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE HTML><html>
+<head>
+  <title>ESP Web Server</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <style>
+  html {
+    font-family: Arial;
+    display: inline-block;
+    text-align: center;
+  }
+  p {  font-size: 1.2rem;}
+  h1 {
+    font-size: 1.8rem;
+    color: white;
+  }
+  h2{
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #143642;
+  }
+  .topnav {
+    overflow: hidden;
+    background-color: #143642;
+  }
+  body {
+    margin: 0;
+  }
+  .content {
+    padding: 30px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .card {
+    background-color: #F8F7F9;;
+    box-shadow: 2px 2px 12px 1px rgba(140,140,140,.5);
+    padding-top:10px;
+    padding-bottom:20px;
+  }
+  .button {
+    padding: 15px 50px;
+    font-size: 24px;
+    text-align: center;
+    outline: none;
+    color: #fff;
+    background-color: #0f8b8d;
+    border: none;
+    border-radius: 5px;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+   }
+   /*.button:hover {background-color: #0f8b8d}*/
+   .button:active {
+     background-color: #0f8b8d;
+     box-shadow: 2 2px #CDCDCD;
+     transform: translateY(2px);
+   }
+   .state {
+     font-size: 1.5rem;
+     color:#8c8c8c;
+     font-weight: bold;
+   }
+   .stopnav { overflow: hidden; background-color: #2f4468; color: white; font-size: 1.7rem; }
+   .scontent { padding: 20px; }
+   .scard { background-color: white; box-shadow: 2px 2px 12px 1px rgba(140,140,140,.5); }
+   .scards { max-width: 700px; margin: 0 auto; display: grid; grid-gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+   .sreading { font-size: 2.8rem; }
+   .spacket { color: #bebebe; }
+   .scard.red { color: #FC0000; }
+   .scard.blue { color: #003DFC; }
+   .scard.yellow { color: #E5D200; }
+   .scard.green { color: #00D02C; }
+   .scard.black { color: #000000; }
+  </style>
+<title>JEDGE 3.0</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+</head>
+<body>
+  
+<script>
+
+</script>
+</body>
+</html>
+)rawliteral";
+void notifyClients() {
+  ws.textAll(String(ledState));
+}
+void notifyClients1() {
+  ws.textAll(String(WebSocketData));
+}
+void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
+  AwsFrameInfo *info = (AwsFrameInfo*)arg;
+  if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+    data[len] = 0;
+  }
+}
+void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
+             void *arg, uint8_t *data, size_t len) {
+  switch (type) {
+    case WS_EVT_CONNECT:
+      Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+      break;
+    case WS_EVT_DISCONNECT:
+      Serial.printf("WebSocket client #%u disconnected\n", client->id());
+      break;
+    case WS_EVT_DATA:
+      handleWebSocketMessage(arg, data, len);
+      break;
+    case WS_EVT_PONG:
+    case WS_EVT_ERROR:
+      break;
+  }
+}
+void initWebSocket() {
+  ws.onEvent(onEvent);
+  server.addHandler(&ws);
+}
+String processor(const String& var){
+  Serial.println(var);
+  if(var == "STATE"){
+    if (ledState){
+      return "ON";
+    }
+    else{
+      return "OFF";
+    }
+  }
+}
 
 void ClearScores() {
   Serial.println("resetting all scores");
@@ -552,6 +705,7 @@ void ClearScores() {
   while (teamcounter < 4) {
     TeamKillCount[teamcounter] = 0;
     EEPROM.write(eepromcounter, TeamKillCount[teamcounter]);
+    EEPROM.commit();
     teamcounter++;
     eepromcounter++;
     delay(0);
@@ -560,12 +714,14 @@ void ClearScores() {
   while (playercounter < 64) {
     PlayerKillCount[playercounter] = 0;
     EEPROM.write(eepromcounter, PlayerKillCount[playercounter]);
+    EEPROM.commit();
     playercounter++;
     eepromcounter++;
     delay(0);
   }
   EEPROM.write(6, CompletedObjectives);
-  EEPROM.write(5, 0);
+  Deaths = 0;
+  EEPROM.write(5, Deaths);
   EEPROM.commit();
   Serial.println("Scores Reset");
 }
@@ -1195,7 +1351,197 @@ void ProcessIncomingCommands() {
         if (incomingData2 == 2144) { GameMode = 0; EEPROM.write(10, GameMode); EEPROM.commit(); AudioSelection1="VA5Z"; BACKGROUNDMUSIC = false; Serial.println("nogamemod"); StringSender = "$PLAYX,4,*"; STRINGSENDER = true;} // standard - defaul
         if (incomingData2 == 2145) { GameMode = 4; EEPROM.write(10, GameMode); EEPROM.commit(); AudioSelection1="VA8J"; BACKGROUNDMUSIC = false; Serial.println("royalegamemod"); StringSender = "$PLAYX,4,*"; STRINGSENDER = true;} // battle royale
         if (incomingData2 == 2146) { GameMode = 8; EEPROM.write(10, GameMode); EEPROM.commit(); AudioSelection1="OP01"; BACKGROUNDMUSIC = false; Serial.println("assimilationgamemod"); StringSender = "$PLAYX,4,*"; STRINGSENDER = true;} // assimilation
-        if (incomingData2 == 2147) { GameMode = 9; EEPROM.write(10, GameMode); EEPROM.commit(); AudioSelection1="OP06"; BACKGROUNDMUSIC = false; Serial.println("gungamemod"); StringSender = "$PLAYX,4,*"; STRINGSENDER = true;} // gun game
+        if (incomingData2 == 2147) { // JEDGE SUPREMACY 5V5
+          GameMode = 9;  
+          EEPROM.write(10, GameMode);
+          SetVol = 100;
+          EEPROM.write(7, SetVol);
+          pbindoor = 0; 
+          EEPROM.write(8, pbindoor);
+          pbgame = 4; 
+          EEPROM.write(9, pbgame);
+          pblives = 5; 
+          PlayerLives = 32000; 
+          EEPROM.write(19, PlayerLives); 
+          EEPROM.write(11, pblives);
+          pbtime = 4; 
+          EEPROM.write(12, pbtime);
+          pbperk = 7; 
+          EEPROM.write(16, pbperk);
+          EEPROM.commit();
+          if (GunID == 0 || GunID == 5 || GunID == 10 || GunID == 15) { // Soldier
+            pbweap = 1;
+            pbteam = 0;
+            pbspawn = 0; 
+            EEPROM.write(14, pbteam);
+            EEPROM.write(15, pbweap);
+            EEPROM.write(13, pbspawn);
+            EEPROM.commit();
+          }
+          if (GunID == 1 || GunID == 6 || GunID == 11 || GunID == 16) { // heavy
+            pbweap = 0;
+            pbteam = 0;
+            pbspawn = 0; 
+            EEPROM.write(14, pbteam);
+            EEPROM.write(15, pbweap);
+            EEPROM.write(13, pbspawn);
+            EEPROM.commit();
+          }
+          if (GunID == 2 || GunID == 7 || GunID == 12 || GunID == 17) { // Mercenary
+            pbweap = 4;
+            pbteam = 0;
+            pbspawn = 0; 
+            EEPROM.write(14, pbteam);
+            EEPROM.write(15, pbweap);
+            EEPROM.write(13, pbspawn);
+            EEPROM.commit();
+          }
+          if (GunID == 3 || GunID == 8 || GunID == 13 || GunID == 18) { // Sniper
+            pbweap = 1;
+            pbteam = 2;
+            pbspawn = 0; 
+            EEPROM.write(14, pbteam);
+            EEPROM.write(15, pbweap);
+            EEPROM.write(13, pbspawn);
+            EEPROM.commit();
+          }
+          if (GunID == 4 || GunID == 9 || GunID == 14 || GunID == 19) { // Wraith
+            pbweap = 0;
+            pbteam = 0;
+            pbspawn = 0; 
+            EEPROM.write(14, pbteam);
+            EEPROM.write(15, pbweap);
+            EEPROM.write(13, pbspawn);
+            EEPROM.commit();
+          }
+          if (GunID < 5) {
+            SetTeam = 0;
+            EEPROM.write(88, SetTeam);
+            EEPROM.commit();
+          }
+          if (GunID < 10 && GunID > 4) {
+            SetTeam = 1;
+            EEPROM.write(88, SetTeam);
+            EEPROM.commit();
+          }
+          if (GunID < 15 && GunID > 9) {
+            SetTeam = 2;
+            EEPROM.write(88, SetTeam);
+            EEPROM.commit();
+          }
+          if (GunID < 20 && GunID > 14) {
+            SetTeam = 3;
+            EEPROM.write(88, SetTeam);
+            EEPROM.commit();
+          }
+          Serial.println("Volume set to" + String(SetVol));
+          AudioSelection1="VA62"; 
+          BACKGROUNDMUSIC = false; 
+          Serial.println("SUPREMACY 5V5"); 
+          StringSender = "$PLAYX,4,*"; 
+          STRINGSENDER = true;
+          VOLUMEADJUST=true;
+        }
+        if (incomingData2 == 2147) { // JEDGE SUPREMACY 5V5
+          GameMode = 10;  
+          EEPROM.write(10, GameMode);
+          SetVol = 100;
+          EEPROM.write(7, SetVol);
+          pbindoor = 0; 
+          EEPROM.write(8, pbindoor);
+          pbgame = 4; 
+          EEPROM.write(9, pbgame);
+          pblives = 5; 
+          PlayerLives = 32000; 
+          EEPROM.write(19, PlayerLives); 
+          EEPROM.write(11, pblives);
+          pbtime = 4; 
+          EEPROM.write(12, pbtime);
+          pbperk = 7; 
+          EEPROM.write(16, pbperk);
+          EEPROM.commit();
+          if (GunID == 0 || GunID == 6 || GunID == 12 || GunID == 18) { // Soldier
+            pbweap = 1;
+            pbteam = 0;
+            pbspawn = 0; 
+            EEPROM.write(14, pbteam);
+            EEPROM.write(15, pbweap);
+            EEPROM.write(13, pbspawn);
+            EEPROM.commit();
+          }
+          if (GunID == 1 || GunID == 7 || GunID == 13 || GunID == 19) { // heavy
+            pbweap = 0;
+            pbteam = 0;
+            pbspawn = 0; 
+            EEPROM.write(14, pbteam);
+            EEPROM.write(15, pbweap);
+            EEPROM.write(13, pbspawn);
+            EEPROM.commit();
+          }
+          if (GunID == 2 || GunID == 8 || GunID == 14 || GunID == 20) { // Mercenary
+            pbweap = 4;
+            pbteam = 0;
+            pbspawn = 0; 
+            EEPROM.write(14, pbteam);
+            EEPROM.write(15, pbweap);
+            EEPROM.write(13, pbspawn);
+            EEPROM.commit();
+          }
+          if (GunID == 3 || GunID == 9 || GunID == 15 || GunID == 21) { // Sniper
+            pbweap = 1;
+            pbteam = 2;
+            pbspawn = 0; 
+            EEPROM.write(14, pbteam);
+            EEPROM.write(15, pbweap);
+            EEPROM.write(13, pbspawn);
+            EEPROM.commit();
+          }
+          if (GunID == 4 || GunID == 10 || GunID == 16 || GunID == 22) { // Wraith
+            pbweap = 0;
+            pbteam = 2;
+            pbspawn = 0; 
+            EEPROM.write(14, pbteam);
+            EEPROM.write(15, pbweap);
+            EEPROM.write(13, pbspawn);
+            EEPROM.commit();
+          }
+          if (GunID == 5 || GunID == 11 || GunID == 17 || GunID == 23) { // Wraith
+            pbweap = 5;
+            pbteam = 0;
+            pbspawn = 5; 
+            EEPROM.write(14, pbteam);
+            EEPROM.write(15, pbweap);
+            EEPROM.write(13, pbspawn);
+            EEPROM.commit();
+          }
+          if (GunID < 6) {
+            SetTeam = 0;
+            EEPROM.write(88, SetTeam);
+            EEPROM.commit();
+          }
+          if (GunID < 12 && GunID > 5) {
+            SetTeam = 1;
+            EEPROM.write(88, SetTeam);
+            EEPROM.commit();
+          }
+          if (GunID < 18 && GunID > 11) {
+            SetTeam = 2;
+            EEPROM.write(88, SetTeam);
+            EEPROM.commit();
+          }
+          if (GunID < 24 && GunID > 17) {
+            SetTeam = 3;
+            EEPROM.write(88, SetTeam);
+            EEPROM.commit();
+          }
+          Serial.println("Volume set to" + String(SetVol));
+          AudioSelection1="VA62"; 
+          BACKGROUNDMUSIC = false; 
+          Serial.println("SUPREMACY 6V6"); 
+          StringSender = "$PLAYX,4,*"; 
+          STRINGSENDER = true;
+          VOLUMEADJUST=true;
+        }
         if (incomingData2 == 2148) { GameMode = 12; EEPROM.write(10, GameMode); EEPROM.commit(); AudioSelection1="CC07"; Serial.println("contra"); StringSender = "$PLAYX,4,*"; STRINGSENDER = true;} // contra
         if (incomingData2 == 2149) { GameMode = 13; EEPROM.write(10, GameMode); EEPROM.commit(); AudioSelection1="SW00"; Serial.println("starwars"); StringSender = "$PLAYX,4,*"; STRINGSENDER = true;} // starwars
         if (incomingData2 == 2150) { GameMode = 14; EEPROM.write(10, GameMode); EEPROM.commit(); AudioSelection1="JA5"; Serial.println("halo"); StringSender = "$PLAYX,4,*"; STRINGSENDER = true;} // halo
@@ -1349,8 +1695,10 @@ void PBGameStart() {
           sendString("$VOL,"+String(SetVol)+",0,*"); // adjust volume to default
           sendString("$PLAY,VAQ,3,10,,,,,*"); // says let battle begin  
           PBGAMESTART = false;
-          ClearScores();
-          Deaths = 0;
+          if (!INGAME) {
+            ClearScores();
+            INGAME = true;
+          }
           sendString("$PBINDOOR," + String(pbindoor) + ",*");
           sendString("$PBINDOOR," + String(pbindoor) + ",*");
           sendString("$PBGAME," + String(pbgame) + ",*");
@@ -1374,7 +1722,6 @@ void PBGameStart() {
           sendString("$PID," + String(GunID) + ",*");
           sendString("$TID," + String(SetTeam) + ",*");
           sendString("$TID," + String(SetTeam) + ",*");
-          INGAME = true;
           EEPROM.write(17, 1);
           EEPROM.commit();
           sendString("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4****
@@ -1396,10 +1743,6 @@ void PBGameStart() {
           }  
           if (GameMode == 8) { // assimilation
             // NOTHING? JUST TRIGGER ADDED WHEN DEAD 
-          }
-          if (GameMode == 9) { // gun game
-            sendString("$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,0,1400,10,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
-            sendString("$WEAP,0,,100,0,3,18,0,,,,,,,,360,850,14,0,1400,10,7,100,100,,0,,,S07,D20,D19,,D04,D03,D21,D18,,,,,14,28,75,,*");
           }
           if (GameMode == 12) { // contra
             sendString("$BMAP,1,100,0,1,99,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
@@ -1458,6 +1801,64 @@ void PBGameStart() {
             AudioSelection = MusicSelection;
             AUDIO = true;
           }
+
+          // used to test a reset eeprom stored score:
+          // EepromScoreTest();
+}
+void EepromScoreTest() {
+  lastTaggedPlayer = 0;
+  lastTaggedTeam = 0;
+  readStr = "$HP,0,0,0,*";
+  ProcessBRXData();
+  
+          Serial.println(lastTaggedPlayer);
+          //Serial.println(peepromid);
+          Serial.println(lastTaggedTeam);
+          //Serial.println(teepromid);
+          Serial.println(EEPROM.read(20));
+          Serial.println(EEPROM.read(84));
+          Serial.println(TeamKillCount[0]);
+          
+  delay(3000);
+  lastTaggedPlayer = 1;
+  lastTaggedTeam = 1;
+  readStr = "$HP,0,0,0,*";
+  ProcessBRXData();
+  
+          Serial.println(lastTaggedPlayer);
+          //Serial.println(peepromid);
+          Serial.println(lastTaggedTeam);
+          //Serial.println(teepromid);
+          Serial.println(EEPROM.read(21));
+          Serial.println(EEPROM.read(85));
+          Serial.println(TeamKillCount[1]);
+  delay(3000);
+  lastTaggedPlayer = 2;
+  lastTaggedTeam = 2;
+  readStr = "$HP,0,0,0,*";
+  ProcessBRXData();
+  
+          Serial.println(lastTaggedPlayer);
+          //Serial.println(peepromid);
+          Serial.println(lastTaggedTeam);
+          //Serial.println(teepromid);
+          Serial.println(EEPROM.read(22));
+          Serial.println(EEPROM.read(86));
+          Serial.println(TeamKillCount[2]);
+  delay(3000);
+  lastTaggedPlayer = 3;
+  lastTaggedTeam = 3;
+  readStr = "$HP,0,0,0,*";
+  ProcessBRXData();
+  
+          Serial.println(lastTaggedPlayer);
+         // Serial.println(peepromid);
+          Serial.println(lastTaggedTeam);
+         // Serial.println(teepromid);
+          Serial.println(EEPROM.read(23));
+          Serial.println(EEPROM.read(87));
+          Serial.println(TeamKillCount[3]);
+          Serial.println(EEPROM.read(5));
 }
 void ProcessTeamsAssignmnet() {
           if (SetTeam == 0) {
@@ -1616,7 +2017,7 @@ void InitAP() {
   // Connect to Wi-Fi network with SSID and password
   Serial.print("Setting AP (Access Point)…");
   // Remove the password parameter, if you want the AP (Access Point) to be open
-  WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_AP_STA);
 }
 
 
@@ -1773,7 +2174,7 @@ void MainGame() {
     if (currentquerytime - QueryStart > 1200) {
       delay(7000);
       REQUESTQUERY = false;
-      PBLockout();
+      //PBLockout();
       PBGameStart();
     }
   }
@@ -1882,7 +2283,7 @@ void MainGame() {
 // run SWAPTX style weapon swap as from my youtube funny video:
 void swapbrx() {
   // Lets Roll for a perk!
-  int LuckyRoll = random(0,10);
+  int LuckyRoll = random(100);
   /*  lets talk perks!
    *  0. pick up body armor = add defense                Chance: 10%
    *  1. pick up a med kit - restore health              Chance: 10%
@@ -1896,26 +2297,26 @@ void swapbrx() {
    *  9. pick up a weapon upgrade for your stock pistol  Chance: 10%
    */
   // apply the perk!
-  if (LuckyRoll == 0) {
+  if (LuckyRoll > 0 && LuckyRoll < 10) {
     // body armor picked up, Adding full body armor restore:
     AudioSelection = "OP42";
     sendString("$BUMP,70,0,1,0,*");
     //sendString("$LIFE,,70,,1,*"); // $BUMP,5,1,1,0,*  hp, armor, shields
   }
-  if (LuckyRoll == 1) {
+  if (LuckyRoll > 9 && LuckyRoll < 20) {
     // MedKit picked up, Adding full health restore:
     AudioSelection = "OP34";
     sendString("$BUMP,45,1,0,0,*");
     //sendString("$LIFE,,,45,1,*");
   }
-  if (LuckyRoll ==2) {
+  if (LuckyRoll > 19 && LuckyRoll < 30) {
     // Full health/armor restore picked up:
     AudioSelection = "OP44";
     sendString("$BUMP,70,0,1,0,*");
     sendString("$BUMP,45,1,,0,*");
     //sendString("$LIFE,,70,45,1,*");
   }
-  if (LuckyRoll == 3) {
+  if (LuckyRoll > 29 && LuckyRoll < 40) {
     // shotgun picked up:
     AudioSelection = "OP37";
     SpecialWeapon = 15;
@@ -1924,7 +2325,7 @@ void swapbrx() {
     SelectButtonTimer = millis();
     //AudioSelection1="VA9B"; // set audio playback to "press select button"
   }
-  if (LuckyRoll == 4) {
+  if (LuckyRoll > 39 && LuckyRoll < 50) {
     // SMG picked up:
     AudioSelection = "OP40";
     SpecialWeapon = 16;
@@ -1933,7 +2334,7 @@ void swapbrx() {
     SelectButtonTimer = millis();
     //AudioSelection1="VA9B"; // set audio playback to "press select button"
   }
-  if (LuckyRoll == 5) {
+  if (LuckyRoll > 49 && LuckyRoll < 60) {
     // sniper picked up:
     AudioSelection = "OP38";
     SpecialWeapon = 17;
@@ -1942,7 +2343,7 @@ void swapbrx() {
     SelectButtonTimer = millis();
     //AudioSelection1="VA9B"; // set audio playback to "press select button"
   }
-  if (LuckyRoll == 6) {
+  if (LuckyRoll > 59 && LuckyRoll < 70) {
     // assault rifle picked up:
     AudioSelection = "OP39";
     SpecialWeapon = 3;
@@ -1951,7 +2352,7 @@ void swapbrx() {
     SelectButtonTimer = millis();
     //AudioSelection1="VA9B"; // set audio playback to "press select button"
   }
-  if (LuckyRoll == 7) {
+  if (LuckyRoll > 69 && LuckyRoll < 80) {
     // rocket picked up:
     AudioSelection = "OP36";
     SpecialWeapon = 14;
@@ -1960,13 +2361,13 @@ void swapbrx() {
     SelectButtonTimer = millis();
     //AudioSelection1="VA9B"; // set audio playback to "press select button"
   }
-  if (LuckyRoll == 8) {
+  if (LuckyRoll > 79 && LuckyRoll < 90) {
     // Ammo picked up:
     AudioSelection = "OP41";
     SpecialWeapon = PreviousSpecialWeapon; // makes special weapon equal to whatever the last special weapon was set to
     LoadSpecialWeapon(); // reloads the last special weapon again to refresh ammo to original maximums
   }
-  if (LuckyRoll == 9) {
+  if (LuckyRoll > 99 && LuckyRoll < 100) {
     // Pistol upgrade picked up:
     AudioSelection = "VA6W";
     // increase pistol level 0-9; 
@@ -2231,7 +2632,7 @@ void ProcessBRXData() {
     //shield = tokenStrings[3].toInt(); // setting variable to be sent to esp8266
     if ((tokenStrings[1] == "0") && (tokenStrings[2] == "0") && (tokenStrings[3] == "0")) { // player is dead
         long CurrentDeathTime = millis();
-        if (CurrentDeathTime - LastDeathTime > 3000) {
+        if (CurrentDeathTime - LastDeathTime > 2000) {
           LastDeathTime = millis();
           if (GameMode > 11) {
             BACKGROUNDMUSIC = false;
@@ -2244,12 +2645,12 @@ void ProcessBRXData() {
             if (lastTaggedTeam == 3) {sendString("$PLAY,VA27,3,10,,,,,*"); delay(300); sendString("$TID,3,*");sendString("$TID,3,*");}
           }
           PlayerKillCount[lastTaggedPlayer]++; // adding a point to the last player who killed us
-          int eepromid = lastTaggedPlayer + 20;
-          EEPROM.write(eepromid, PlayerKillCount[lastTaggedPlayer]);
           TeamKillCount[lastTaggedTeam]++; // adding a point to the team who caused the last kill
-          eepromid = lastTaggedTeam + 84;
-          EEPROM.write(eepromid, TeamKillCount[lastTaggedTeam]);
           Deaths++;
+          int peepromid = lastTaggedPlayer + 20;
+          int teepromid = lastTaggedTeam + 84;
+          EEPROM.write(peepromid, PlayerKillCount[lastTaggedPlayer]);
+          EEPROM.write(teepromid, TeamKillCount[lastTaggedTeam]);
           EEPROM.write(5, Deaths);
           EEPROM.commit();
           //   call audio to announce player's killer
@@ -2388,28 +2789,37 @@ void loop1(void *pvParameters) {
   int softreset = EEPROM.read(18);
   int gamestatus = EEPROM.read(17);
   if (gamestatus == 1 || softreset == 1) {
+    Serial.println("Tagger was reset");
     // esp32 was reset while player is in game
     REQUESTQUERY = true;
     QueryStart = millis();
     sendString("$PHONE,*");
     sendString("$QUERY,*"); // REQUESTING STATUS FROM TAGGER
-    INGAME = true; // setting parameter for module to know that it is in a game currently
+    if (gamestatus == 1) { // only the case if not soft reset
+      INGAME = true; // setting parameter for module to know that it is in a game currently
+      Serial.println("setting in game status to in game");
+    }
     ESPTimeout = false; // disabling timeout deep sleep of esp
     // lets reload our current scores:
+    Serial.println("loading player's previous scores");
     int scorecounter = 20;
     int playercounter = 0;
     while (scorecounter < 84) {
       PlayerKillCount[playercounter] = EEPROM.read(scorecounter);
+      Serial.println("Player " + String(playercounter) + "has a score of: " + String(PlayerKillCount[playercounter]));
       playercounter++;
       scorecounter++;
     }
+    Serial.println("Loading Previous Team Scores");
     TeamKillCount[0] = EEPROM.read(84);
     TeamKillCount[1] = EEPROM.read(85);
     TeamKillCount[2] = EEPROM.read(86);
     TeamKillCount[3] = EEPROM.read(87);
+    Serial.println("Loading Objectives and Deaths");
     Deaths = EEPROM.read(5);
     CompletedObjectives = EEPROM.read(6);
     // now lets set the game settings from eeprom memory
+    Serial.println("loading all previous game settings");
     SetVol = EEPROM.read(7);
     pbindoor = EEPROM.read(8);
     if (pbindoor > 1) {
@@ -2448,6 +2858,8 @@ void loop1(void *pvParameters) {
 void loop2(void *pvParameters) {
   Serial.print("cOMMS loop running on core ");
   Serial.println(xPortGetCoreID());
+  WiFi.softAPdisconnect (true);
+  Serial.println("Device is not intended to act as WebServer / Host. Shutting down AP and WebServer");
   while (1) { // starts the forever loop
     digitalWrite(ledPin, ledState);
     static unsigned long lastEventTime = millis();
@@ -2503,72 +2915,83 @@ void setup() {
   Serial.println("Serial Buad Rate set for: " + String(BaudRate));
   Serial1.begin(BaudRate, SERIAL_8N1, SERIAL1_RXPIN, SERIAL1_TXPIN); // setting up the serial pins for sending data to BRX
   delay(10);
+  pinMode(led, OUTPUT);
+  digitalWrite(led, LOW);
+  Serial.print("setup() running on core ");
+
+  // Connect to Wi-Fi
+  Serial.println("Starting AP");
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(ssid, password);
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(IP);
+
+  
+  initWebSocket();
+  
+  // Start server
+  server.begin();
+
+  // Start ESP Now
+  Serial.print("ESP Board MAC Address:  ");
+  Serial.println(WiFi.macAddress());
+  Serial.println("Starting ESPNOW");
+  IntializeESPNOW();
+  
   if (bootstatus == 1){ // indicates we are in ota mode
     OTAMODE = true;
   }
   //*********** OTA MODE ************************
   if (OTAMODE) {  
-  Serial.print("Active firmware version:");
-  Serial.println(FirmwareVer);
-  // Loop check to make sure tagger doesnt try to update endlessly
-  int OTAattempts = EEPROM.read(4);
-  if (OTAattempts > 3) { // too many attempts, lets time it out
-    EEPROM.write(1, 0); // in case not already the case, clearing out eeprom state so it doesnt try to upgrade anymore
-    EEPROM.write(0, 2); // set up device to provide notification that there is no update available
-    EEPROM.commit(); // saves the eeprom state
-    ESP.restart(); // we confirmed there is no update available, just reset and get ready to play 
-  } else { // add one counter
-    OTAattempts++;
-    EEPROM.write(4, OTAattempts);
+    Serial.print("Active firmware version:");
+    Serial.println(FirmwareVer);
+    // Loop check to make sure tagger doesnt try to update endlessly
+    int OTAattempts = EEPROM.read(4);
+    if (OTAattempts > 3) { // too many attempts, lets time it out
+      EEPROM.write(1, 0); // in case not already the case, clearing out eeprom state so it doesnt try to upgrade anymore
+      EEPROM.write(0, 2); // set up device to provide notification that there is no update available
+      EEPROM.commit(); // saves the eeprom state
+      ESP.restart(); // we confirmed there is no update available, just reset and get ready to play 
+    } else { // add one counter
+      OTAattempts++;
+      EEPROM.write(4, OTAattempts);
+      EEPROM.commit();
+    }
+    bootstatus = EEPROM.read(0);
+    Serial.print("Boot Status = ");
+    Serial.println(bootstatus);
+    int passwordrequestattempt = 0;
+    while (OTApassword == "dontchangeme") {
+      datapacket1 = 9999;
+      getReadings();
+      BroadcastData(); // sending data via ESPNOW
+      Serial.println("Sent Data Via ESPNOW");
+      ResetReadings();
+      delay(2000);
+      passwordrequestattempt++;
+      if (passwordrequestattempt > 5) {
+        ESP.restart();
+      }
+    }
+    delay(2000);
+    Serial.println("wifi credentials");
+    Serial.println(OTAssid);
+    Serial.println(OTApassword);
+  
+    connect_wifi();
+
+    delay(1500);
+    sendString("$PLAY,OP28,3,10,,,,,*"); // says connection accepted
+    delay(1500);
+  
+    EEPROM.write(1, 0);
     EEPROM.commit();
-  }
-  
-  bootstatus = EEPROM.read(0);
-  Serial.print("Boot Status = ");
-  Serial.println(bootstatus);
-
-  InitAP();
-  Serial.print("ESP Board MAC Address:  ");
-  Serial.println(WiFi.macAddress());
-  Serial.println("Starting ESPNOW");
-  IntializeESPNOW();
-  delay(1000);
-
-  datapacket1 = 9999;
-  getReadings();
-  BroadcastData(); // sending data via ESPNOW
-  Serial.println("Sent Data Via ESPNOW");
-  ResetReadings();
-
-  while (OTApassword == "dontchangeme") {
-    delay(1);
-  }
-  delay(2000);
-  Serial.println("wifi credentials");
-  Serial.println(OTAssid);
-  Serial.println(OTApassword);
-  
-  connect_wifi();
-
-  delay(1500);
-  sendString("$PLAY,OP28,3,10,,,,,*"); // says connection accepted
-  delay(1500);
-  
-  EEPROM.write(1, 0);
-  EEPROM.commit();
   } else {
-  //************** Play Mode*******************
-  pinMode(led, OUTPUT);
-  digitalWrite(led, LOW);
-  Serial.print("setup() running on core ");
-  InitAP();
-  Serial.print("ESP Board MAC Address:  ");
-  Serial.println(WiFi.macAddress());
-  Serial.println("Starting ESPNOW");
-  IntializeESPNOW();
-  Serial.println(xPortGetCoreID());
-  xTaskCreatePinnedToCore(loop1, "loop1", 4096, NULL, 1, NULL, 0);
-  xTaskCreatePinnedToCore(loop2, "loop2", 4096, NULL, 1, NULL, 1);
+    //************** Play Mode*******************
+    Serial.println(xPortGetCoreID());
+    xTaskCreatePinnedToCore(loop1, "loop1", 4096, NULL, 1, NULL, 0);
+    xTaskCreatePinnedToCore(loop2, "loop2", 4096, NULL, 1, NULL, 1);
   }
 } // End of setup.
 // **********************
