@@ -153,7 +153,7 @@
  * updated 08/25/2021 fixed audio timing issue for music playing game modes, modified starwars and contra pset health/armor as well as the weapons to be similar to offline game modes.               
  *                    Added in the receiveing and processing of all game settings when start game comes in
  * updated 08/30/2021 fixed two way communication, had to bring back in AP settings post deletion. 
- * 
+ * updated 09/03/2021 added jbox respawn functionality for espnow based respawn
  */
 
 //*************************************************************************
@@ -219,7 +219,7 @@ String OTAssid = "dontchangeme"; // network name to update OTA
 String OTApassword = "dontchangeme"; // Network password for OTA
 int TaggersOwned = 64; // how many taggers do you own or will play?
 bool ACTASHOST = false; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
-String FirmwareVer = {"4.13"};
+String FirmwareVer = {"4.14"};
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -256,9 +256,12 @@ int pblives = 0;
 int pbtime = 0;
 int pbspawn = 0;
 int pbindoor = 0;
+int health = 0;
 bool PBGAMESTART = false;
 bool PBLOCKOUT = false;
 bool PBENDGAME = false;
+bool SENDSPAWN = false;
+bool VIB = false;
 String GameSettings = "0";
 String GameSettingsTokens[10];
 
@@ -1609,15 +1612,85 @@ void ProcessIncomingCommands() {
         lastincomingData2 = 0;
       }
     }
-    if (31100 > incomingData2 > 31000) {
-      PlayerStatBoost = incomingData2 - 31000;
-      STATBOOST = true; 
-      Serial.println("Stat boost found");
-      // 31101 - Health boost
-      // 31102 - armor boost
-      // 31103 - shield boost
-      // 31104 - ammo boost
-      lastincomingData2 = 0;
+    // 31101 - Health boost
+    // 31102 - armor boost
+    // 31103 - shield boost
+    // 31104 - ammo boost
+    // 31110 - team 0 spawn
+    // 31111 - team 1 spawn
+    // 31112 - team 2 spawn
+    // 31113 - team 3 spawn
+    if (incomingData2 == 31110) { 
+      if (INGAME) {
+        if (SetTeam == 0) {
+          // respawn if dead
+          if (health == 0) {
+            SENDSPAWN = true;
+          } else {
+            // in spawn area give away location
+            AudioSelection = "N05"; // chirp
+            AUDIO = true; 
+          }
+        } else {
+          // Notify player that player is close to enemy base - silently
+          VIB = true;
+        }
+        lastincomingData2 = 0;
+      }
+    }
+    if (incomingData2 == 31111) { 
+      if (INGAME) {
+        if (SetTeam == 1) {
+          // respawn if dead
+          if (health == 0) {
+            SENDSPAWN = true;
+          } else {
+            // in spawn area give away location
+            AudioSelection = "N05"; // chirp
+            AUDIO = true; 
+          }
+        } else {
+          // Notify player that player is close to enemy base - silently
+          VIB = true;
+        }
+        lastincomingData2 = 0;
+      }
+    }
+    if (incomingData2 == 31112) { 
+      if (INGAME) {
+        if (SetTeam == 2) {
+          // respawn if dead
+          if (health == 0) {
+            SENDSPAWN = true;
+          } else {
+            // in spawn area give away location
+            AudioSelection = "N05"; // chirp
+            AUDIO = true; 
+          }
+        } else {
+          // Notify player that player is close to enemy base - silently
+          VIB = true;
+        }
+        lastincomingData2 = 0;
+      }
+    }
+    if (incomingData2 == 31113) { 
+      if (INGAME) {
+        if (SetTeam == 3) {
+          // respawn if dead
+          if (health == 0) {
+            SENDSPAWN = true;
+          } else {
+            // in spawn area give away location
+            AudioSelection = "N05"; // chirp
+            AUDIO = true; 
+          }
+        } else {
+          // Notify player that player is close to enemy base - silently
+          VIB = true;
+        }
+        lastincomingData2 = 0;
+      }
     }
     if (31300 > incomingData2 > 31199) {
       // notification of a flag captured
@@ -2185,6 +2258,12 @@ void MainGame() {
       PBGameStart();
     }
   }
+  if (SENDSPAWN) {
+    sendString("$SPAWN,*");
+  }
+  if (VIB) {
+    sendString("VIB,*");
+  }
   if (PBGAMESTART) {
     PBGameStart();
   }
@@ -2634,7 +2713,7 @@ void ProcessBRXData() {
     /*health status update occured
      * can be used for updates on health as well as death occurance
      */
-    //health = tokenStrings[1].toInt(); // setting variable to be sent to esp8266
+    health = tokenStrings[1].toInt(); // setting variable to be sent to esp8266
     //armor = tokenStrings[2].toInt(); // setting variable to be sent to esp8266
     //shield = tokenStrings[3].toInt(); // setting variable to be sent to esp8266
     if ((tokenStrings[1] == "0") && (tokenStrings[2] == "0") && (tokenStrings[3] == "0")) { // player is dead
