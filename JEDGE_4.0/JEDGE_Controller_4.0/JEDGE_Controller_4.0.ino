@@ -35,6 +35,9 @@ int TeamSetting = 0; // Red, Blue, Green, Yellow, Two Teams, Three Teams, Four T
 int WeaponSetting = 0; // M4/heavy/sentinel/wraith, sr100/maruader/sniper/soldier, smgx3/medic/guardian/technician, tac87/valkyrie/grenadier/viper, mg-7/mercenary, Tar33/commander/general, silencedAR
 int PerkSetting = 0; // none, Grenades, Medkit, body armor, extended mags, concussion nades, critical strike, focus
 
+int otacounter = 0;
+bool SEQUENTIALOTA = true;
+long OTASequentialTimer = 0;
 
 int GunID = 98; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
 int GunGeneration = 2; // change to gen 1, 2, 3
@@ -1215,6 +1218,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         <input type="submit" value="Submit">
       </form><br>
       <p><button id="initializeotaupdate" class="button">Enable Tagger OTA</button></p>
+      <p><button id="initializeotaupdate1" class="button">Sequential Tagger OTA</button></p>
       <p><button id="initializecontrollerupdate" class="button">Enable Controller OTA</button></p>
       <p><button id="resetcontrollers" class="button">Reset Controllers</button></p>
       <p><button id="rundemo" class="button">Demo Mode</button></p>
@@ -1436,6 +1440,7 @@ if (!!window.EventSource) {
   function initButton() {
     document.getElementById('resendlastsetting').addEventListener('click', toggle15A);
     document.getElementById('initializeotaupdate').addEventListener('click', toggle15D);
+    document.getElementById('initializeotaupdate1').addEventListener('click', toggle15G);
     document.getElementById('initializecontrollerupdate').addEventListener('click', toggle15E);
     document.getElementById('resetcontrollers').addEventListener('click', toggle15B);
     document.getElementById('rundemo').addEventListener('click', toggle15F);
@@ -1598,6 +1603,9 @@ if (!!window.EventSource) {
   }
   function toggle15D(){
     websocket.send('toggle15D');
+  }
+  function toggle15G(){
+    websocket.send('toggle15G');
   }
   function toggle15E(){
     websocket.send('toggle15E');
@@ -4551,6 +4559,11 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       datapacket1 = 99;
       BROADCASTESPNOW = true;
     }
+    if (strcmp((char*)data, "toggle15G") == 0) { // auto update
+      otacounter = 0;
+      SEQUENTIALOTA = !SEQUENTIALOTA;
+      OTASequentialTimer = 0;
+    }
     if (strcmp((char*)data, "toggle15E") == 0) { // auto update
       Serial.println("Initializing OTA Update of Controller");
       delay(2000);
@@ -5146,6 +5159,21 @@ void loop() {
       WebAppUpdaterProcessCounter = 0;
     }
   }
+  }
+  if (SEQUENTIALOTA) {
+    if (currentmilliseconds - OTASequentialTimer > 150000 || OTASequentialTimer == 0) {
+      OTASequentialTimer = millis();
+      ledState = !ledState;
+      datapacket2 = 1505;
+      datapacket1 = otacounter;
+      getReadings();
+      BroadcastData(); // sending data via ESPNOW
+      Serial.println("Sent Data Via ESPNOW");
+      otacounter++;
+      if (otacounter > TaggersOwned) {
+        SEQUENTIALOTA = false;
+      }
+    }
   }
 }
 // end of loop
