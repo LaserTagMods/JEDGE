@@ -36,7 +36,7 @@ int WeaponSetting = 0; // M4/heavy/sentinel/wraith, sr100/maruader/sniper/soldie
 int PerkSetting = 0; // none, Grenades, Medkit, body armor, extended mags, concussion nades, critical strike, focus
 
 int otacounter = 0;
-bool SEQUENTIALOTA = true;
+bool SEQUENTIALOTA = false;
 long OTASequentialTimer = 0;
 
 int GunID = 98; // this is the gun or player ID, each esp32 needs a different one, set "0-63"
@@ -62,7 +62,7 @@ int updatenotification;
 unsigned long previousMillis_2 = 0;
 const long otainterval = 1000;
 const long mini_interval = 1000;
-String FirmwareVer = {"4.7"};
+String FirmwareVer = {"4.8"};
 
 // text inputs
 const char* PARAM_INPUT_1 = "input1";
@@ -3412,9 +3412,9 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     }
     if (strcmp((char*)data, "2000") == 0) {
       ledState = !ledState;
-      EEPROM.write(0, 0);
-      TaggersOwned = EEPROM.read(0);      
+      EEPROM.write(0, 0);    
       EEPROM.commit();
+      TaggersOwned = 0;
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2001") == 0) {
@@ -4932,7 +4932,7 @@ void setup(){
   //Initialize EEPROM
   EEPROM.begin(EEPROM_SIZE);
   int eepromtaggercount = EEPROM.read(0);
-  if (eepromtaggercount > 0 && eepromtaggercount < 65) {
+  if (eepromtaggercount < 255 && eepromtaggercount < 65) {
     TaggersOwned = eepromtaggercount;
   }
   // setting up eeprom based SSID:
@@ -4965,6 +4965,12 @@ void setup(){
   Serial.println(IP);
 
   initWebSocket();
+  
+  // Start ESP Now
+  Serial.print("ESP Board MAC Address:  ");
+  Serial.println(WiFi.macAddress());
+  Serial.println("Starting ESPNOW");
+  IntializeESPNOW();
 
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -5005,6 +5011,12 @@ void setup(){
         j++;
       }
       EEPROM.commit();
+      datapacket1 = incomingData3;
+      datapacket2 = 904;
+      datapacket4 = OTAssid;
+      getReadings();
+      BroadcastData(); // sending data via ESPNOW
+      Serial.println("Sent Data Via ESPNOW");
     }
     // GET input2 value on <ESP_IP>/get?input2=<inputMessage>
     else if (request->hasParam(PARAM_INPUT_2)) {
@@ -5025,6 +5037,11 @@ void setup(){
         k++;
       }
       EEPROM.commit();
+      datapacket2 = 905;
+      datapacket4 = OTApassword;
+      getReadings();
+      BroadcastData(); // sending data via ESPNOW
+      Serial.println("Sent Data Via ESPNOW");
     }
     else {
       inputMessage = "No message sent";
@@ -5042,12 +5059,6 @@ void setup(){
 
   // Start server
   server.begin();
-
-  // Start ESP Now
-  Serial.print("ESP Board MAC Address:  ");
-  Serial.println(WiFi.macAddress());
-  Serial.println("Starting ESPNOW");
-  IntializeESPNOW();
 
   // set defaults
   Menu[0] = 3;
@@ -5112,14 +5123,14 @@ void loop() {
   ws.cleanupClients();
   digitalWrite(ledPin, ledState);
   currentmilliseconds = millis();
-  if (currentmilliseconds - lasttempcheck > tempcheckinterval) {
-    lasttempcheck = currentmilliseconds;
-    Serial.print("Temperature: ");
+  //if (currentmilliseconds - lasttempcheck > tempcheckinterval) {
+    //lasttempcheck = currentmilliseconds;
+    //Serial.print("Temperature: ");
     // Convert raw temperature in F to Celsius degrees
-    Serial.print((temprature_sens_read() - 32) / 1.8);
-    Serial.println(" C");
+    //Serial.print((temprature_sens_read() - 32) / 1.8);
+    //Serial.println(" C");
     //delay(1000);
-  }
+  //}
   //if (currentmilliseconds - lastespnowpush > espnowpushinterval) {
     //lastespnowpush = currentmilliseconds;
     //SCORESYNC = true;
@@ -5161,7 +5172,7 @@ void loop() {
   }
   }
   if (SEQUENTIALOTA) {
-    if (currentmilliseconds - OTASequentialTimer > 150000 || OTASequentialTimer == 0) {
+    if (currentmilliseconds - OTASequentialTimer > 90000 || OTASequentialTimer == 0) {
       OTASequentialTimer = millis();
       ledState = !ledState;
       datapacket2 = 1505;
@@ -5170,8 +5181,9 @@ void loop() {
       BroadcastData(); // sending data via ESPNOW
       Serial.println("Sent Data Via ESPNOW");
       otacounter++;
-      if (otacounter > TaggersOwned) {
+      if (otacounter - 1 == TaggersOwned) {
         SEQUENTIALOTA = false;
+        Serial.println("Terminating OTA Sequential Updates");
       }
     }
   }
