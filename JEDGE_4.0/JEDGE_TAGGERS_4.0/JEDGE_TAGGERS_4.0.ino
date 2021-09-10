@@ -175,7 +175,7 @@
 int sample[5];
 
 // define the number of bytes I'm using/accessing for eeprom
-#define EEPROM_SIZE 100 // use 0 for OTA and 1 for Tagger ID
+#define EEPROM_SIZE 183 // use 0 for OTA and 1 for Tagger ID
 // if eeprom 0 is 1, it is OTA mode, if 0, regular mode.
 // eeprom 1-4 is used for update process and resetting as well as attempts counters
 // eeprom 5 - player deaths
@@ -195,6 +195,8 @@ int sample[5];
 // eeprom 19 - Player Lives
 // eeprom 20 through 83 - player kill counts for player 0-63 // this is to try and recover scores post an in game failure
 // eeprom 84 through 87 - team kill counts for teams 0-3, 84 being team 0
+// eeprom 88 through 121 - OTA SSID
+// eeprom 122 through 182 - OTA Password
 
 
 #define SERIAL1_RXPIN 16 // TO BRX TX and BLUETOOTH RX
@@ -912,6 +914,21 @@ void ProcessIncomingCommands() {
     Serial.println(OTApassword);
     Serial.print("OTAssid = ");
     Serial.println(OTAssid);
+    // clear eeprom
+    Serial.println("clearing eeprom");
+    for (int i = 88; i < 123; ++i) {
+      EEPROM.write(i, 0);
+    }
+    Serial.println("writing eeprom ssid:");
+    int j = 88;
+    for (int i = 0; i < OTAssid.length(); ++i)
+    {
+      EEPROM.write(j, OTAssid[i]);
+      Serial.print("Wrote: ");
+      Serial.println(OTAssid[i]);
+      j++;
+    }
+    EEPROM.commit();
   }
   if (incomingData2 == 905) { // this is a wifi credential
     Serial.println("received Wifi Password from controller");
@@ -920,6 +937,20 @@ void ProcessIncomingCommands() {
     Serial.println(OTApassword);
     Serial.print("OTAssid = ");
     Serial.println(OTAssid);
+    Serial.println("clearing eeprom");
+    for (int i = 122; i < 183; ++i) {
+      EEPROM.write(i, 0);
+    }
+    Serial.println("writing eeprom Password:");
+    int k = 122;
+    for (int i = 0; i < OTApassword.length(); ++i)
+    {
+      EEPROM.write(k, OTApassword[i]);
+      Serial.print("Wrote: ");
+      Serial.println(OTApassword[i]);
+      k++;
+    }
+    EEPROM.commit();
   }
   if (ESPTimeout) {
     ESPTimeout = false;
@@ -2995,9 +3026,31 @@ void setup() {
   Serial.print("GunGeneration = ");
   Serial.println(GunGeneration);
   Serial.print("Boot Status = ");
-  Serial.println(bootstatus);if (GunGeneration > 1) {
+  Serial.println(bootstatus);
+  if (GunGeneration > 1) {
     BaudRate = 115200;
   }
+  // setting up eeprom based SSID:
+  String esid;
+  for (int i = 88; i < 122; ++i)
+  {
+    esid += char(EEPROM.read(i));
+  }
+  Serial.println();
+  Serial.print("SSID: ");
+  Serial.println(esid);
+  Serial.println("Reading EEPROM pass");
+  // Setting up EEPROM Password
+  String epass = "";
+  for (int i = 122; i < 183; ++i)
+  {
+    epass += char(EEPROM.read(i));
+  }
+  Serial.print("PASS: ");
+  Serial.println(epass);
+  // now updating the OTA credentials to match
+  OTAssid = esid;
+  OTApassword = epass;
   Serial.println("Serial Buad Rate set for: " + String(BaudRate));
   Serial1.begin(BaudRate, SERIAL_8N1, SERIAL1_RXPIN, SERIAL1_TXPIN); // setting up the serial pins for sending data to BRX
   delay(10);
@@ -3018,16 +3071,17 @@ void setup() {
   
   // Start server
   server.begin();
-
-  // Start ESP Now
-  Serial.print("ESP Board MAC Address:  ");
-  Serial.println(WiFi.macAddress());
-  Serial.println("Starting ESPNOW");
-  IntializeESPNOW();
   
   if (bootstatus == 1){ // indicates we are in ota mode
     OTAMODE = true;
+  } else {
+    // Start ESP Now
+    Serial.print("ESP Board MAC Address:  ");
+    Serial.println(WiFi.macAddress());
+    Serial.println("Starting ESPNOW");
+    IntializeESPNOW();
   }
+  
   //*********** OTA MODE ************************
   if (OTAMODE) {  
     Serial.print("Active firmware version:");
@@ -3047,20 +3101,20 @@ void setup() {
     bootstatus = EEPROM.read(0);
     Serial.print("Boot Status = ");
     Serial.println(bootstatus);
-    int passwordrequestattempt = 0;
-    while (OTApassword == "dontchangeme") {
-      datapacket1 = 9999;
-      getReadings();
-      BroadcastData(); // sending data via ESPNOW
-      Serial.println("Sent Data Via ESPNOW");
-      ResetReadings();
-      delay(2000);
-      passwordrequestattempt++;
-      if (passwordrequestattempt > 5) {
-        ESP.restart();
-      }
-    }
-    delay(2000);
+    //int passwordrequestattempt = 0;
+    //while (OTApassword == "dontchangeme") {
+      //datapacket1 = 9999;
+      //getReadings();
+      //BroadcastData(); // sending data via ESPNOW
+      //Serial.println("Sent Data Via ESPNOW");
+      //ResetReadings();
+      //delay(2000);
+      //passwordrequestattempt++;
+      //if (passwordrequestattempt > 5) {
+        //ESP.restart();
+      //}
+    //}
+    //delay(2000);
     Serial.println("wifi credentials");
     Serial.println(OTAssid);
     Serial.println(OTApassword);
