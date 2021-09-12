@@ -154,6 +154,10 @@
  *                    Added in the receiveing and processing of all game settings when start game comes in
  * updated 08/30/2021 fixed two way communication, had to bring back in AP settings post deletion. 
  * updated 09/03/2021 added jbox respawn functionality for espnow based respawn
+ * updated 09/10/2021 added in eeprom storage for wifi credentials
+ *                    removed requests for wifi credentials via espnow
+ *                    removed espnow set up while doing ota update
+ * updated 09/11/2021 added back in repeat commands from controller only
  */
 
 //*************************************************************************
@@ -221,7 +225,7 @@ String OTAssid = "dontchangeme"; // network name to update OTA
 String OTApassword = "dontchangeme"; // Network password for OTA
 int TaggersOwned = 64; // how many taggers do you own or will play?
 bool ACTASHOST = false; // enables/disables the AP mode for the device so it cannot act as a host. Set to "true" if you want the device to act as a host
-String FirmwareVer = {"4.14"};
+String FirmwareVer = {"4.15"};
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
 //******************* IMPORTANT *********************
@@ -906,7 +910,7 @@ void ProcessIncomingCommands() {
   ledState = !ledState;
   //Serial.print("cOMMS loop running on core ");
   //Serial.println(xPortGetCoreID());
-  
+  if (lastincomingData2 != incomingData2) {
   if (incomingData2 == 904) { // this is a wifi credential
     Serial.println("received SSID from controller");
     OTAssid = incomingData4;
@@ -960,6 +964,7 @@ void ProcessIncomingCommands() {
     IncomingTeam = incomingData1 - 200;
   }
   if (incomingData1 == GunID || incomingData1 == 99 || IncomingTeam == SetTeam) { // data checked out to be intended for this player ID or for all players
+    lastincomingData2 = incomingData2;
     digitalWrite(2, HIGH);
     if (incomingData2 < 600 && incomingData2 > 500) { // setting team modes
       int b = incomingData2 - 500;
@@ -1251,7 +1256,7 @@ void ProcessIncomingCommands() {
         }
      }
      if (b==5) { //1505
-       StringSender = "$HLOOP,2,1200,*";
+       StringSender = "$BLINK,1,500,1000,100,*";
        STRINGSENDER = true;
        AudioSelection="OP62";
        AUDIO=true;  
@@ -1600,13 +1605,13 @@ void ProcessIncomingCommands() {
           AudioSelection1="VA9H";
         }  
         if (incomingData2 == 2199 && incomingData1 == 99) {
-          ApplyGameSettings();
+          //ApplyGameSettings();
           Serial.println("start game");
           PBGAMESTART = true;
           ChangeMyColor = 9; // turns off led
         }
         if (incomingData2 == 2198 && incomingData1 == 99) {
-          ApplyGameSettings();
+          //ApplyGameSettings();
           Serial.println("delay start");
           AudioSelection = "OP04"; // says game count down initiated
           AUDIO = true; 
@@ -1765,6 +1770,14 @@ void ProcessIncomingCommands() {
       }
     } 
   }
+  // repeat incoming command if coming from controller for reaching all taggers
+  if (incomingData1 == 99 && incomingData3 == 98) { // this is a general broadcast command for all taggers for a setting and coming from the controller device
+    datapacket1 = incomingData1;
+    datapacket2 = incomingData2;
+    datapacket4 = incomingData4;
+    BROADCASTESPNOW = true;
+  }
+  }  
   digitalWrite(2, LOW);
 }
 void ApplyGameSettings() {
@@ -2317,16 +2330,16 @@ void MainGame() {
   if (ChangeMyColor != CurrentColor) { // need to change colors
     ChangeColors();
   }
+  if (STRINGSENDER) {
+    STRINGSENDER = false;
+    sendString(StringSender); //
+    StringSender = "Null";
+  }
   if (AUDIO) {
     Audio();
   }
   if (AUDIO1) {
     Audio();
-  }
-  if (STRINGSENDER) {
-    STRINGSENDER = false;
-    sendString(StringSender); //
-    StringSender = "Null";
   }   
   if (VOLUMEADJUST) {
     VOLUMEADJUST=false;
@@ -2896,6 +2909,8 @@ void loop1(void *pvParameters) {
     EEPROM.commit();
     AudioSelection="VA6W";
     AUDIO=true;
+    StringSender = "$BLINK,1,500,1000,0,*";
+    STRINGSENDER = true;
   }
   if (updatenotification == 2) { // firmware is up to date already
     EEPROM.write(0, 0);
