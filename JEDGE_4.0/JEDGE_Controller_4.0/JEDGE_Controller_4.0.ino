@@ -5,6 +5,9 @@
  * 7/12 added in ability to assign gun generation to esp32 for flash memory
  * 8/4  added in offline game mode settings
  * 8/25 added all games settings sent upon game start pressed
+ * 9/10 added jedge supremacy mode
+ * 9/10 added sending wifi credentials upon entering them in controller, sent and stored on taggers
+ * 9/10 added sequential updates to bulk update taggers and be able to walk away, asuming internet and wifi connection is strong!
  */
 
 // Import required libraries
@@ -3412,451 +3415,451 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     }
     if (strcmp((char*)data, "2000") == 0) {
       ledState = !ledState;
-      EEPROM.write(0, 0);    
+      TaggersOwned = (0);    
       EEPROM.commit();
-      TaggersOwned = 0;
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2001") == 0) {
       ledState = !ledState;
-      EEPROM.write(0, 1);      
+      TaggersOwned = (1);      
       EEPROM.commit();
-      TaggersOwned = 1;
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2002") == 0) {
       ledState = !ledState;
-      EEPROM.write(0, 2);      
+      TaggersOwned = (2);      
       EEPROM.commit();
-      TaggersOwned = 2;
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2003") == 0) {
       ledState = !ledState;
-      EEPROM.write(0, 3);      
+      TaggersOwned = (3);      
       EEPROM.commit();
-      TaggersOwned = 3;
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2004") == 0) {
       ledState = !ledState;
-      EEPROM.write(0, 4);      
+      TaggersOwned = (4);      
       EEPROM.commit();
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2005") == 0) {
       ledState = !ledState;   
-      EEPROM.write(0, 5);      
+      TaggersOwned = (5);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2006") == 0) {
       ledState = !ledState;     
-      EEPROM.write(0, 6);      
+      TaggersOwned = (6);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2007") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 7);      
+      TaggersOwned = (7);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2008") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 8);      
+      TaggersOwned = (8);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2009") == 0) {
       ledState = !ledState;     
-      EEPROM.write(0, 9);      
+      TaggersOwned = (9);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2010") == 0) {
       ledState = !ledState;     
-      EEPROM.write(0, 10);      
+      TaggersOwned = (10);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2011") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 11);      
+      TaggersOwned = (11);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2012") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 12);       
+      TaggersOwned = (12);       
       EEPROM.commit();     
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2013") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 13);      
+      TaggersOwned = (13);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2014") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 14);      
+      TaggersOwned = (14);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2015") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 15);      
+      TaggersOwned = (15);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2016") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 16);      
+      TaggersOwned = (16);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2017") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 17);      
+      TaggersOwned = (17);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2018") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 18);      
+      TaggersOwned = (18);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2019") == 0) {
       ledState = !ledState;
-      EEPROM.write(0, 19);      
+      TaggersOwned = (19);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2020") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 20);      
+      TaggersOwned = (20);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2021") == 0) {
       ledState = !ledState;
-      EEPROM.write(0, 21);      
+      TaggersOwned = (21);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2022") == 0) {
       ledState = !ledState;
-      EEPROM.write(0, 22);      
+      TaggersOwned = (22);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2023") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 23);      
+      TaggersOwned = (23);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2024") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 24);      
+      TaggersOwned = (24);      
       EEPROM.commit();
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2025") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 25);      
+      TaggersOwned = (25);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2026") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 26);      
+      TaggersOwned = (26);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2027") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 27);      
+      TaggersOwned = (27);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2028") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 28);      
+      TaggersOwned = (28);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2029") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 29);      
+      TaggersOwned = (29);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2030") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 30);      
+      TaggersOwned = (30);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2031") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 31);      
+      TaggersOwned = (31);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2032") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 32);      
+      TaggersOwned = (32);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2033") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 33);      
+      TaggersOwned = (33);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2034") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 34);      
+      TaggersOwned = (34);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2035") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 35);      
+      TaggersOwned = (35);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2036") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 36);      
+      TaggersOwned = (36);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2037") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 37);      
+      TaggersOwned = (37);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2038") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 38);      
+      TaggersOwned = (38);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2039") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 39);      
+      TaggersOwned = (39);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2040") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 40);      
+      TaggersOwned = (40);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2041") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 41);      
+      TaggersOwned = (41);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2042") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 42);      
+      TaggersOwned = (42);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2043") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 43);      
+      TaggersOwned = (43);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2044") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 44);      
+      TaggersOwned = (44);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2045") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 45);      
+      TaggersOwned = (45);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2046") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 46);      
+      TaggersOwned = (46);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2047") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 47);      
+      TaggersOwned = (47);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2048") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 48);      
+      TaggersOwned = (48);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2049") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 49);      
+      TaggersOwned = (49);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2050") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 50);      
+      TaggersOwned = (50);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2051") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 51);      
+      TaggersOwned = (51);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2052") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 52);      
+      TaggersOwned = (52);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2053") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 53);      
+      TaggersOwned = (53);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2054") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 54);      
+      TaggersOwned = (54);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2055") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 55);      
+      TaggersOwned = (55);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2056") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 56);      
+      TaggersOwned = (56);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2057") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 57);      
+      TaggersOwned = (57);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2058") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 58);        
+      TaggersOwned = (58);        
       EEPROM.commit();    
-      TaggersOwned = EEPROM.read(0);
+      EEPROM.write(0, TaggersOwned); EEPROM.commit();
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2059") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 59);      
+      TaggersOwned = (59);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      TaggersOwned = 59;
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2060") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 60);      
+      TaggersOwned = (60);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      TaggersOwned = 60;
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2061") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 61);      
+      TaggersOwned = (61);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      TaggersOwned = 61;
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2062") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 62);      
+      TaggersOwned = (62);      
       EEPROM.commit();      
-      TaggersOwned = EEPROM.read(0);
+      TaggersOwned = 62;
       Serial.println("Player Count = " + String(TaggersOwned));
     }
     if (strcmp((char*)data, "2063") == 0) {
       ledState = !ledState;      
-      EEPROM.write(0, 63);      
+      TaggersOwned = (63);      
       EEPROM.commit();      
       EEPROM.commit();
-      TaggersOwned = EEPROM.read(0);
+      TaggersOwned = 63;
       Serial.println("Player Count = " + String(TaggersOwned));
     }
         if (strcmp((char*)data, "2100") == 0) {
