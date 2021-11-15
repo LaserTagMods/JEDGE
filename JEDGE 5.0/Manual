@@ -18,3 +18,16 @@ CONFIGURING JEDGE 5.XX
 5f. Note that if you are using Bluetooth classic for a gen1 tagger, you must first unplug the HC-05 device from the esp32, hold down the button on the HC-05 and plug back in while holding the button. This must be done before setting the Bluetooth classic serial number for the tagger device Bluetooth serial number
 6. Full power cycle the esp/HC-05
 7. Move to the next tagger and repeat the process.
+
+
+Tips:
+1. What is my Gen 1 tagger Bluetooth serial address???
+          - if you open up the CallSign application on a android device, turn on just one tagger at a time, search for taggers to pair on the app, identify the tagger you are looking for and the series of values in smaller print under the device name is the Bluetooth serial number.
+2. What is my Gen2/3 tagger BLE name? 
+          - Referencing question 1 can help, however, the CallSign app shows the device name in all caps! I use windows! On a laptop or pc with Bluetooth capability, type in Bluetooth in the start menu and select device connections and Bluetooth settings, search to add a new device, then you will see the tagger populate, this time it is case sensitive and it shows the correct lower case and upper case characters
+3. I have found gen2 serial wired install method to yield the best results for more reliability, however, it is very invasive
+4. I have found gen3 with BLE connection not serial wired to be just as responsive as him the hard wired method
+5. I have found Bluetooth classic the most effective for gen1.
+
+
+
