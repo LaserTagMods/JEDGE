@@ -1,0 +1,44 @@
+For those already knowledgeable with Arduino, this is ALL YOU NEED TO DO:
+
+1. Upload the JEDGE 5.0 Tagger INO to an ESP32 and set aside
+      - INO link: https://raw.githubusercontent.com/LaserTagMods/JEDGE/main/JEDGE%205.0/TAGGERS/TAGGER.ino
+2. Upload the JEDGE 5.0 Controller INO to an ESP32 and keep plugged in to the IDE and open serial monitor
+      - INO Link: https://raw.githubusercontent.com/LaserTagMods/JEDGE/main/JEDGE%205.0/CONTROLLER/JEDGE_Controller_5.0.ino
+3. Upload the Custom Audio Files to a Tagger 
+      - link for instructions for how to upload audio files to gun: https://battlecompany.com/barracks/
+      - link for custom audio files for tagger: https://github.com/LaserTagMods/JEDGE/raw/main/Custom%20Tagger%20Audio%20Files.zip
+4. Reboot tagger
+5. Power the Tagger ESP32
+6. Connect any device with a web browser to the Controller by pairing to the wifi with the password: 123456789
+7. Navigate to the web ip address, once on the wifi, to 192.168.4.1, or scan the qr code here: https://github.com/LaserTagMods/JEDGE/blob/main/JEDGE%205.0/JEDGE%20Settings.png
+        - the serial monitor will display that a device was connected
+        - Serial monitor is not needed to be used in normal operation, this is just for a first time test.
+8. Scroll all the way to the bottom of the web server page, this is the debug and set up section, as indicated in the webserver page.
+9. First select the tagger generation:
+        - Gen 1 needs to have an HC-05 wired to pins 16/17 if using HC-05 mode - most effective for gen1
+        - Gen1 classic bluetooth mode is hit and miss for what taggers work.
+        - Gen 2/3 only require the ESP32 for bluetooth
+        - Gen 1-3 hardwired, requires you to hardwire pins 16/17 to the bluetooth tx on the main board of the tagger, this was for JEDGE 4.0
+        - If you dont know what gen tagger you are using, you need to learn a lot more before attempting this mod
+        - When you select a mode, you will see the serial monitor display some data, you want to be sure you see the words (sent successfully) somewhere on the monitor
+          - if you dont see these words, try restarting your tagger esp32 and try again by selecting the mode again. Note that you will need to select a different setting
+            before the controller will send the setting to the tagger esp32, thats just how this webserver works. select of the one you want, then select the one you want.
+            if you still dont see (sent successfully) your esp32 tagger device isnt working, you need to trouble shoot it
+10. Select a Player ID - this will be the player ID for this tagger esp32 untill it is changed, start with 0 and go to 64. this is also how the game is scored, by player ID
+11. Select how many brx taggers you own, this will speed up score syncing process in the future, to not wait for all 64 guns to sync to the controller.
+12. Select a mode for the tagger to be in. Auto start modes are for Boss Players, with crazy perks, recommend noobs to just play in (Standard JEDGE Player)
+13. Enter your home wifi SSID and pres Send, after sent, youll see a new screen, just press the browser back button
+14. Enter your home wifi password and press send, after sent, youll see a new screen, just press the browser back button
+15. Enter your tagger's Bluetooth ID and press send: 
+        - use a pc to identify Gen 2/3 taggers to get the case sensitive name correctly by searching for bluetooth devices
+        - use a bluetooth tool to identify the Gen 1 wifi serial number - recommend an android device - see this video: https://youtu.be/vud_AilcLB8
+          - if using bluetooth classic hc-05 you need the serial number - enter the serial number with commas separating sections as displayed on bottom of webserver page
+              - You also need to turn the power off to the the tagger esp32, hold the hc-05 button down while powering on, before sending the serial number, this places the HC-05 in a set up mode, after you press send, it will reboot, but i still recommend power cycling the whole thing again.
+          - if using bluetooth classic esp32 - not very functional for all tagger - just enter the bluetooth name
+16. Press the Reset Controllers button to restart the ESP32 - this takes like 1- 2 seconds and it is ready to go.
+17. Scroll to the very top of the page of the webserver and press the 'Lockout Players' button, if using the HC-05 gen 1 method, I would give the device a up to 10 seconds to pair, you will see the HC-05 indicator led stop blinking so fast, once it is paired.
+
+That is it
+
+**IMPORTANT**
+Each time you want to do a new tagger, turn off all other taggers and esp32s while using the debug menu options, otherwise you will reprogram each esp32 with the debug menus. Nothing worse than every tagger labled player #10
