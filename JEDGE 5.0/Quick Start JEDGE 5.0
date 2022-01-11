@@ -44,7 +44,7 @@ For those already knowledgeable with Arduino, this is ALL YOU NEED TO DO:
 16. Press the Reset Controllers button to restart the ESP32 - this takes like 1- 2 seconds and it is ready to go.
 17. Scroll to the very top of the page of the webserver and press the 'Lockout Players' button, if using the HC-05 gen 1 method, I would give the device a up to 10 seconds to pair, you will see the HC-05 indicator led stop blinking so fast, once it is paired.
 
-That is it
+That is it! Optionally, press the "Unlock Hidden Menu Options" if you want to enable all the potential game play features BRX has to offer, otherwise some of the game options may not work, but im not sure.
 
 **IMPORTANT**
 Each time you want to do a new tagger, turn off all other taggers and esp32s while using the debug menu options, otherwise you will reprogram each esp32 with the debug menus. Nothing worse than every tagger labled player #10
