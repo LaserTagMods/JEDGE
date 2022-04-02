@@ -1,0 +1,7 @@
+THE GENERAL IDEA
+
+Due to the nature of the BRX the game setting menu is complicated for beginners, and it is time consuming to educate players on the settings/options as well as get players on the correct settings to efficiently run games. The mobile applications for the system have also proven problematic and difficult to use. Therefore, I saw a need for my passion of laser tag to be smoother and get more play time as well as have a good solution for score reporting.
+
+JEDGE (J-EDGE) Is my way of turning the BRX into a commercial grade system, well at least an attempt at it. A single ESP32 acts as a hosting device to master configure other ESP32 devices that are individually installed onto BRX taggers and to control them as the master/host demands. The individual devices lock out the button pushing and potential for player errors while handling the BRX taggers.
+
+The Dream is to fully enable the capabilities of the BRX as there is so much more that lies beneath the surface but wants to get out!
