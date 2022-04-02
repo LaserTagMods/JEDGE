@@ -1,0 +1,32 @@
+RESOURCES:
+
+Contribute:
+
+I have spent a lot of time and money in the process of developing JEDGE. Sometimes supportive individuals have wanted to contribute and that is very appreciated. Here is the link if you feel like supporting the project:
+https://paypal.me/jayburden1?country.x=US&locale.x=en_US
+
+HARDWARE:
+
+Here are links to my most recently preferred hardware components:
+
+ESP32U: https://www.aliexpress.com/item/1005001834985204.html?spm=a2g0o.order_list.0.0.21ef1802i717eh
+
+Antenna: https://www.tti.com/content/ttiinc/en/apps/part-detail.html?partsNumber=146153-0050&mfgShortname=MOL&utm=top&channel=ppc&source=google&campaigns=tti-brand&gclid=CjwKCAjwuYWSBhByEiwAKd_n_gT5zMMNi_zIoIZ_gvbSZtcchZ1-k-ZO1Ngn4jegpSw1p8ek6hQh6BoCNj4QAvD_BwE
+
+LoRa Module:
+
+https://www.amazon.com/RYLR896-Module-SX1276-Antenna-Command/dp/B07NB3BK5H/ref=sr_1_2?gclid=CjwKCAjwuYWSBhByEiwAKd_n_p84wPsvFQ3aesBy5iy1IXbFpEu6Ms5puXo55dIG3Dr6emsNLt5twxoC-A4QAvD_BwE&hvadid=557358993538&hvdev=c&hvlocphy=9061208&hvnetw=g&hvqmt=e&hvrand=15161290452050150582&hvtargid=kwd-804498057328&hydadcr=7281_13185269&keywords=rylr896&qid=1648471910&sr=8-2
+
+Keyed Switch:
+
+https://www.aliexpress.com/item/4000037501591.html?spm=a2g0o.order_list.0.0.21ef1802i717eh
+
+HC-05:
+
+https://www.aliexpress.com/item/32817137671.html?spm=a2g0o.order_list.0.0.21ef1802i717eh
+
+Please Note:
+
+You need the ESP32U plus antenna, you can use other ones but the 32U has advantages over others. I used to try and go as cheap as possible but I’ve been burned to many times. If you go with a non 32U you may not fit my PCB if wanting to use it. Others likely have a built-in antenna too.
+LoRa module is Optional
+Keyed Switch and HC-05 are for first generation taggers (legacy)
