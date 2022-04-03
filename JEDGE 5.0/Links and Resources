@@ -25,6 +25,9 @@ HC-05:
 
 https://www.aliexpress.com/item/32817137671.html?spm=a2g0o.order_list.0.0.21ef1802i717eh
 
+JST Connectors: https://www.amazon.com/gp/aw/d/B013JRWCBU?psc=1&ref=ppx_pop_mob_b_asin_title
+
+
 Please Note:
 
 You need the ESP32U plus antenna, you can use other ones but the 32U has advantages over others. I used to try and go as cheap as possible but I’ve been burned to many times. If you go with a non 32U you may not fit my PCB if wanting to use it. Others likely have a built-in antenna too.
