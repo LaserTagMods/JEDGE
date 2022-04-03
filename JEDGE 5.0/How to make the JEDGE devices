@@ -24,3 +24,7 @@ INSTRUCTIONS:
 1. Wire battery positive lead to power switch then to the 5v input on the ESP32U.
 2. Wire battery negative to esp32u ground
 Options:
+3. Wire pin 16 to tagger Bluetooth slave TX and pin 17 to tagger Bluetooth slave RX.
+4. Solder essential and optional pins of HC-05 to JEDGE PCB
+5. Solder essential and optional pins of RYLR896 to JEDGE PCB
+6. Solder essential and optional pins of ESP32U to JESGE PCB
