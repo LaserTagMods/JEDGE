@@ -109,3 +109,8 @@ INSTRUCTIONS:
 3. Connect esp32 pin 23 to rylr896 TX
 4. Connect esp 3v and ground to rylr896 
 (Can use JEDGE PCB)
+
+
+Uploading the firmware onto ESP32:
+-----------------------------------
+I'm not going to do all the homework again, sorry. If you don't know how then please do sone homework first on how to use arduino, install the right driver, board libraries, libraries listed in my code (#include xxxxxx.h)
