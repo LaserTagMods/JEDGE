@@ -1,0 +1,26 @@
+Tagger JEDGE controllers:
+
+You will need one device per tagger and based upon what generation of tagger and your preferences.
+I've provided the minimum requirements as well as options for each tagger generation:
+
+
+
+Gen1 Tagger:
+
+MUST HAVE
+1. ESP32U
+2. Power Switch
+3. Wire taps to the battery leads and wire
+
+RECOMMENDED
+4. HC-05
+
+OPTIONAL
+5. JEDGE PCB
+6. RYLR896/890
+
+INSTRUCTIONS: 
+
+1. Wire battery positive lead to power switch then to the 5v input on the ESP32U.
+2. Wire battery negative to esp32u ground
+Options:
