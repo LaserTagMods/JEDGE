@@ -88,3 +88,24 @@ INSTRUCTIONS:
 (Lora option including PCB)
 5. Solder essential and optional pins of RYLR896 to JEDGE PCB
 6. Solder essential and optional pins of ESP32U to JEDGE PCB
+
+
+JEDGE HOST CONTROLLER:
+-----------------------
+
+MUST HAVE
+1. ESP32
+
+OPTIONAL
+2. RYLR896/890
+
+INSTRUCTIONS: 
+
+(ESPNOW)
+1. Do nothing
+
+(LoRa)
+2. Connect esp32 pin 22 to rylr896 RX
+3. Connect esp32 pin 23 to rylr896 TX
+4. Connect esp 3v and ground to rylr896 
+(Can use JEDGE PCB)
