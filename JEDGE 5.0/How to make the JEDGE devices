@@ -1,7 +1,10 @@
 Tagger JEDGE controllers:
 
 You will need one device per tagger and based upon what generation of tagger and your preferences.
-I've provided the minimum requirements as well as options for each tagger generation:
+I've provided the minimum requirements as well as options for each tagger generation below.
+In the links file, here on the GitHub, I have links to the components.
+
+The JEDGE PCB is just a way to reduce wiring for me. PCBs, once learned how to design/order, are just a good way to control wiring and simplify multi-component builds. Not essential but for me a nice to have.
 
 
 
