@@ -37,7 +37,7 @@ INSTRUCTIONS:
 (HC-05 alternate and Lora option including PCB)
 5. Solder essential and optional pins of HC-05 to JEDGE PCB
 6. Solder essential and optional pins of RYLR896 to JEDGE PCB
-7. Solder essential and optional pins of ESP32U to JESGE PCB
+7. Solder essential and optional pins of ESP32U to JEDGE PCB
 
 
 Gen2 Tagger:
@@ -61,10 +61,10 @@ INSTRUCTIONS:
 
 (Lora option including PCB)
 4. Solder essential and optional pins of RYLR896 to JEDGE PCB
-5. Solder essential and optional pins of ESP32U to JESGE PCB
+5. Solder essential and optional pins of ESP32U to JEDGE PCB
 
 
-Gen2 Tagger:
+Gen3 Tagger:
 -------------
 MUST HAVE
 1. ESP32U
@@ -73,17 +73,18 @@ MUST HAVE
 OPTIONAL
 3. JEDGE PCB
 4. RYLR896/890
+5. Diode 1N4004
 
 INSTRUCTIONS: 
 
-(ESP BLE only decent performance)
+(ESP BLE great performance)
 1. Wire battery positive lead to 5V output on brx main board or power as desired from battery.
 2. Wire battery negative to esp32u ground
 
 (Hardwired option - pretty good performance)
 3. Wire pin 16 to tagger Bluetooth slave TX and pin 17 to tagger Bluetooth slave RX.
+4. Wire in a diode between esp pin 17 and tagger Bluetooth module.
 
 (Lora option including PCB)
-4. Solder essential and optional pins of HC-05 to JEDGE PCB
 5. Solder essential and optional pins of RYLR896 to JEDGE PCB
-6. Solder essential and optional pins of ESP32U to JESGE PCB
+6. Solder essential and optional pins of ESP32U to JEDGE PCB
