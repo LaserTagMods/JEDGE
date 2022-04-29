@@ -73,7 +73,7 @@ int WebAppUpdaterProcessCounter = 0;
 // ESP Now Objects:
 //*****************************************************************************************
 // for resetting mac address to custom address:
-uint8_t newMACAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0xFF};
+uint8_t newMACAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0xff};
 
 // REPLACE WITH THE MAC Address of your receiver, this is the address we will be sending to
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x09};
@@ -1405,8 +1405,11 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         i++;
         vTaskDelay(0);
       }
-      broadcast(SendStartBeacon);
-      broadcast(SendStartBeacon);
+      broadcast(ConfirmBeacon);
+      delay(5);
+      broadcast(ConfirmBeacon);
+      delay(5);
+      broadcast(ConfirmBeacon);
       INGAME = true;
     }      
     if (strcmp((char*)data, "togglepbend") == 0) {
@@ -1761,8 +1764,8 @@ void TransmitLoRa() {
   transmissioncounter();
 }
 void EndGame() {
-  Serial.println("eend a game early");
-      broadcast("36,69,0,1,42");
+      Serial.println("end a game early");
+      broadcast("36,69,"+String(LeadPlayerID)+","+String(LeadTeamID)+",42");
       INGAME = false;
       MULTIBASEDOMINATION = false;
       Serial.println("Received a game over winner Announcement");
