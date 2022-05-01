@@ -102,6 +102,7 @@ byte JboxTeamID[21]; // used for incoiming jbox ids for teams with posessions
 byte JboxInPlay[21]; // used as an identifier to verify if a jbox id is in play or not
 
 bool MULTIBASEDOMINATION = false;
+long previngamemillis = 0;
 
 // Game Settings - Config:
 byte SettingsGameMode = 0; // default is team battle, 1 is royale
@@ -160,26 +161,6 @@ void receiveCallback(const uint8_t *macAddr, const uint8_t *data, int dataLen)
   }
   if (TokenStrings[1] == "65") {
     Serial.println("Received a Host New Game Start Beacon");
-    INGAME = true;
-    byte i = 0;
-    // reset in game scores
-    while (i < 4) {
-      TeamGameScore[i] = 0;
-      i++;
-      vTaskDelay(0);
-    }
-    i = 0;
-    while (i < 64) {
-      PlayerGameScore[i] = 0;
-      PlayerDeaths[i] = 0;
-      i++;
-      vTaskDelay(0);
-    }
-    while (i < 21) {
-      JboxInPlay[i] = 0;
-      i++;
-      vTaskDelay(0);
-    }
   }
   if (TokenStrings[1] == "101") {
     Serial.println("Received a Team Kill and PlayerScore Announcement");
@@ -1405,10 +1386,9 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         i++;
         vTaskDelay(0);
       }
+      broadcast(SendStartBeacon);
       broadcast(ConfirmBeacon);
-      delay(5);
-      broadcast(ConfirmBeacon);
-      delay(5);
+      delay(2);
       broadcast(ConfirmBeacon);
       INGAME = true;
     }      
@@ -1648,7 +1628,7 @@ int FirmwareVersionCheck(void) {
 //*********************** LORA VARIABLE DELCARATIONS **********************
 //*************************************************************************
 String LoRaDataReceived; // string used to record data coming in
-String tokenStrings[5]; // used to break out the incoming data for checks/balances
+String tokenStrings[8]; // used to break out the incoming data for checks/balances
 String LoRaDataToSend; // used to store data being sent from this device
 
 bool LORALISTEN = false; // a trigger used to enable the radio in (listening)
@@ -1681,7 +1661,7 @@ void ReceiveTransmission() {
         }
         // the data is now stored into individual strings under tokenStrings[]
         // print out the individual string arrays separately
-        Serial.println("received LoRa communication");
+        Serial.println("received LoRa communication:");
         Serial.print("Token 0: ");
         Serial.println(tokenStrings[0]);
         Serial.print("Token 1: ");
@@ -1700,8 +1680,6 @@ void ReceiveTransmission() {
         Serial.println(tokenStrings[7]);
         Serial.print("Token 8: ");
         Serial.println(tokenStrings[8]);
-        Serial.print("Token 9: ");
-        Serial.println(tokenStrings[9]);
         if (tokenStrings[2] = "CAPTURE") {
           // THIS IS FROM A NODE DOMINATION BASE THAT HAS BEEN CAPTURED
           // check game mode:
@@ -1741,6 +1719,19 @@ void EndJBoxGame() {
   LoRaDataToSend = FirstToken + "," + String(SecondToken) + "," + String(ThirdToken) + "," + String(FourthToken);
   Serial.println(LoRaDataToSend);
   ENABLELORATRANSMIT = true;
+  //LastPosessionTeam = 99;
+  MULTIBASEDOMINATION = false;
+  int playercounter = 0;
+  int teamcounter = 0;
+  while (playercounter < 64) {
+    PlayerDominationGameScore[playercounter] = 0;
+    playercounter++;
+    delay(1);
+  }
+  while (teamcounter < 4) {
+    TeamDominationGameScore[teamcounter] = 0;
+    teamcounter++;
+  }
 }
 void transmissioncounter() {
   sendcounter++;
@@ -2120,6 +2111,13 @@ void loop() {
           EndGame();
         }
       }
+    }
+  }
+  if (INGAME) {
+    long ingamemillis = millis();
+    if (ingamemillis - 5000 > previngamemillis) {
+      previngamemillis = ingamemillis;
+      broadcast(ConfirmBeacon);
     }
   }
   if (MULTIBASEDOMINATION) {
