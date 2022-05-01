@@ -1,0 +1,44 @@
+The SwapTX Hosting Controller:
+
+This devices is intended to replace the use of a host tagger. In addition to the ability to replace the host tagger, controlling game ending 
+conditions as well as the ability to have a live scoreboard is intended. Two web servers are hosted on an ESP32 with the intention of having
+a cell phone connected to the game controls and a larger tablet or PC monitor connected to live scoring updates to be displayed
+
+In addition, I have integrated live scoring for JBOX devices that are placed in Domination Node Lora mode, where Lora is used to transmit
+domination status for JBOXs that are in play to have multiple bases serving as domination stations and for this controller to also track the
+score from the domination boxes as a domination master. This will allow for one device to serve as a primary device for game control/monitoring.
+
+How to Use:
+
+1. Turn on all Swaptx guns and headsets
+2. Turn on the host controller device
+3. Connect to the device's wifi by entering 123456789 as the password or scanning the wifi qr
+4. Open the scoreboard web page by entering the following into a web browser or scanning the associated qr code: 192.168.4.1
+5. Open the Game controls web page by entering the following in a web browser or scanning the associated qr code: 192.168.4.1:81
+6. Press the host taggers button to lock out taggers.
+7. Congigure drop down game settings as desired
+8. Start game when ready and End Game when ready
+9. Allow players to change teams by pressing the "allow team changes" button in between games
+10. Monitor the score by accessing the scoreboard web application for live updates that refresh after each new game start
+
+Creating a Controller:
+
+I recommend the following device hardware:
+1. ESP32U with external antenna: 
+   https://www.aliexpress.com/item/1005001834985204.html?spm=a2g0o.order_list.0.0.21ef1802i717eh
+   https://www.tti.com/content/ttiinc/en/apps/part-detail.html?partsNumber=146153-0050&mfgShortname=MOL&utm=top&channel=ppc&source=google&campaigns=tti-brand&gclid=CjwKCAjwuYWSBhByEiwAKd_n_gT5zMMNi_zIoIZ_gvbSZtcchZ1-k-ZO1Ngn4jegpSw1p8ek6hQh6BoCNj4QAvD_BwE
+2. Optional Lora Module if wanting long range JBOX Management:
+   https://www.amazon.com/RYLR896-Module-SX1276-Antenna-Command/dp/B07NB3BK5H/ref=sr_1_2?gclid=CjwKCAjwuYWSBhByEiwAKd_n_p84wPsvFQ3aesBy5iy1IXbFpEu6Ms5puXo55dIG3Dr6emsNLt5twxoC-A4QAvD_BwE&hvadid=557358993538&hvdev=c&hvlocphy=9061208&hvnetw=g&hvqmt=e&hvrand=15161290452050150582&hvtargid=kwd-804498057328&hydadcr=7281_13185269&keywords=rylr896&qid=1648471910&sr=8-2
+3. Optional PCB board to print:
+   https://drive.google.com/file/d/1n9wAcY2OLxIlmYz4vaJ91KblcgCXLjB8/view?usp=sharing
+4. Install Arduino IDE on your computer: 
+   https://www.arduino.cc/en/software
+5. Download all the libraries in my JEDGE Github:
+   https://github.com/LaserTagMods/JEDGE/tree/main/Essential%20Libraries
+6. Set up your computer to work with an ESP32: 
+   https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/
+7. Download the Swaptx Controller Files and open in Arduino IDE:
+   https://github.com/LaserTagMods/JEDGE/tree/main/SWAPTX_HOST_DEVICE_4-18-22
+8. Compile and upload to an ESP32
+
+Note: if you have to small a flash on your esp32 board, change the partition settings to allow for a larger application
