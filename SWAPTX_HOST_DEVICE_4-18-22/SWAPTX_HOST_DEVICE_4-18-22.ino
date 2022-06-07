@@ -13,16 +13,17 @@
 #include <HardwareSerial.h> // used for setting up the serial communications on non RX/TX pins
 
 // define the number of bytes I'm using/accessing for eeprom
-#define EEPROM_SIZE 100 // use 0 for OTA and 1 for Tagger ID
+#define EEPROM_SIZE 200 // use 0 for OTA and 1 for Tagger ID
 // EEPROM Definitions:
-// EEPROM 0 is used for number of taggers
+// EEPROM 0 to 96 used for wifi settings
+// EEPROM 100 for game status
 
 // serial definitions for LoRa
 #define SERIAL1_RXPIN 23 // TO LORA TX
 #define SERIAL1_TXPIN 22 // TO LORA RX
 
 
-int TaggersOwned = 64; // how many taggers do you own or will play?
+int TaggersOwned = 16; // how many taggers do you own or will play?
 
 // Replace with your network credentials
 const char* ssid = "swaptxscoreboard";
@@ -73,10 +74,11 @@ int WebAppUpdaterProcessCounter = 0;
 // ESP Now Objects:
 //*****************************************************************************************
 // for resetting mac address to custom address:
-uint8_t newMACAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0xff};
+uint8_t newMACAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0xFF};
 
 // REPLACE WITH THE MAC Address of your receiver, this is the address we will be sending to
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x09};
+uint8_t arcadebroadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 // data to process espnow data
 String TokenStrings[20];
@@ -115,8 +117,14 @@ byte ObjectiveMode = 0;
 String SendStartBeacon = "null";
 String ConfirmBeacon = "null";
 
+String incomingserial = "0";
 
 bool INGAME = false;
+bool ARCADEMODE = false;
+int ingameminutes = 0;
+int ArcadePlayerStatus[16];
+int ArcadePlayerTime[16];
+byte ArcadeCounter = 0;
 
 void formatMacAddress(const uint8_t *macAddr, char *buffer, int maxLength)
 // Formats MAC Address
@@ -159,9 +167,6 @@ void receiveCallback(const uint8_t *macAddr, const uint8_t *data, int dataLen)
     Serial.println(TokenStrings[stringnumber]);
     stringnumber++;
   }
-  if (TokenStrings[1] == "65") {
-    Serial.println("Received a Host New Game Start Beacon");
-  }
   if (TokenStrings[1] == "101") {
     Serial.println("Received a Team Kill and PlayerScore Announcement");
     // update player/team kills
@@ -181,39 +186,193 @@ void receiveCallback(const uint8_t *macAddr, const uint8_t *data, int dataLen)
       UPDATEWEBAPP = true;
     }
   }
-  //if (TokenStrings[1] == "75") {
-    //Serial.println("Received a Tag Confirmation");
-  //}
-  //if (TokenStrings[1] == "68") {
-    //Serial.println("Received a Kill Confirmation");
-    //int killedplayerid = TokenStrings[2].toInt();
-  //}
-  // process the incoming data
-  //if (TokenStrings[1] == "79") {
-    //Serial.println("Received a Host Discover Beacon, Sending Lockout Beacon");
-    // respond with 36,97,12,3,0,0,0,0,0,42 to lock out the player, and any others around
-    // broadcast("36,97,16,3,0,0,0,0,0,42");
-  //}
+  if (TokenStrings[1] == "20") {
+    Serial.println("Received dOMINATION CAPTURE TAG");
+    // THIS IS FROM A NODE DOMINATION BASE THAT HAS BEEN CAPTURED
+    // check game mode:
+    // This base is a master, time to process the data package
+    // token 3 is the base id, token 4 is the team id, token 5 is the player id
+    int incomingjboxid = TokenStrings[2].toInt();
+    incomingjboxid = incomingjboxid - 100;
+    JboxPlayerID[incomingjboxid] = TokenStrings[4].toInt();
+    JboxTeamID[incomingjboxid] = TokenStrings[3].toInt();
+    JboxInPlay[incomingjboxid] = 1;
+    MULTIBASEDOMINATION = true;
+    Serial.println("processed update from node ESPNOW jbox");
+  }
   if (TokenStrings[1] == "69") {
-    Serial.println("Received a game over winner Announcement");
-    // add game scores to overall scores
-    byte i = 0;
-    // store last game totals
-    while (i < 4) {
-      TeamOverallScore[i] = TeamOverallScore[i] + TeamGameScore[i];
-      i++;
-      vTaskDelay(0);
+    if (INGAME) {
+      delay(500);
+      SendStartBeacon = "36,65,1," + String(SettingsLighting) + "," + String(SettingsRespawn) + ",1," + String(SettingsGameTime) + "," + String(SettingsGameMode) + "," + String(SettingsLives) + ",42";
+      ConfirmBeacon = "36,97,17,1," + String(SettingsLighting) + "," + String(SettingsRespawn) + "," + String(SettingsGameTime) + "," + String(SettingsGameMode) + "," + String(SettingsLives) + ",42";
+      broadcast(SendStartBeacon);
+      delay(2);
+      broadcast(ConfirmBeacon);
+      delay(2);
+      broadcast(ConfirmBeacon);
     }
-    i = 0;
-    while (i < 64) {
-      PlayerOverallScore[i] = PlayerOverallScore[i] + PlayerGameScore[i];
-      i++;
-      vTaskDelay(0);
+  }
+  if (TokenStrings[1] == "79") {
+    Serial.println("Received a host request tag");
+    // this is from a tagger that is turned on looking to start a game
+    // check game mode:
+    if (ARCADEMODE) {
+      if (INGAME) {
+        // ARCADE PLAY IS ON AND IN GAME
+        // check the player ID
+        int playernumber = TokenStrings[2].toInt();
+        if (playernumber == 0) {
+          // player number 1
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
+        }
+        if (playernumber == 1) {
+          // player number 2
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x02};
+        }
+        if (playernumber == 2) {
+          // player number 3
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x03};
+        }
+        if (playernumber == 3) {
+          // player number 4
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x04};
+        }
+        if (playernumber == 4) {
+          // player number 5
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x05};
+        }
+        if (playernumber == 5) {
+          // player number 6
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x06};
+        }
+        if (playernumber == 6) {
+          // player number 7
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x07};
+        }
+        if (playernumber == 7) {
+          // player number 8
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x08};
+        }
+        if (playernumber == 8) {
+          // player number 9
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x09};
+        }
+        if (playernumber == 9) {
+          // player number 10
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x0a};
+        }
+        if (playernumber == 10) {
+          // player number 11
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x0b};
+        }
+        if (playernumber == 11) {
+          // player number 12
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x0c};
+        }
+        if (playernumber == 12) {
+          // player number 13
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x0d};
+        }
+        if (playernumber == 13) {
+          // player number 14
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x0e};
+        }
+        if (playernumber == 14) {
+          // player number 15
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x0f};
+        }
+        if (playernumber == 15) {
+          // player number 16
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x10};
+        }
+        ConfirmBeacon = "36,97,17,1," + String(SettingsLighting) + "," + String(SettingsRespawn) + "," + String(SettingsGameTime) + "," + String(SettingsGameMode) + "," + String(SettingsLives) + ",42";
+        
+        arcadebroadcast(ConfirmBeacon);
+        delay(2);
+        arcadebroadcast(ConfirmBeacon);
+        
+        //broadcast(ConfirmBeacon);
+        //delay(2);
+        //broadcast(ConfirmBeacon);
+        
+        PlayerGameScore[playernumber] = 0;
+        PlayerDeaths[playernumber] = 0;
+        ArcadePlayerStatus[playernumber] = 1;
+      }
     }
-    EndJBoxGame(); 
   }
 }
- 
+
+void EndArcadeForPlayer() {
+        if (ArcadeCounter == 0) {
+          // player number 1
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
+        }
+        if (ArcadeCounter == 1) {
+          // player number 2
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x02};
+        }
+        if (ArcadeCounter == 2) {
+          // player number 3
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x03};
+        }
+        if (ArcadeCounter == 3) {
+          // player number 4
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x04};
+        }
+        if (ArcadeCounter == 4) {
+          // player number 5
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x05};
+        }
+        if (ArcadeCounter == 5) {
+          // player number 6
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x06};
+        }
+        if (ArcadeCounter == 6) {
+          // player number 7
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x07};
+        }
+        if (ArcadeCounter == 7) {
+          // player number 8
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x08};
+        }
+        if (ArcadeCounter == 8) {
+          // player number 9
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x09};
+        }
+        if (ArcadeCounter == 9) {
+          // player number 10
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x0a};
+        }
+        if (ArcadeCounter == 10) {
+          // player number 11
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x0b};
+        }
+        if (ArcadeCounter == 11) {
+          // player number 12
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x0c};
+        }
+        if (ArcadeCounter == 12) {
+          // player number 13
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x0d};
+        }
+        if (ArcadeCounter == 13) {
+          // player number 14
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x0e};
+        }
+        if (ArcadeCounter == 14) {
+          // player number 15
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x0f};
+        }
+        if (ArcadeCounter == 15) {
+          // player number 16
+          uint8_t arcadebroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x10};
+        }
+        arcadebroadcast("36,69,"+String(ArcadeCounter)+",2,42");
+        delay(2);
+        arcadebroadcast("36,69,"+String(ArcadeCounter)+",2,42");
+        ArcadePlayerStatus[ArcadeCounter] = 0;
+}
 void sentCallback(const uint8_t *macAddr, esp_now_send_status_t status)
 // Called when data is sent
 {
@@ -224,7 +383,52 @@ void sentCallback(const uint8_t *macAddr, esp_now_send_status_t status)
   Serial.print("Last Packet Send Status: ");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
+
+void arcadebroadcast(const String &message)
+// Emulates a broadcast
+{
+  // Broadcast a message to a specific tagger
+  // uint8_t arcadebroadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(&peerInfo.peer_addr, arcadebroadcastAddress, 6);
+  if (!esp_now_is_peer_exist(arcadebroadcastAddress))
+  {
+    esp_now_add_peer(&peerInfo);
+  }
+  // Send message
+  esp_err_t result = esp_now_send(arcadebroadcastAddress, (const uint8_t *)message.c_str(), message.length());
  
+  // Print results to serial monitor
+  if (result == ESP_OK)
+  {
+    Serial.println("Broadcast message success");
+  }
+  else if (result == ESP_ERR_ESPNOW_NOT_INIT)
+  {
+    Serial.println("ESP-NOW not Init.");
+  }
+  else if (result == ESP_ERR_ESPNOW_ARG)
+  {
+    Serial.println("Invalid Argument");
+  }
+  else if (result == ESP_ERR_ESPNOW_INTERNAL)
+  {
+    Serial.println("Internal Error");
+  }
+  else if (result == ESP_ERR_ESPNOW_NO_MEM)
+  {
+    Serial.println("ESP_ERR_ESPNOW_NO_MEM");
+  }
+  else if (result == ESP_ERR_ESPNOW_NOT_FOUND)
+  {
+    Serial.println("Peer not found.");
+  }
+  else
+  {
+    Serial.println("Unknown error");
+  }
+}
+
 void broadcast(const String &message)
 // Emulates a broadcast
 {
@@ -304,14 +508,8 @@ void ChangeMACaddress() {
 }
 
 void IntializeESPNOW() {
-  // Set up the onboard LED
-  pinMode(2, OUTPUT);
-  
   // run the object for changing the esp default mac address
   ChangeMACaddress();
-  
-  // Set device as a Wi-Fi Station
-  //WiFi.mode(WIFI_STA);
   
   // Initialize ESP-NOW
   if (esp_now_init() == ESP_OK)
@@ -389,7 +587,7 @@ void UpdateWebApp2() {
       // first Leader for Kills:
       int kmax=0; 
       int highest=0;
-      for (int k=0; k<64; k++)
+      for (int k=0; k<16; k++)
       if (PlayerGameScore[k] > highest) {
         highest = PlayerGameScore[k];
         kmax = k;
@@ -693,6 +891,7 @@ const char index_html1[] PROGMEM = R"rawliteral(
         <option value="16">20 Min Domination - JBOX</option>
         <option value="17">CTF 1 - JBOX</option>
         <option value="18">CTF 5 - JBOX</option>
+        <option value="19">Arcade Mode</option>
         </select>
       </p>
       <p><button id="pbstart" class="button">Start Game</button></p>
@@ -867,7 +1066,7 @@ const char index_html[] PROGMEM = R"rawliteral(
    .stopnav { overflow: hidden; background-color: #2f4468; color: white; font-size: 1.7rem; }
    .scontent { padding: 20px; }
    .scard { background-color: white; box-shadow: 2px 2px 12px 1px rgba(140,140,140,.5); }
-   .scards { max-width: 700px; margin: 0 auto; display: grid; grid-gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+   .scards { max-width: 1400; margin: 0 auto; display: grid; grid-gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
    .sreading { font-size: 2.8rem; }
    .spacket { color: #bebebe; }
    .scard.red { color: #FC0000; }
@@ -910,19 +1109,23 @@ const char index_html[] PROGMEM = R"rawliteral(
   <div class="scontent">
     <div class="scards">
       <div class="scard black">
-        <h2>Most Kills</h2>
-        <p><span class="reading">Player <span id="MK0"></span><span class="reading"> : <span id="MK10"></span></p>
-        <p><span class="reading">Player <span id="MK1"></span><span class="reading"> : <span id="MK11"></span></p>
-        <p><span class="reading">Player <span id="MK2"></span><span class="reading"> : <span id="MK12"></span></p>
-        <h2>Most Deaths</h2>
-        <p><span class="reading">Player <span id="MD0"></span><span class="reading"> : <span id="MD10"></span></p>
-        <p><span class="reading">Player <span id="MD1"></span><span class="reading"> : <span id="MD11"></span></p>
-        <p><span class="reading">Player <span id="MD2"></span><span class="reading"> : <span id="MD12"></span></p>
         <h2>Most Points</h2>
         <p><span class="reading">Player <span id="MO0"></span><span class="reading"> : <span id="MO10"></span></p>
         <p><span class="reading">Player <span id="MO1"></span><span class="reading"> : <span id="MO11"></span></p>
         <p><span class="reading">Player <span id="MO2"></span><span class="reading"> : <span id="MO12"></span></p>
       </div>
+      <div class="scard black">
+        <h2>Most Deaths</h2>
+        <p><span class="reading">Player <span id="MD0"></span><span class="reading"> : <span id="MD10"></span></p>
+        <p><span class="reading">Player <span id="MD1"></span><span class="reading"> : <span id="MD11"></span></p>
+        <p><span class="reading">Player <span id="MD2"></span><span class="reading"> : <span id="MD12"></span></p>
+      </div>
+      <div class="scard black">
+        <h2>Most Kills</h2>
+        <p><span class="reading">Player <span id="MK0"></span><span class="reading"> : <span id="MK10"></span></p>
+        <p><span class="reading">Player <span id="MK1"></span><span class="reading"> : <span id="MK11"></span></p>
+        <p><span class="reading">Player <span id="MK2"></span><span class="reading"> : <span id="MK12"></span></p>
+       </div>
     </div>
   </div>
   <div class="stopnav">
@@ -977,150 +1180,6 @@ const char index_html[] PROGMEM = R"rawliteral(
       </div>
       <div class="scard black">
         <h4>Player 16</h4><p><span class="reading">Kills:<span id="pk15"></span><span class="reading"> Deaths:<span id="pd15"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 17</h4><p><span class="reading">Kills:<span id="pk16"></span><span class="reading"> Deaths:<span id="pd16"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 18</h4><p><span class="reading">Kills:<span id="pk17"></span><span class="reading"> Deaths:<span id="pd17"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 19</h4><p><span class="reading">Kills:<span id="pk18"></span><span class="reading"> Deaths:<span id="pd18"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 20</h4><p><span class="reading">Kills:<span id="pk19"></span><span class="reading"> Deaths:<span id="pd19"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 21</h4><p><span class="reading">Kills:<span id="pk20"></span><span class="reading"> Deaths:<span id="pd20"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 22</h4><p><span class="reading">Kills:<span id="pk21"></span><span class="reading"> Deaths:<span id="pd21"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 23</h4><p><span class="reading">Kills:<span id="pk22"></span><span class="reading"> Deaths:<span id="pd22"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 24</h4><p><span class="reading">Kills:<span id="pk23"></span><span class="reading"> Deaths:<span id="pd23"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 25</h4><p><span class="reading">Kills:<span id="pk24"></span><span class="reading"> Deaths:<span id="pd24"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 26</h4><p><span class="reading">Kills:<span id="pk25"></span><span class="reading"> Deaths:<span id="pd25"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 27</h4><p><span class="reading">Kills:<span id="pk26"></span><span class="reading"> Deaths:<span id="pd26"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 28</h4><p><span class="reading">Kills:<span id="pk27"></span><span class="reading"> Deaths:<span id="pd27"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 29</h4><p><span class="reading">Kills:<span id="pk28"></span><span class="reading"> Deaths:<span id="pd28"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 30</h4><p><span class="reading">Kills:<span id="pk29"></span><span class="reading"> Deaths:<span id="pd29"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 31</h4><p><span class="reading">Kills:<span id="pk30"></span><span class="reading"> Deaths:<span id="pd30"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 32</h4><p><span class="reading">Kills:<span id="pk31"></span><span class="reading"> Deaths:<span id="pd31"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 33</h4><p><span class="reading">Kills:<span id="pk32"></span><span class="reading"> Deaths:<span id="pd32"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 34</h4><p><span class="reading">Kills:<span id="pk33"></span><span class="reading"> Deaths:<span id="pd33"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 35</h4><p><span class="reading">Kills:<span id="pk34"></span><span class="reading"> Deaths:<span id="pd34"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 36</h4><p><span class="reading">Kills:<span id="pk35"></span><span class="reading"> Deaths:<span id="pd35"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 37</h4><p><span class="reading">Kills:<span id="pk36"></span><span class="reading"> Deaths:<span id="pd36"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 38</h4><p><span class="reading">Kills:<span id="pk37"></span><span class="reading"> Deaths:<span id="pd37"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 39</h4><p><span class="reading">Kills:<span id="pk38"></span><span class="reading"> Deaths:<span id="pd38"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 40</h4><p><span class="reading">Kills:<span id="pk39"></span><span class="reading"> Deaths:<span id="pd39"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 41</h4><p><span class="reading">Kills:<span id="pk40"></span><span class="reading"> Deaths:<span id="pd40"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 42</h4><p><span class="reading">Kills:<span id="pk41"></span><span class="reading"> Deaths:<span id="pd41"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 43</h4><p><span class="reading">Kills:<span id="pk42"></span><span class="reading"> Deaths:<span id="pd42"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 44</h4><p><span class="reading">Kills:<span id="pk43"></span><span class="reading"> Deaths:<span id="pd43"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 45</h4><p><span class="reading">Kills:<span id="pk44"></span><span class="reading"> Deaths:<span id="pd44"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 46</h4><p><span class="reading">Kills:<span id="pk45"></span><span class="reading"> Deaths:<span id="pd45"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 47</h4><p><span class="reading">Kills:<span id="pk46"></span><span class="reading"> Deaths:<span id="pd46"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 48</h4><p><span class="reading">Kills:<span id="pk47"></span><span class="reading"> Deaths:<span id="pd47"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 49</h4><p><span class="reading">Kills:<span id="pk48"></span><span class="reading"> Deaths:<span id="pd48"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 50</h4><p><span class="reading">Kills:<span id="pk49"></span><span class="reading"> Deaths:<span id="pd49"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 51</h4><p><span class="reading">Kills:<span id="pk50"></span><span class="reading"> Deaths:<span id="pd50"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 52</h4><p><span class="reading">Kills:<span id="pk51"></span><span class="reading"> Deaths:<span id="pd51"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 53</h4><p><span class="reading">Kills:<span id="pk52"></span><span class="reading"> Deaths:<span id="pd52"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 54</h4><p><span class="reading">Kills:<span id="pk53"></span><span class="reading"> Deaths:<span id="pd53"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 55</h4><p><span class="reading">Kills:<span id="pk54"></span><span class="reading"> Deaths:<span id="pd54"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 56</h4><p><span class="reading">Kills:<span id="pk55"></span><span class="reading"> Deaths:<span id="pd55"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 57</h4><p><span class="reading">Kills:<span id="pk56"></span><span class="reading"> Deaths:<span id="pd56"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 58</h4><p><span class="reading">Kills:<span id="pk57"></span><span class="reading"> Deaths:<span id="pd57"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 59</h4><p><span class="reading">Kills:<span id="pk58"></span><span class="reading"> Deaths:<span id="pd58"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 60</h4><p><span class="reading">Kills:<span id="pk59"></span><span class="reading"> Deaths:<span id="pd59"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 61</h4><p><span class="reading">Kills:<span id="pk60"></span><span class="reading"> Deaths:<span id="pd60"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 62</h4><p><span class="reading">Kills:<span id="pk61"></span><span class="reading"> Deaths:<span id="pd61"></span></p>
-      </div>      
-      <div class="scard black">
-        <h4>Player 63</h4><p><span class="reading">Kills:<span id="pk62"></span><span class="reading"> Deaths:<span id="pd62"></span></p>
-      </div>
-      <div class="scard black">
-        <h4>Player 64</h4><p><span class="reading">Kills:<span id="pk63"></span><span class="reading"> Deaths:<span id="pd63"></span></p>
       </div>
     </div>
   </div>  
@@ -1391,6 +1450,36 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       delay(2);
       broadcast(ConfirmBeacon);
       INGAME = true;
+      Serial.println("A Game is in Progress, Loaded Stored Settings, Possible Device Crash");
+      Serial.println("SettingsGameMode: " + String(SettingsGameMode));
+      Serial.println("SettingsLives: " + String(SettingsLives));
+      Serial.println("SettingsLighting: " + String(SettingsLighting));
+      Serial.println("SettingsGameTime: " + String(SettingsGameTime));
+      Serial.println("SettingsRespawn: " + String(SettingsRespawn));
+      Serial.println("ObjectiveMode: " + String(ObjectiveMode));
+      EEPROM.write(100, 1);
+      EEPROM.commit();
+      EEPROM.write(101, SettingsGameMode);
+      EEPROM.commit();
+      EEPROM.write(102, SettingsLives);
+      EEPROM.commit();
+      EEPROM.write(103, SettingsLighting);
+      EEPROM.commit();
+      EEPROM.write(104, SettingsGameTime);
+      EEPROM.commit();
+      EEPROM.write(105, SettingsRespawn);
+      EEPROM.commit();
+      EEPROM.write(106, ObjectiveMode);
+      EEPROM.commit();
+      
+      Serial.println(String(EEPROM.read(100)));
+      Serial.println(String(EEPROM.read(101)));
+      Serial.println(String(EEPROM.read(102)));
+      Serial.println(String(EEPROM.read(103)));
+      Serial.println(String(EEPROM.read(104)));
+      Serial.println(String(EEPROM.read(105)));
+      Serial.println(String(EEPROM.read(106)));
+      
     }      
     if (strcmp((char*)data, "togglepbend") == 0) {
       EndGame();
@@ -1497,6 +1586,11 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       SettingsLives = 1;
       SettingsGameMode  = 0;
       ObjectiveMode = 18;
+    }
+    if (strcmp((char*)data, "19") == 0) {
+      Serial.println("Arcade Mode");
+      ObjectiveMode = 19;
+      ARCADEMODE = true;
     }
   }
 }
@@ -1711,9 +1805,10 @@ void ReceiveTransmission() {
     }
 }
 void EndJBoxGame() {
+  // broadcast("36,69,"+String(LeadPlayerID)+","+String(LeadTeamID)+",42");
   String FirstToken = "GAMEOVER"; // 0 for red, 100 for blue, 200 for yellow, 300 for green, example team blue with player 16, 10116
-  byte SecondToken= 99; // for directing who it is From
-  byte ThirdToken = 99; // What team captured base
+  byte SecondToken= LeadPlayerID; // for directing who it is From
+  byte ThirdToken = LeadTeamID; // What team captured base
   byte FourthToken = 99;  // Player ID
   Serial.println("sending team and player alignment to other jboxes, here is the value being sent: ");
   LoRaDataToSend = FirstToken + "," + String(SecondToken) + "," + String(ThirdToken) + "," + String(FourthToken);
@@ -1752,12 +1847,17 @@ void TransmitLoRa() {
   Serial1.print("AT+SEND=0,"+String(LoRaDataToSend.length())+","+LoRaDataToSend+"\r\n"); // used to send a data packet
   //  Serial1.print("AT+SEND=0,1,5\r\n"); // used to send data to the specified recipeint
   //  Serial.println("Sent the '5' to device 0");
+  delay(1000);
+  Serial1.print("AT+SEND=0,"+String(LoRaDataToSend.length())+","+LoRaDataToSend+"\r\n"); // used to send a data packet
   transmissioncounter();
 }
 void EndGame() {
       Serial.println("end a game early");
       broadcast("36,69,"+String(LeadPlayerID)+","+String(LeadTeamID)+",42");
-      INGAME = false;
+      broadcast("36,69,"+String(LeadPlayerID)+","+String(LeadTeamID)+",42");
+      INGAME = false;      
+      EEPROM.write(100, 0);
+      EEPROM.commit();
       MULTIBASEDOMINATION = false;
       Serial.println("Received a game over winner Announcement");
       // add game scores to overall scores
@@ -1791,7 +1891,7 @@ void loop0(void *pvParameters) {
     delay(1); // this has to be here or it will just continue to restart the esp32
   }
 }
-
+//******************************************************************************
 void setup(){
   // Serial port for debugging purposes
   Serial.begin(115200);
@@ -1805,6 +1905,27 @@ void setup(){
   int eepromtaggercount = EEPROM.read(0);
   if (eepromtaggercount < 255 && eepromtaggercount < 65) {
     TaggersOwned = eepromtaggercount;
+  }
+  eepromtaggercount = EEPROM.read(100);
+  if (eepromtaggercount == 1) {
+    INGAME = true;
+    SettingsGameMode = EEPROM.read(101);
+    SettingsLives = EEPROM.read(102);
+    SettingsLighting = EEPROM.read(103);
+    SettingsGameTime = EEPROM.read(104);
+    SettingsRespawn = EEPROM.read(105);
+    ObjectiveMode = EEPROM.read(106);
+    Serial.println("A Game is in Progress, Loaded Stored Settings, Possible Device Crash");
+    Serial.println("SettingsGameMode: " + String(SettingsGameMode));
+    Serial.println("SettingsLives: " + String(SettingsLives));
+    Serial.println("SettingsLighting: " + String(SettingsLighting));
+    Serial.println("SettingsGameTime: " + String(SettingsGameTime));
+    Serial.println("SettingsRespawn: " + String(SettingsRespawn));
+    Serial.println("ObjectiveMode: " + String(ObjectiveMode));
+    if (ObjectiveMode == 19) {
+      ARCADEMODE = true;
+      Serial.println("Arcade Mode Active");
+    }
   }
   // setting up eeprom based SSID:
   String esid;
@@ -1830,6 +1951,10 @@ void setup(){
   // Connect to Wi-Fi
   Serial.println("Starting AP");
   WiFi.mode(WIFI_AP_STA);
+  //esp_wifi_set_protocol(WIFI_IF_AP,WIFI_PROTOCOL_LR);
+  //esp_wifi_set_protocol(WIFI_IF_AP,WIFI_PROTOCOL_11G);
+  esp_wifi_set_protocol(WIFI_IF_AP, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N);
+  esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N);
   WiFi.softAP(ssid, password);
   WiFi.setTxPower(WIFI_POWER_19_5dBm);
   IPAddress IP = WiFi.softAPIP();
@@ -1909,10 +2034,10 @@ void setup(){
       EEPROM.commit();
     }
     // GET input3 value on <ESP_IP>/get?input3=<inputMessage>
-    else if (request->hasParam(PARAM_INPUT_3)) {
-      inputMessage = request->getParam(PARAM_INPUT_3)->value();
-      inputParam = PARAM_INPUT_3;
-      String BLEName = inputMessage;
+    //else if (request->hasParam(PARAM_INPUT_3)) {
+      //inputMessage = request->getParam(PARAM_INPUT_3)->value();
+      //inputParam = PARAM_INPUT_3;
+      //String BLEName = inputMessage;
       //Serial.println("clearing eeprom");
       //for (int i = 34; i < 96; ++i) {
       //  EEPROM.write(i, 0);
@@ -1927,11 +2052,11 @@ void setup(){
       //  k++;
       //}
       //EEPROM.commit();
-    }
-    else {
-      inputMessage = "No message sent";
-      inputParam = "none";
-    }
+    //}
+    //else {
+    //  inputMessage = "No message sent";
+    //  inputParam = "none";
+    //}
     Serial.println(inputMessage);
     Serial.print("OTA SSID = ");
     Serial.println(OTAssid);
@@ -1976,52 +2101,41 @@ void setup(){
   Serial.println(xPortGetCoreID());
   xTaskCreatePinnedToCore(loop0, "loop0", 10000, NULL, 1, NULL, 0);
 }
-String incomingserial = "0";
+
+//***************************************************************************
 void loop() {
   ws.cleanupClients();
   if (UPDATEWEBAPP) {
-    if (WebAppUpdaterProcessCounter < 3) {
-      unsigned long UpdaterCurrentMillis = millis();
-      if (WebAppUpdaterProcessCounter == 0) {
-        UpdateWebApp0();
-      }
-      if (WebAppUpdaterProcessCounter == 1) {
-        UpdateWebApp1();
-      }
-      if (WebAppUpdaterProcessCounter == 2) {
-        UpdateWebApp2();
-      }
-      WebAppUpdaterProcessCounter++;
-    } else {
-      UPDATEWEBAPP = false;
-      WebAppUpdaterProcessCounter = 0;
-    }
+    UpdateWebApp0();
+    UpdateWebApp1();
+    UpdateWebApp2();
+    UPDATEWEBAPP = false;
     if (ObjectiveMode > 1) {
-      if (ObjectiveMode = 10) {
+      if (ObjectiveMode == 10) {
         if (PlayerGameScore[LeadPlayerID] > 9) {
           // end game
           EndGame();
         }
       }
-      if (ObjectiveMode = 11) {
+      if (ObjectiveMode == 11) {
         if (PlayerGameScore[LeadPlayerID] > 19) {
           // end game
           EndGame();
         }
       }
-      if (ObjectiveMode = 12) {
+      if (ObjectiveMode == 12) {
         if (TeamGameScore[LeadTeamID] > 24) {
           // end game
           EndGame();
         }
       }
-      if (ObjectiveMode = 13) {
+      if (ObjectiveMode == 13) {
         if (TeamGameScore[LeadTeamID] > 49) {
           // end game
           EndGame();
         }
       }
-      if (ObjectiveMode = 14) {
+      if (ObjectiveMode == 14) {
         if (TeamDominationGameScore[0] > 299) {
           // end game
           EndGame();
@@ -2039,7 +2153,7 @@ void loop() {
           EndGame();
         }
       }
-      if (ObjectiveMode = 15) {
+      if (ObjectiveMode == 15) {
         if (TeamDominationGameScore[0] > 599) {
           // end game
           EndGame();
@@ -2057,7 +2171,7 @@ void loop() {
           EndGame();
         }
       }
-      if (ObjectiveMode = 16) {
+      if (ObjectiveMode == 16) {
         if (TeamDominationGameScore[0] > 1199) {
           // end game
           EndGame();
@@ -2075,7 +2189,7 @@ void loop() {
           EndGame();
         }
       }
-      if (ObjectiveMode = 17) {
+      if (ObjectiveMode == 17) {
         if (TeamDominationGameScore[0] > 0) {
           // end game
           EndGame();
@@ -2093,7 +2207,7 @@ void loop() {
           EndGame();
         }
       }
-      if (ObjectiveMode = 18) {
+      if (ObjectiveMode == 18) {
         if (TeamDominationGameScore[0] > 4) {
           // end game
           EndGame();
@@ -2113,13 +2227,34 @@ void loop() {
       }
     }
   }
-  if (INGAME) {
+  if (INGAME == true && ARCADEMODE == false) {
     long ingamemillis = millis();
     if (ingamemillis - 5000 > previngamemillis) {
       previngamemillis = ingamemillis;
       broadcast(ConfirmBeacon);
     }
   }
+  /*
+  // this would end players' games but doesnt work because the players tell other players game over too.
+  if (INGAME == true && ARCADEMODE == true) {
+    long ingamemillis = millis();
+    if (ingamemillis - 60000 > previngamemillis) {
+      previngamemillis = ingamemillis;
+      ArcadeCounter = 0;
+      while (ArcadeCounter < 17) {
+      if (ArcadePlayerStatus[ArcadeCounter] == 1) {
+        ArcadePlayerTime[ArcadeCounter]++;
+        if (ArcadePlayerTime[ArcadeCounter] > 9) {
+          // this player's time is up
+          ArcadePlayerTime[ArcadeCounter] = 0;
+          EndArcadeForPlayer();
+        }
+      }
+      ArcadeCounter++;
+      }
+    }
+  }
+  */
   if (MULTIBASEDOMINATION) {
     long currentMillis0 = millis();
     if (currentMillis0 - previousMillis0 > 1000) {  // will store last time LED was updated
