@@ -174,7 +174,6 @@ const long otainterval = 1000;
 const long mini_interval = 1000;
 String OTAssid = "dontchangeme"; // network name to update OTA
 String OTApassword = "dontchangeme"; // Network password for OTA
-char link[]="192.168.4.1:81";
 //*************************************************************************
 //******************** DEVICE SPECIFIC DEFINITIONS ************************
 //*************************************************************************
@@ -405,18 +404,15 @@ void receiveCallback(const uint8_t *macAddr, const uint8_t *data, int dataLen) {
       // we apply this to our tagger
       SettingsGameMode = TokenStrings[2].toInt();
       SettingsGameRules = TokenStrings[3].toInt();
-      if (TokenStrings[1] == "5") {
+      if (TokenStrings[1] == "3") {
         BLESend(DataToTagger);
-        //delay(300);
-        BLESend("$AS,3,0,0,0,0,0,75,*");
+        delay(300);
+        BLESend("$AS,4,0,0,0,0,0,75,*");
         ALLOWPLAYERSELECTION = true;
         delay(300);
         Serial.println("enabling Team Selection");
         // tell gun to say select a team:
         SendToTaggerLater1 = "$PLAY,VA5E,3,10,,,,,*"; 
-      }
-      if (TokenStrings[1] == "3") {
-        BLESend(DataToTagger);
       }
       if (TokenStrings[1] == "1") {
         Serial.println("***** Game Starting ******");
@@ -1874,10 +1870,10 @@ void ProcessBRXData() {
         int RandomNumber = random(0,9999);
         // $DD,(PlayerIDThatKilled),(teamIDthatkilled),(deadplayerID),*
         String killnotificationstring = "$DD," + String(lastTaggedPlayer) + "," + String(lastTaggedTeam) + "," + String(GunID) + "," + String(RandomNumber) +",*";
-        int delaytimer = GunID * 4;
-        delay(delaytimer); 
         ESPNOWBroadcast(killnotificationstring);
-        delay(delaytimer);
+        delay(5);
+        ESPNOWBroadcast(killnotificationstring);
+        delay(5);
         ESPNOWBroadcast(killnotificationstring);
       }
     } else {
