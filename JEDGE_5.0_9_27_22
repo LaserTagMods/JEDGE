@@ -53,9 +53,9 @@
 HardwareSerial SerialHW(1);
 #define SerialHW_RXPIN 16 // TO HC-05 TX
 #define SerialHW_TXPIN 17 // TO HC-05 RX
-HardwareSerial SerialRY(2);
-#define SerialRY_RXPIN 23 // TO RYLR896 TX
-#define SerialRY_TXPIN 22 // TO RYLR896 RX
+HardwareSerial Serial1(2);
+#define SERIAL1_RXPIN 23 // TO RYLR896 TX
+#define SERIAL1_TXPIN 22 // TO RYLR896 RX
 int BaudRate = 57600; // 115200 is for GEN2/3, 57600 is for GEN1, this is set automatically based upon user input
 // ***********************************************************
 // create a serial object for serial bluetooth
@@ -68,7 +68,7 @@ bool SPPMODE = false;
 bool HC05MODE = false;
 //****************************************************************
 // define the number of bytes I'm using/accessing for eeprom
-#define EEPROM_SIZE 200
+#define EEPROM_SIZE 256
 // 0-10 for variable storing, 11-120 for ble, wifi, password
 // 0 for boot mode
 // 1 for device mode (boss, player)
@@ -115,7 +115,7 @@ bool ENABLEOTAUPDATE = false; // enables the loop for updating OTA
 bool ENABLEWEBSERVER = false; // enables the web server for settings/configuration
 bool FirstConnect = false; // used to indicate the first time the device pairs with tagger
 bool RunInit = false; // used to run initial bluetooth set up on tagger
-int SetHealth = 0;
+int PresetGameMode = 0;
 byte LifeStatus = 1; // default indicator that player is dead
 bool REGISTERED = true;
 bool INGAME = true;
@@ -218,6 +218,10 @@ bool PLAYERKILLCONFIRM = false;
 long LastKillConfirmationSend = 0;
 byte KillConfirmationAttemptCounter = 0;
 String LoRaDataReceived = "null";
+String LoRaDataToSend = "null";
+bool INITBLUETOOTH = false;
+long PresetGameStart = 0;
+long PresetGameEnd = 0;
 // **************************************************************
 void StartHC05Serial() {
   Serial.println("Serial Buad Rate set for: " + String(BaudRate));
@@ -276,42 +280,112 @@ void ListenToHardwareSerial() {
     ProcessBRXData();   
   }
 }
-void StartLoRa() {
+void StartLoRaSerial() {
+  // initialize LoRa Serial Comms and network settings:
+  Serial.println("Initializing LoRa Serial Port");
+  Serial1.begin(115200, SERIAL_8N1, SERIAL1_RXPIN, SERIAL1_TXPIN); // setting up the LoRa pins
+}
+void FastLoraSetup() {
   // initialize LoRa Serial Comms and network settings:
   Serial.println("Initializing LoRa");
-  SerialRY.begin(115200, SERIAL_8N1, SerialRY_RXPIN, SerialRY_TXPIN); // setting up serial communication
-  SerialRY.print("AT\r\n"); // checking that serial is working with LoRa module
+  Serial1.begin(115200, SERIAL_8N1, SERIAL1_RXPIN, SERIAL1_TXPIN); // setting up the LoRa pins
+  Serial1.print("AT\r\n"); // checking that serial is working with LoRa module
   delay(100);
-  Serial1.print("AT+PARAMETER=10,7,1,7\r\n");    //For Less than 3Kms
-  //SerialRY.print("AT+PARAMETER= 12,4,1,7\r\n");    //For More than 3Kms
+  Serial1.print("AT+PARAMETER=6,9,1,4\r\n");    //FOR TESTING FOR SPEED
+  //Serial1.print("AT+PARAMETER=10,7,1,7\r\n");    //For Less than 3Kms
+  //Serial1.print("AT+PARAMETER= 12,4,1,7\r\n");    //For More than 3Kms
   delay(100);   //wait for module to respond
-  SerialRY.print("AT+BAND=868500000\r\n");    //Bandwidth set to 868.5MHz
+  Serial1.print("AT+BAND=868500000\r\n");    //Bandwidth set to 868.5MHz
   delay(100);   //wait for module to respond
-  String Address = "AT+ADDRESS=" + String(GunID) + "\r\n";  //needs to be unique
-  SerialRY.print(Address);  
+  Serial1.print("AT+ADDRESS=1\r\n");   //needs to be unique
   delay(100);   //wait for module to respond
-  SerialRY.print("AT+NETWORKID=0\r\n");   //needs to be same for receiver and transmitter
+  Serial1.print("AT+NETWORKID=0\r\n");   //needs to be same for receiver and transmitter
   delay(100);   //wait for module to respond
-  SerialRY.print("AT+PARAMETER?\r\n");    //For Less than 3Kms
+  Serial1.print("AT+PARAMETER?\r\n");    //For Less than 3Kms
   delay(100); // 
-  SerialRY.print("AT+BAND?\r\n");    //Bandwidth set to 868.5MHz
+  Serial1.print("AT+BAND?\r\n");    //Bandwidth set to 868.5MHz
   delay(100);   //wait for module to respond
-  SerialRY.print("AT+NETWORKID?\r\n");   //needs to be same for receiver and transmitter
+  Serial1.print("AT+NETWORKID?\r\n");   //needs to be same for receiver and transmitter
   delay(100);   //wait for module to respond
-  SerialRY.print("AT+ADDRESS?\r\n");   //needs to be unique
+  Serial1.print("AT+ADDRESS?\r\n");   //needs to be unique
   delay(100);   //wait for module to respond
   Serial.println("LoRa Module Initialized");
 }
+void LongRangeLoraSetup() {
+  // initialize LoRa Serial Comms and network settings:
+  Serial.println("Initializing LoRa");
+  Serial1.begin(115200, SERIAL_8N1, SERIAL1_RXPIN, SERIAL1_TXPIN); // setting up the LoRa pins
+  Serial1.print("AT\r\n"); // checking that serial is working with LoRa module
+  delay(100);
+  //Serial1.print("AT+PARAMETER=6,9,1,4\r\n");    //FOR TESTING FOR SPEED
+  //Serial1.print("AT+PARAMETER=10,7,1,7\r\n");    //For Less than 3Kms
+  Serial1.print("AT+PARAMETER= 12,4,1,7\r\n");    //For More than 3Kms
+  delay(100);   //wait for module to respond
+  Serial1.print("AT+BAND=868500000\r\n");    //Bandwidth set to 868.5MHz
+  delay(100);   //wait for module to respond
+  Serial1.print("AT+ADDRESS=1\r\n");   //needs to be unique
+  delay(100);   //wait for module to respond
+  Serial1.print("AT+NETWORKID=0\r\n");   //needs to be same for receiver and transmitter
+  delay(100);   //wait for module to respond
+  Serial1.print("AT+PARAMETER?\r\n");    //For Less than 3Kms
+  delay(100); // 
+  Serial1.print("AT+BAND?\r\n");    //Bandwidth set to 868.5MHz
+  delay(100);   //wait for module to respond
+  Serial1.print("AT+NETWORKID?\r\n");   //needs to be same for receiver and transmitter
+  delay(100);   //wait for module to respond
+  Serial1.print("AT+ADDRESS?\r\n");   //needs to be unique
+  delay(100);   //wait for module to respond
+  Serial.println("LoRa Module Initialized");
+}
+void MidRangeLoraSetup() {
+  // initialize LoRa Serial Comms and network settings:
+  Serial.println("Initializing LoRa");
+  Serial1.begin(115200, SERIAL_8N1, SERIAL1_RXPIN, SERIAL1_TXPIN); // setting up the LoRa pins
+  Serial1.print("AT\r\n"); // checking that serial is working with LoRa module
+  delay(100);
+  //Serial1.print("AT+PARAMETER=6,9,1,4\r\n");    //FOR TESTING FOR SPEED
+  Serial1.print("AT+PARAMETER=10,7,1,7\r\n");    //For Less than 3Kms
+  //Serial1.print("AT+PARAMETER= 12,4,1,7\r\n");    //For More than 3Kms
+  delay(100);   //wait for module to respond
+  Serial1.print("AT+BAND=868500000\r\n");    //Bandwidth set to 868.5MHz
+  delay(100);   //wait for module to respond
+  Serial1.print("AT+ADDRESS=1\r\n");   //needs to be unique
+  delay(100);   //wait for module to respond
+  Serial1.print("AT+NETWORKID=0\r\n");   //needs to be same for receiver and transmitter
+  delay(100);   //wait for module to respond
+  Serial1.print("AT+PARAMETER?\r\n");    //For Less than 3Kms
+  delay(100); // 
+  Serial1.print("AT+BAND?\r\n");    //Bandwidth set to 868.5MHz
+  delay(100);   //wait for module to respond
+  Serial1.print("AT+NETWORKID?\r\n");   //needs to be same for receiver and transmitter
+  delay(100);   //wait for module to respond
+  Serial1.print("AT+ADDRESS?\r\n");   //needs to be unique
+  delay(100);   //wait for module to respond
+  Serial.println("LoRa Module Initialized");
+}
+void TransmitLoRa() {
+  // LETS SEND SOMETHING:
+  // delay(5000);
+  // String LoRaDataToSend = (String(valueA)+String(valueB)+String(valueC)+String(valueD)+String(valueE)); 
+  // If needed to send a response to the sender, this function builds the needed string
+  Serial.println("Transmitting Via LoRa"); // printing to serial monitor
+  Serial1.print("AT+SEND=0,"+String(LoRaDataToSend.length())+","+LoRaDataToSend+"\r\n"); // used to send a data packet
+  //Serial1.print("AT+SEND=0,1,5\r\n"); // used to send data to the specified recipeint
+  //  Serial1.print("$PLAY,VA20,4,6,,,,,*");
+  //  Serial.println("Sent the '5' to device 0");
+  //  transmissioncounter();
+}
 void ReceiveLoRaTransmission() {
+  //Serial.println("scanning");
   // this is an object used to listen to the serial inputs from the LoRa Module
   if(Serial1.available()>0){ // checking to see if there is anything incoming from the LoRa module
     Serial.println("Got Data"); // prints a notification that data was received
-    LoRaDataReceived = Serial1.readString(); // stores the incoming data to the pre set string
+    DataToTagger = Serial1.readString(); // stores the incoming data to the pre set string
     Serial.print("LoRaDataReceived: "); // printing data received
-    Serial.println(LoRaDataReceived); // printing data received
-    if(LoRaDataReceived.startsWith("+RCV")){ // checking if the data was from another LoRa module
+    Serial.println(DataToTagger); // printing data received
+    if(DataToTagger.startsWith("+RCV")){ // checking if the data was from another LoRa module
       // convert the received data into a string array for comparing data
-      char *ptr = strtok((char*)LoRaDataReceived.c_str(), ",");
+      char *ptr = strtok((char*)DataToTagger.c_str(), ",");
       int index = 0;
       while (ptr != NULL){
         TokenStrings[index] = ptr;
@@ -418,29 +492,54 @@ void receiveCallback(const uint8_t *macAddr, const uint8_t *data, int dataLen) {
   
   // store and separate the buffer
   String IncomingData = String(buffer);
-  String DataToTagger = IncomingData;
+  DataToTagger = IncomingData;
   if (IncomingData != LastIncomingData) {
-    char *ptr = strtok((char*)IncomingData.c_str(), ","); // looks for commas as breaks to split up the string
-    int index = 0;
-    while (ptr != NULL)
-    {
-      TokenStrings[index] = ptr; // saves the individual characters divided by commas as individual strings
-      index++;
-      ptr = strtok(NULL, ",");  // takes a list of delimiters
-    }
-    Serial.println("We have found " + String(index ) + " tokens");
-    int stringnumber = 0;
-    while (stringnumber < index) {
-      if (DebugComms) {
-        Serial.print("Token " + String(stringnumber) + ": ");
-        Serial.println(TokenStrings[stringnumber]);
+    
+    if(DataToTagger.startsWith("+RCV")){ // checking if the data was from another LoRa module
+      // convert the received data into a string array for comparing data
+      char *ptr = strtok((char*)DataToTagger.c_str(), ",");
+      int index = 0;
+      while (ptr != NULL){
+        TokenStrings[index] = ptr;
+        index++;
+        ptr = strtok(NULL, ",");  // takes a list of delimiters
+        Serial.println("Token " + String(index) + ": " + TokenStrings[index]);
       }
-      stringnumber++;
+      // Adjust TokenString Locations for processing
+      byte j = 0;
+      byte k = 2;
+      while (k < index) {
+        TokenStrings[j] = TokenStrings[k];
+        Serial.println("Token " + String(j) + ": " + TokenStrings[j]);
+        j++;
+        k++;
+      }
+    } else {
+      char *ptr = strtok((char*)IncomingData.c_str(), ","); // looks for commas as breaks to split up the string
+      int index = 0;
+      while (ptr != NULL)
+      {
+        TokenStrings[index] = ptr; // saves the individual characters divided by commas as individual strings
+        index++;
+        ptr = strtok(NULL, ",");  // takes a list of delimiters
+      }
+      Serial.println("We have found " + String(index ) + " tokens");
+      int stringnumber = 0;
+      while (stringnumber < index) {
+        if (DebugComms) {
+          Serial.print("Token " + String(stringnumber) + ": ");
+          Serial.println(TokenStrings[stringnumber]);
+        }
+        stringnumber++;
+      }
     }
     ProcessWirelessComms();
   }
 }
 void ProcessWirelessComms() {
+    if (!ENABLEBLE) {
+      INITBLUETOOTH = true;
+    }
     // used for BLE Sending
     // SECTION FOR ANALYZING ESPNOW INCOMING DATA PACKETS
     // all packets with $AS, $SP, $UP should be forwarded on if it has a 99 and applied to this tagger
@@ -521,17 +620,23 @@ void ProcessWirelessComms() {
           WaitStart = millis();
         }
       }
-      ESPNOWBroadcast(DataToTagger); // rebroadcasting to get to others
+      //if (CommsSetting == 0) {
+        ESPNOWBroadcast(DataToTagger); // rebroadcasting to get to others
+      //}
       READYFORNEXTGAME = false;    
     }
     if (TokenStrings[0] == "$SP") { // 0-5 TOKENS FOR END OF GAME
       BLESend(DataToTagger);
       INGAME = false;
-      ESPNOWBroadcast(DataToTagger); // rebroadcasting to get to others
+      //if (CommsSetting == 0) {
+        ESPNOWBroadcast(DataToTagger); // rebroadcasting to get to others
+      //}
     }
     if (TokenStrings[0] == "$UP") { // 0-6 TOKENS FOR updates/status
       BLESend(DataToTagger);
-      ESPNOWBroadcast(DataToTagger); // rebroadcasting to get to others
+      //if (CommsSetting == 0) {
+        ESPNOWBroadcast(DataToTagger); // rebroadcasting to get to others
+      //}
     }
     // $DD,(PlayerIDThatKilled),(teamIDthatkilled),(DeadPlayerID),(randomnumber),*
     if (TokenStrings[0] == "$DD") {
@@ -564,11 +669,11 @@ void ProcessWirelessComms() {
             killcheckcounter = 0;
           }
           String KillConfirmationReceived = "$PKC," + TokenStrings[3] + ",*";
-          ESPNOWBroadcast(KillConfirmationReceived);
-          //delay(5);
-          //ESPNOWBroadcast(KillConfirmationReceived);
-          delay(5);
-          ESPNOWBroadcast(KillConfirmationReceived);
+            ESPNOWBroadcast(KillConfirmationReceived);
+            //delay(5);
+            //ESPNOWBroadcast(KillConfirmationReceived);
+            delay(5);
+            ESPNOWBroadcast(KillConfirmationReceived);
         }
       } else {
         //ESPNOWBroadcast(DataToTagger); // rebroadcasting to get to others
@@ -601,7 +706,9 @@ void ProcessWirelessComms() {
         // this assignment belongs to this player
         TeamID = TokenStrings[2].toInt();
       } else {
-        ESPNOWBroadcast(DataToTagger); // rebroadcasting to get to others
+        //if (CommsSetting == 0) {
+          ESPNOWBroadcast(DataToTagger); // rebroadcasting to get to others
+        //}
       }
     }
     // registration with host
@@ -610,14 +717,18 @@ void ProcessWirelessComms() {
         REGISTERED = true;
       } else {
         // Send Data On For Others As Well
-        ESPNOWBroadcast(DataToTagger);  
+        //if (CommsSetting == 0) {
+          ESPNOWBroadcast(DataToTagger); 
+        //} 
       }
     }
     // Unregister with host
     if (TokenStrings[0] == "$UR") {
         REGISTERED = false;
         // Send Data On For Others As Well
-        ESPNOWBroadcast(DataToTagger);  
+        //if (CommsSetting == 0) {
+          ESPNOWBroadcast(DataToTagger);  
+        //}
     }
     // Respawn Player Packet
     // $RP,GunID,LivesRemaining,*
@@ -629,20 +740,26 @@ void ProcessWirelessComms() {
         BLESend("$SPAWN,*");
       } else {
         // Send Data On For Others As Well
-        ESPNOWBroadcast(DataToTagger);  
+        //if (CommsSetting == 0) {
+          ESPNOWBroadcast(DataToTagger);  
+        //}
       }
     }
     // weapon and perk assignments
     if (TokenStrings[0] == "$PERK") {
       PBPerk = TokenStrings[1].toInt();
       // Send Data On For Others As Well
-      ESPNOWBroadcast(DataToTagger);  
+      //if (CommsSetting == 0) {
+        ESPNOWBroadcast(DataToTagger);
+      //}  
     }
     if (TokenStrings[0] == "$WEAP") {
       PBWeap = TokenStrings[1].toInt();
       // Send Data On For Others As Well
       Serial.println("weapon now: " + String(PBWeap));
-      ESPNOWBroadcast(DataToTagger);
+      //if (CommsSetting == 0) {
+        ESPNOWBroadcast(DataToTagger);
+      //}
     }
     if (TokenStrings[0] == "$HS") {
       if(TokenStrings[1] == "0") {
@@ -656,7 +773,9 @@ void ProcessWirelessComms() {
       }
       // Send Data On For Others As Well
       Serial.println("weapon now: " + String(PBWeap));
-      ESPNOWBroadcast(DataToTagger);
+      //if (CommsSetting == 0) {
+        ESPNOWBroadcast(DataToTagger);
+      //}
     }
     // dATA PACKET HAS BEEN PROCESSED, SAVE CURRENT ESPNOW PACKET FOR REFERENCE TO NOT REPEAT SEND TO TAGGER
     LastIncomingData = DataToTagger;
@@ -1094,13 +1213,16 @@ const char index_html[] PROGMEM = R"rawliteral(
         <option value="1">Normal Boss</option>
         <option value="2">Hard Boss</option>
         <option value="3">Standard JEDGE Player</option>
+        <option value="ArcadeModeFFA">Arcade Mode</option>
         </select>
       </p>
       <h2>Set Wireless Comms Mode</h2>
       <p><select name="Comms" id="Commsid">
         <option value="4">Select a Mode</option>
         <option value="ESPNOW">ESPNOW LR</option>
-        <option value="LoRa">LoRa</option>
+        <option value="LoRaFast">Fast LoRa</option>
+        <option value="LoRaMid">Mid Range LoRa</option>
+        <option value="LoRaLR">Long Range LoRa</option>
         </select>
       </p>
       <h2>Set Tagger ID</h2>
@@ -1278,26 +1400,32 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     }
     if (strcmp((char*)data, "0") == 0) {
       Serial.println("Easy Mode");
-      SetHealth = 0;
-      EEPROM.write(1,SetHealth);
+      PresetGameMode = 0;
+      EEPROM.write(1,PresetGameMode);
       EEPROM.commit();
     }
     if (strcmp((char*)data, "1") == 0) {
       Serial.println("Normal Mode");
-      SetHealth = 1;
-      EEPROM.write(1,SetHealth);
+      PresetGameMode = 1;
+      EEPROM.write(1,PresetGameMode);
       EEPROM.commit();
     }
     if (strcmp((char*)data, "2") == 0) {
       Serial.println("Hard Mode");
-      SetHealth = 2;
-      EEPROM.write(1,SetHealth);
+      PresetGameMode = 2;
+      EEPROM.write(1,PresetGameMode);
       EEPROM.commit();
     }
     if (strcmp((char*)data, "3") == 0) {
       Serial.println("Standard JEDGE Player");
-      SetHealth = 3;
-      EEPROM.write(1,SetHealth);
+      PresetGameMode = 3;
+      EEPROM.write(1,PresetGameMode);
+      EEPROM.commit();
+    }
+    if (strcmp((char*)data, "ArcadeModeFFA") == 0) {
+      Serial.println("ARCADE MODE - Host Not Required - Free For All");
+      PresetGameMode = 4;
+      EEPROM.write(1,PresetGameMode);
       EEPROM.commit();
     }
     if (strcmp((char*)data, "ESPNOW") == 0) {
@@ -1306,11 +1434,26 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       EEPROM.write(4,CommsSetting);
       EEPROM.commit();
     }
-    if (strcmp((char*)data, "LoRa") == 0) {
+    if (strcmp((char*)data, "LoRaFast") == 0) {
       Serial.println("Comms Set to LoRa");
-      CommsSetting = 0;
+      CommsSetting = 1;
       EEPROM.write(4,CommsSetting);
       EEPROM.commit();
+      FastLoraSetup();
+    }
+    if (strcmp((char*)data, "LoRaMid") == 0) {
+      Serial.println("Comms Set to LoRa");
+      CommsSetting = 1;
+      EEPROM.write(4,CommsSetting);
+      EEPROM.commit();
+      MidRangeLoraSetup();
+    }
+    if (strcmp((char*)data, "LoRaLR") == 0) {
+      Serial.println("Comms Set to LoRa");
+      CommsSetting = 1;
+      EEPROM.write(4,CommsSetting);
+      EEPROM.commit();
+      LongRangeLoraSetup();
     }
     if (strcmp((char*)data, "1901") == 0) {
       GunID = 1;
@@ -1937,9 +2080,11 @@ void ProcessBRXData() {
           // we have a dead player playing assault and pulling the trigger to spawn
           // RespawnRequest,TeamID,GunID,*
           String RespawnRequest = "$RR," + String(TeamID) + "," + String(GunID) + ",*";
-          ESPNOWBroadcast(RespawnRequest);
-          delay(5);
-          ESPNOWBroadcast(RespawnRequest);
+          if (CommsSetting == 0) {
+            ESPNOWBroadcast(RespawnRequest);
+            delay(5);
+            ESPNOWBroadcast(RespawnRequest);
+          }
         }
       }
     }
@@ -2134,10 +2279,16 @@ void ProcessBRXData() {
         int RandomNumber = random(0,9999);
         // $DD,(PlayerIDThatKilled),(teamIDthatkilled),(deadplayerID),*
         killnotificationstring = "$DD," + String(lastTaggedPlayer) + "," + String(lastTaggedTeam) + "," + String(GunID) + "," + String(RandomNumber) +",*";
-        HOSTKILLCONFIRM = true;
-        PLAYERKILLCONFIRM = true;
-        LastKillConfirmationSend = millis() - (6 * GunID);
-        KillConfirmationAttemptCounter = 0;
+        //if (CommsSetting == 0) {
+          HOSTKILLCONFIRM = true;
+          PLAYERKILLCONFIRM = true;
+          LastKillConfirmationSend = millis() - (6 * GunID);
+          KillConfirmationAttemptCounter = 0;
+        //}
+        //if (CommsSetting == 1) {
+          //LoRaDataToSend = Killnotificationstring;
+          //TransmitLoRa();
+        //}
       }
     } else {
       if (LifeStatus == 1 && SettingsGameMode < 5) {
@@ -2148,79 +2299,99 @@ void ProcessBRXData() {
     }  
   }
 }
-void StartBossPlayer() {
-  BLESend("$CLEAR,*");
-  BLESend("$START,*");
-  // token one of the following command is free for all, 0 is off and 1 is on
-  BLESend("$GSET,0,0,1,0,1,0,50,1,*");
-  String Health = "null";
-  if (SetHealth == 0) {
-    Health = "500,250,150";
+void StartPresetGameMode() {
+  if (PresetGameMode < 3) {
+    BLESend("$CLEAR,*");
+    BLESend("$START,*");
+    // token one of the following command is free for all, 0 is off and 1 is on
+    BLESend("$GSET,0,0,1,0,1,0,50,1,*");
+    String Health = "null";
+    if (PresetGameMode == 0) {
+      Health = "500,250,150";
+    }
+    if (PresetGameMode == 1) {
+      Health = "1000,500,250";
+    }
+    if (PresetGameMode == 2) {
+      Health = "2000,1000,500";
+    }
+    BLESend("$PSET,63,2,"+String(Health)+",50,,H44,JAD,V33,M05,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
+    /* SIR commands to configure the incoming hits recognition
+     *  $SIR,0,0,,1,0,0,1,,*  Assault Rifle Energy Rifle  Ion Sniper  Laser Cannon  Plasma Sniper Shotgun SMG Stinger Suppressor
+     *  $SIR,0,1,,36,0,0,1,,* Force Rifle Sniper Rifle         
+     *  $SIR,0,3,,37,0,0,1,,* AMR Bolt Rifle  BurstRifle              
+     *  $SIR,1,0,H29,10,0,0,1,,*  Respawn and Add HP                  
+     *  $SIR,2,1,VA8C,11,0,0,1,,* Add Shields                      
+     *  $SIR,3,0,VA16,13,0,0,1,,* Add Armor                
+     *  $SIR,6,0,H02,1,0,90,1,40,*  Rail Gun                    
+     *  $SIR,8,0,,38,0,0,1,,* ChargeRifle               
+     *  $SIR,9,3,,24,10,0,,,* Energy Launcher               
+     *  $SIR,10,0,X13,1,0,100,2,60,*  Rocket Launcher               
+     *  $SIR,11,0,VA2,28,0,0,1,,* Tear Gas - not working yet                        
+     *  $SIR,13,0,H50,1,0,0,1,,*  Energy Blade 
+     *  $SIR,13,1,H57,1,0,0,1,,*  Rifle Bash                  
+     *  $SIR,13,3,H49,1,0,100,0,60,*  WarHammer               
+     *  $SIR,15,0,H29,10,0,0,1,,* Add HP Or Respawns Player
+    */
+    BLESend("$SIR,4,0,,1,0,0,1,,*"); // standard damgat but is actually the captured flag pole
+    BLESend("$SIR,0,0,,1,0,0,1,,*"); // standard weapon, damages shields then armor then HP
+    BLESend("$SIR,0,1,,36,0,0,1,,*"); // force rifle, sniper rifle ?pass through damage?
+    BLESend("$SIR,0,3,,37,0,0,1,,*"); // bolt rifle, burst rifle, AMR
+    BLESend("$SIR,1,0,H29,10,0,0,1,,*"); // adds HP with this function********
+    BLESend("$SIR,2,1,VA8C,11,0,0,1,,*"); // adds shields*******
+    BLESend("$SIR,3,0,VA16,13,0,0,1,,*"); // adds armor*********
+    BLESend("$SIR,6,0,H02,1,0,90,1,40,*"); // rail gun
+    BLESend("$SIR,8,0,,38,0,0,1,,*"); // charge rifle
+    BLESend("$SIR,9,3,,24,10,0,,,*"); // energy launcher
+    BLESend("$SIR,10,0,X13,1,0,100,2,60,*"); // rocket launcher
+    BLESend("$SIR,11,0,VA2,28,0,0,1,,*"); // tear gas, out of possible ir recognitions, max = 14
+    BLESend("$SIR,13,1,H57,1,0,0,1,,*"); // energy blade
+    BLESend("$SIR,13,0,H50,1,0,0,1,,*"); // rifle bash
+    BLESend("$SIR,13,3,H49,1,0,100,0,60,*"); // war hammer
+    BLESend("$BMAP,0,0,,,,,*"); // sets the trigger on tagger to weapon 0
+    BLESend("$BMAP,1,100,0,1,2,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
+    BLESend("$BMAP,2,97,,,,,*"); // sets the reload handle as the reload button
+    BLESend("$BMAP,3,3,,,,,*"); // sets the select button as Weapon 3
+    BLESend("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4
+    BLESend("$BMAP,5,5,,,,,*"); // Sets the right button as weapon 5
+    BLESend("$BMAP,8,4,,,,,*"); // sets the gyro as weapon 4
+    BLESend("$SPAWN,,*");
+    String Weap0 = "$WEAP,0,,100,0,0,24,0,,,,,,,,100,850,32,32768,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,9999999,75,,*";
+    String Weap1 = "$WEAP,1,,100,8,0,150,0,,,,,,,,1250,850,100,32768,2500,0,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,9999999,75,,*";
+    String Weap2 = "$WEAP,2,,100,0,0,150,0,,,,,,,,1000,850,2,32768,2000,0,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,9999999,75,,*";
+    String Weap3 = "$WEAP,3,1,90,11,1,1,0,,,,,,1,80,1400,50,10,0,0,10,11,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,10,9999999,30,30,*";
+    String Weap4 = "$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,30,,*";
+    String Weap5 = "$WEAP,5,1,90,10,0,115,0,,,,,,115,80,1000,850,2,32768,1200,0,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,9999999,30,20,*";
+    BLESend(Weap0); // Assault Rifle
+    BLESend(Weap4); // Melee
+    if (PresetGameMode == 1) {
+      BLESend(Weap1); // Charge Rifle
+      BLESend(Weap3); // Gas players melee
+    }
+    if (PresetGameMode == 2) {
+      BLESend(Weap1); // Charge Rifle
+      BLESend(Weap2); // Ion Sniper
+      BLESend(Weap3); // Gas players melee
+      BLESend(Weap5); // Explosion melee
+    }
   }
-  if (SetHealth == 1) {
-    Health = "1000,500,250";
-  }
-  if (SetHealth == 2) {
-    Health = "2000,1000,500";
-  }
-  BLESend("$PSET,63,2,"+String(Health)+",50,,H44,JAD,V33,M05,V3C,V3G,V3E,V37,H06,H55,H13,H21,H02,U15,W71,A10,*");
-  /* SIR commands to configure the incoming hits recognition
-   *  $SIR,0,0,,1,0,0,1,,*  Assault Rifle Energy Rifle  Ion Sniper  Laser Cannon  Plasma Sniper Shotgun SMG Stinger Suppressor
-   *  $SIR,0,1,,36,0,0,1,,* Force Rifle Sniper Rifle         
-   *  $SIR,0,3,,37,0,0,1,,* AMR Bolt Rifle  BurstRifle              
-   *  $SIR,1,0,H29,10,0,0,1,,*  Respawn and Add HP                  
-   *  $SIR,2,1,VA8C,11,0,0,1,,* Add Shields                      
-   *  $SIR,3,0,VA16,13,0,0,1,,* Add Armor                
-   *  $SIR,6,0,H02,1,0,90,1,40,*  Rail Gun                    
-   *  $SIR,8,0,,38,0,0,1,,* ChargeRifle               
-   *  $SIR,9,3,,24,10,0,,,* Energy Launcher               
-   *  $SIR,10,0,X13,1,0,100,2,60,*  Rocket Launcher               
-   *  $SIR,11,0,VA2,28,0,0,1,,* Tear Gas - not working yet                        
-   *  $SIR,13,0,H50,1,0,0,1,,*  Energy Blade 
-   *  $SIR,13,1,H57,1,0,0,1,,*  Rifle Bash                  
-   *  $SIR,13,3,H49,1,0,100,0,60,*  WarHammer               
-   *  $SIR,15,0,H29,10,0,0,1,,* Add HP Or Respawns Player
-  */
-  BLESend("$SIR,4,0,,1,0,0,1,,*"); // standard damgat but is actually the captured flag pole
-  BLESend("$SIR,0,0,,1,0,0,1,,*"); // standard weapon, damages shields then armor then HP
-  BLESend("$SIR,0,1,,36,0,0,1,,*"); // force rifle, sniper rifle ?pass through damage?
-  BLESend("$SIR,0,3,,37,0,0,1,,*"); // bolt rifle, burst rifle, AMR
-  BLESend("$SIR,1,0,H29,10,0,0,1,,*"); // adds HP with this function********
-  BLESend("$SIR,2,1,VA8C,11,0,0,1,,*"); // adds shields*******
-  BLESend("$SIR,3,0,VA16,13,0,0,1,,*"); // adds armor*********
-  BLESend("$SIR,6,0,H02,1,0,90,1,40,*"); // rail gun
-  BLESend("$SIR,8,0,,38,0,0,1,,*"); // charge rifle
-  BLESend("$SIR,9,3,,24,10,0,,,*"); // energy launcher
-  BLESend("$SIR,10,0,X13,1,0,100,2,60,*"); // rocket launcher
-  BLESend("$SIR,11,0,VA2,28,0,0,1,,*"); // tear gas, out of possible ir recognitions, max = 14
-  BLESend("$SIR,13,1,H57,1,0,0,1,,*"); // energy blade
-  BLESend("$SIR,13,0,H50,1,0,0,1,,*"); // rifle bash
-  BLESend("$SIR,13,3,H49,1,0,100,0,60,*"); // war hammer
-  BLESend("$BMAP,0,0,,,,,*"); // sets the trigger on tagger to weapon 0
-  BLESend("$BMAP,1,100,0,1,2,99,*"); // sets the alt fire weapon to alternate between weapon 0 and 1 (99,99 can be changed for additional weapons selections)
-  BLESend("$BMAP,2,97,,,,,*"); // sets the reload handle as the reload button
-  BLESend("$BMAP,3,3,,,,,*"); // sets the select button as Weapon 3
-  BLESend("$BMAP,4,4,,,,,*"); // sets the left button as weapon 4
-  BLESend("$BMAP,5,5,,,,,*"); // Sets the right button as weapon 5
-  BLESend("$BMAP,8,4,,,,,*"); // sets the gyro as weapon 4
-  BLESend("$SPAWN,,*");
-  String Weap0 = "$WEAP,0,,100,0,0,24,0,,,,,,,,100,850,32,32768,1400,0,0,100,100,,0,,,R01,,,,D04,D03,D02,D18,,,,,32,9999999,75,,*";
-  String Weap1 = "$WEAP,1,,100,8,0,150,0,,,,,,,,1250,850,100,32768,2500,0,14,100,100,,14,,,E03,C15,C17,,D30,D29,D37,A73,C19,C04,20,150,100,9999999,75,,*";
-  String Weap2 = "$WEAP,2,,100,0,0,150,0,,,,,,,,1000,850,2,32768,2000,0,7,100,100,,0,,,E07,D32,D31,,D17,D16,D15,A73,,,,,2,9999999,75,,*";
-  String Weap3 = "$WEAP,3,1,90,11,1,1,0,,,,,,1,80,1400,50,10,0,0,10,11,100,100,,0,,,S16,D20,D19,,D04,D03,D21,D18,,,,,10,9999999,30,30,*";
-  String Weap4 = "$WEAP,4,1,90,13,1,90,0,,,,,,,,1000,100,1,32768,0,10,13,100,100,,0,0,,M92,,,,,,,,,,,,1,9999999,30,,*";
-  String Weap5 = "$WEAP,5,1,90,10,0,115,0,,,,,,115,80,1000,850,2,32768,1200,0,7,100,100,,0,,,C03,,,,D14,D13,D12,D18,,,,,2,9999999,30,20,*";
-  BLESend(Weap0); // Assault Rifle
-  BLESend(Weap4); // Melee
-  if (SetHealth == 1) {
-    BLESend(Weap1); // Charge Rifle
-    BLESend(Weap3); // Gas players melee
-  }
-  if (SetHealth == 2) {
-    BLESend(Weap1); // Charge Rifle
-    BLESend(Weap2); // Ion Sniper
-    BLESend(Weap3); // Gas players melee
-    BLESend(Weap5); // Explosion melee
+  if (PresetGameMode == 4) {
+    // start basic game that allows live scoring without a host
+    Serial.println("***** Game Starting ******");
+    DataToTagger = "$AS,1,0,4,0,10,0,95,*";
+    Setup = "$PBWEAP,3,*";
+    BLESend(Setup);
+    delay(200);
+    BLESend(DataToTagger);
+    // game start command, need to let host know that we are good to go and in game periodically
+    LifeStatus = 0; // indicates player is alive
+    // this tells the host that he is not alone and that this gun is alive or in play
+    INGAME = true;
+    ALLOWTEAMSELECTION = false;
+    ALLOWPERKSELECTION = false;
+    ALLOWWEAPONSELECTION = false;
+    PresetGameStart = millis();
+    PresetGameEnd = PresetGameStart = 600000;
   }
 }
 // process used to send string properly to gun... splits up longer strings in bytes of 20
@@ -2280,7 +2451,7 @@ void connect_wifi() {
 void firmwareUpdate(void) {
   WiFiClientSecure client;
   client.setCACert(rootCACertificate);
-  httpUpdate.setLedPin(LED_BUILTIN, LOW);
+  httpUpdate.setLedPin(2, LOW);
   t_httpUpdate_return ret = httpUpdate.update(client, URL_fw_Bin);
   switch (ret) {
   case HTTP_UPDATE_FAILED:
@@ -2534,20 +2705,30 @@ void ManageBluetooth() {
         byte ingamestatus = 0; // 0 for not in game, 1 for in game
         if (INGAME) {ingamestatus = 1;}
         String StatusUpdate = "$PH," + String(GunID) + "," + String(TeamID) + "," + String(ingamestatus) + "," + String(LifeStatus) + ",*";
-        ESPNOWBroadcast(StatusUpdate);
+        if (CommsSetting == 0) {
+          ESPNOWBroadcast(StatusUpdate);
+        }
         BLESend("$PING,*");
       }
     }
     if (RunInit) {
       TakeOverTagger();
     }
-    if (SetHealth < 3) {
+    if (PresetGameMode < 3) {
       if (!INGAME) {
         // here we put in processes to run based upon conditions to make a boss, only runs if not in game
         if (CurrentMillis - previousMillis > 14999) { 
           previousMillis = CurrentMillis;
           INGAME = true;
-          StartBossPlayer();
+          StartPresetGameMode();
+        }
+      }
+    } else {
+      if (INGAME) {
+        if (CurrentMillis > PresetGameEnd) {
+          DataToTagger = "$SP,99,*";
+          BLESend(DataToTagger);
+          INGAME = false;
         }
       }
     }
@@ -2616,7 +2797,7 @@ void setup() {
 // initialize EEPROM
   EEPROM.begin(EEPROM_SIZE);
   CommsSetting = EEPROM.read(4);
-  if (CommsSetting = 255) {CommsSetting = 0;}
+  if (CommsSetting == 255) {CommsSetting = 0;}
   GunID = EEPROM.read(2);
   Serial.println("Player ID: " + String(GunID));
   ssid = "JEDGE-TAGGER#" + String(GunID);
@@ -2686,15 +2867,16 @@ void setup() {
   BLEName = ename;
   name = BLEName;
   int settingcheck = EEPROM.read(1);
-  if (settingcheck > 2) {
-    SetHealth = 3;
+  if (settingcheck > 10) {
+    PresetGameMode = 4;
   } else {
-    SetHealth = settingcheck;
+    PresetGameMode = settingcheck;
   }
+  
   if (ENABLEOTAUPDATE) {
     Serial.print("Active firmware version:");
     Serial.println(FirmwareVer);
-    pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(2, OUTPUT);
     // Connect to Wi-Fi network with SSID and password
     Serial.print("Setting AP (Access Point)…");
     // Remove the password parameter, if you want the AP (Access Point) to be open
@@ -2729,33 +2911,18 @@ void setup() {
         ENABLEWEBSERVER = true;
         Serial.println("WebServer Activated");
         digitalWrite(led,HIGH);
-      }
-    }
+      } else {Serial.println("touch contact lost");}
+    } else {Serial.println("No Capacitive touch detected, starting preset boot modes");}
   }
   if (!ENABLEWEBSERVER && !ENABLEOTAUPDATE) {
     // delay for boot time
     delay(7000);
     // initialize ble cient connection to brx
-    Serial.println("booting bluetooth");
-    ENABLEBLE = true;
-    // Check if we are in legacy tagger mode or not
-    if (BLEMODE) {
-      BLESetup();
-    } else {
-      if (SPPMODE) {
-        SetupBluetoothSPP();
-      }
-      if (HC05MODE) {
-        StartHC05Serial();
-      }
-    }
     // Start Wireless Comms Now
-    
-    if (CommsSetting == 0) {
-      IntializeESPNOW();
-    } 
-    if (CommsSetting == 1) {
-      StartLoRa();
+    IntializeESPNOW();
+    StartLoRaSerial();
+    if (PresetGameMode != 3) {
+      INITBLUETOOTH = true;
     }
   }
 }
@@ -2767,16 +2934,31 @@ void setup() {
 void loop() {
   // THE DEVICE RUNS IN THREE MODES: UPDATE, JEDGE, CONFIG.
   // THESE WHILE LOOPS MANAGE THOSE PROCESSES, CAN BE IF STATEMENTS AS WELL, DOESNT SEEM TO MATTER
-  while (ENABLEOTAUPDATE) {
+  //if (CommsSetting == 1) {
+    ReceiveLoRaTransmission();
+  //}
+  if (ENABLEOTAUPDATE) {
     ManageOTAUpdate();
   }
-  while (ENABLEWEBSERVER) {
+  if (ENABLEWEBSERVER) {
     ws.cleanupClients();
   }
-  while (ENABLEBLE) {
+  if (ENABLEBLE) {
     ManageBluetooth();
-    if (CommsSetting == 1) {
-      ReceiveLoRaTransmission();
+  }
+  if (INITBLUETOOTH) {
+    INITBLUETOOTH = false;
+    Serial.println("booting bluetooth");
+    ENABLEBLE = true;
+    // Check if we are in legacy tagger mode or not
+    if (BLEMODE) {
+      BLESetup();
+    }
+    if (SPPMODE) {
+     SetupBluetoothSPP();
+    }
+    if (HC05MODE) {
+      StartHC05Serial();
     }
   }
 }
