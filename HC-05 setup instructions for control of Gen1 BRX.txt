@@ -1,0 +1,49 @@
+Setting up an HC-05 to work with a Gen1 BRX:
+
+1) buy one of these: https://www.amazon.com/dp/B07D6LLX19?psc=1&ref=ppx_yo2ov_dt_b_product_details
+
+2) buy an HC-05
+
+3) plug the rx into the tx and the tx into the rx; plug 5v to 5v and gnd to gnd.
+
+4) download basic arduino IDE for your computer
+
+5) while plugging in the usb adaptor into your computer, hold the button down on the HC-05 module
+
+6) open a serial monitor to the COM port for the usb adaptor
+
+7) change the serial adaptor settings to: Baud: 38400; Both New Line and Carriage Return
+
+8) in the text entry line at top of serial monitor, enter the following:
+
+8a) "AT" then press enter. if you did the previous steps correctly, the serial monitor will populate with "OK" if not, you screwed something up, start over or figure it out.
+
+9) Enter "AT+ORGL" then press enter; if you did this correctly, it will populate "OK" in the serial monitor and your hc-05 will be flashing rapidly
+
+10) Unplug the usb adaptor, you have no reset the adaptor to factory settings to clear out anything that had been done with it.
+
+11) while holding the button again on the HC-05 enter it into your usb port again on you computer
+
+12) close the serial monitor window and re-open a new one with the same settings from before
+
+13) Enter "AT" and press enter to see if you get an "OK" response from the HC-05, if no, your messed up again, figure it out
+
+14) Enter "AT+PSWD="0001"" and press enter to get "OK" back from HC-05
+
+15) Enter "AT+NAME="XXXXXXX"" replacing the X's with the bluetooth name of the tagger this HC-05 will be used for
+
+	Note, if you get an error, you may need to put "XXXXXX" quotation marks around the Name of the bluetooth ID for your device
+
+16) Enter "AT+ROLE=1" 
+
+17) Enter "AT+RESET" and press enter for the "OK" response and your tagger should now be flashing quickly and it is configured for your tagger
+
+18) Turn on the tagger in question and you should see the flashing stop after the tagger boots... this is because it paired to your tagger.
+
+19) Change your Serial Baud rate of your serial monitor to 57600
+
+20) Enter the following into the serial monitor: "$PING,*" if all is good, the tagger will respond to the HC-05 with "$PONG,*" or ""$!DFP,PONG,*"you know you are good to go.
+
+         Note: gen1 taggers need headsets connected for bluetooth to work properly
+
+    if you received the PONG response back, congratulations... you now can configure every aspect possible to control on the BRX from how far a tag is shot from the gun to the type of tag, how much health you give the gun the color of the gun... and the list is endless.... all from that serial monitor... or let me control it with JEDGE!!!
