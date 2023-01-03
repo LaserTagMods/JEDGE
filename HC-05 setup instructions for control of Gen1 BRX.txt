@@ -46,4 +46,4 @@ Setting up an HC-05 to work with a Gen1 BRX:
 
          Note: gen1 taggers need headsets connected for bluetooth to work properly
 
-    if you received the PONG response back, congratulations... you now can configure every aspect possible to control on the BRX from how far a tag is shot from the gun to the type of tag, how much health you give the gun the color of the gun... and the list is endless.... all from that serial monitor... or let me control it with JEDGE!!!
+    if you received the PONG response back, congratulations... you now can configure every aspect possible to control on the BRX from how far a tag is shot from the gun to the type of tag, how much health you give the gun the color of the gun... and the list is endless.... all from that serial monitor... or let me control it with JEDGE!!! I can write a book on all the stuff that can be done but its not going to happen.
